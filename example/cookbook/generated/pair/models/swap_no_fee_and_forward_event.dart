@@ -1,0 +1,92 @@
+import 'package:abidock_mvx/abidock_mvx.dart';
+
+/// SwapNoFeeAndForwardEvent model.
+class SwapNoFeeAndForwardEvent {
+  const SwapNoFeeAndForwardEvent({
+    required this.caller,
+    required this.tokenIdIn,
+    required this.tokenAmountIn,
+    required this.tokenIdOut,
+    required this.tokenAmountOut,
+    required this.destination,
+    required this.block,
+    required this.epoch,
+    required this.timestamp,
+  });
+
+  final String caller;
+  final String tokenIdIn;
+  final BigInt tokenAmountIn;
+  final String tokenIdOut;
+  final BigInt tokenAmountOut;
+  final String destination;
+  final BigInt block;
+  final BigInt epoch;
+  final BigInt timestamp;
+
+  static final type = StructType(
+    name: 'SwapNoFeeAndForwardEvent',
+    fieldDefinitions: [
+      FieldDefinition(name: 'caller', type: AddressType.type),
+      FieldDefinition(name: 'token_id_in', type: TokenIdentifierType.type),
+      FieldDefinition(name: 'token_amount_in', type: BigUIntType.type),
+      FieldDefinition(name: 'token_id_out', type: TokenIdentifierType.type),
+      FieldDefinition(name: 'token_amount_out', type: BigUIntType.type),
+      FieldDefinition(name: 'destination', type: AddressType.type),
+      FieldDefinition(name: 'block', type: U64Type.type),
+      FieldDefinition(name: 'epoch', type: U64Type.type),
+      FieldDefinition(name: 'timestamp', type: U64Type.type),
+    ],
+  );
+
+  factory SwapNoFeeAndForwardEvent.fromAbi(TypedValue value) {
+    final struct = value as StructValue;
+    return SwapNoFeeAndForwardEvent(
+      caller: infer<String>(struct.getFieldValue('caller').nativeValue),
+      tokenIdIn: infer<String>(struct.getFieldValue('token_id_in').nativeValue),
+      tokenAmountIn: infer<BigInt>(
+        struct.getFieldValue('token_amount_in').nativeValue,
+      ),
+      tokenIdOut: infer<String>(
+        struct.getFieldValue('token_id_out').nativeValue,
+      ),
+      tokenAmountOut: infer<BigInt>(
+        struct.getFieldValue('token_amount_out').nativeValue,
+      ),
+      destination: infer<String>(
+        struct.getFieldValue('destination').nativeValue,
+      ),
+      block: infer<BigInt>(struct.getFieldValue('block').nativeValue),
+      epoch: infer<BigInt>(struct.getFieldValue('epoch').nativeValue),
+      timestamp: infer<BigInt>(struct.getFieldValue('timestamp').nativeValue),
+    );
+  }
+
+  TypedValue toAbi() {
+    return type.createValue({
+      'caller': caller,
+      'token_id_in': tokenIdIn,
+      'token_amount_in': tokenAmountIn,
+      'token_id_out': tokenIdOut,
+      'token_amount_out': tokenAmountOut,
+      'destination': destination,
+      'block': block,
+      'epoch': epoch,
+      'timestamp': timestamp,
+    });
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'caller': caller,
+      'token_id_in': tokenIdIn,
+      'token_amount_in': tokenAmountIn,
+      'token_id_out': tokenIdOut,
+      'token_amount_out': tokenAmountOut,
+      'destination': destination,
+      'block': block,
+      'epoch': epoch,
+      'timestamp': timestamp,
+    };
+  }
+}

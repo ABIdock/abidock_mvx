@@ -1,0 +1,40 @@
+import 'package:abidock_mvx/abidock_mvx.dart';
+
+import '../models/esdt_token_payment.dart';
+
+/// Queries getTokensForGivenPosition endpoint.
+///
+/// #### Read-only:
+/// Yes
+///
+/// #### Parameters:
+/// - `liquidity`: BigUint
+///
+/// #### Returns:
+/// - `output`: EsdtTokenPayment
+/// - `output`: EsdtTokenPayment
+///
+/// #### Throws:
+/// - [NetworkException] if network request fails
+/// - [ABIException] if ABI decoding fails
+Future<(EsdtTokenPayment, EsdtTokenPayment)> getTokensForGivenPosition(
+  SmartContractController controller,
+  BigInt liquidity,
+) async {
+  final liquidityValue = BigUIntType.type.createValue(liquidity);
+
+  return executeQuery(
+    endpointName: 'getTokensForGivenPosition',
+    action: () async {
+      final result = await controller.query(
+        endpointName: 'getTokensForGivenPosition',
+        arguments: [liquidityValue],
+      );
+
+      return (
+        infer<EsdtTokenPayment>(result[0]),
+        infer<EsdtTokenPayment>(result[1]),
+      );
+    },
+  );
+}

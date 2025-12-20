@@ -1,0 +1,25 @@
+import 'package:abidock_mvx/abidock_mvx.dart';
+
+/// Queries getSafePriceCurrentIndex endpoint.
+///
+/// #### Read-only:
+/// Yes
+///
+/// #### Returns:
+/// - `output`: u32
+///
+/// #### Throws:
+/// - [NetworkException] if network request fails
+/// - [ABIException] if ABI decoding fails
+Future<int> getSafePriceCurrentIndex(SmartContractController controller) async {
+  return executeQuery(
+    endpointName: 'getSafePriceCurrentIndex',
+    action: () async {
+      final result = await controller.query(
+        endpointName: 'getSafePriceCurrentIndex',
+      );
+
+      return infer<int>(result[0]);
+    },
+  );
+}

@@ -1,0 +1,39 @@
+import 'dart:async';
+
+import 'package:abidock_mvx/abidock_mvx.dart';
+
+import '../../models/swap_event.dart';
+
+/// HTTP polling stream for swap events.
+///
+/// #### Event Fields:
+/// - `tokenIn`: TokenIdentifier (indexed)
+/// - `tokenOut`: TokenIdentifier (indexed)
+/// - `caller`: Address (indexed)
+/// - `epoch`: u64 (indexed)
+/// - `swapEvent`: SwapEvent
+final class SwapPollingStream {
+  const SwapPollingStream(this.controller);
+
+  final SmartContractController controller;
+
+  /// Starts polling for swap events.
+  Stream<SwapEvent> call({
+    Duration pollingInterval = const Duration(seconds: 10),
+    String? startFrom,
+  }) {
+    return controller
+        .streamEvents(
+          eventIdentifier: 'swap',
+          pollingInterval: pollingInterval,
+          startFrom: startFrom,
+        )
+        .map((parsedEvent) {
+          final eventStruct = parsedEvent.getValueByName('swap_event');
+          if (eventStruct == null) {
+            throw StateError('Event struct not found in parsed event');
+          }
+          return SwapEvent.fromAbi(eventStruct);
+        });
+  }
+}

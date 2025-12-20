@@ -1,0 +1,23 @@
+import 'package:abidock_mvx/abidock_mvx.dart';
+
+/// Queries getFeeState endpoint.
+///
+/// #### Read-only:
+/// Yes
+///
+/// #### Returns:
+/// - `output`: bool
+///
+/// #### Throws:
+/// - [NetworkException] if network request fails
+/// - [ABIException] if ABI decoding fails
+Future<bool> getFeeState(SmartContractController controller) async {
+  return executeQuery(
+    endpointName: 'getFeeState',
+    action: () async {
+      final result = await controller.query(endpointName: 'getFeeState');
+
+      return infer<bool>(result[0]);
+    },
+  );
+}

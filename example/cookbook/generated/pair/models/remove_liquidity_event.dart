@@ -1,0 +1,122 @@
+import 'package:abidock_mvx/abidock_mvx.dart';
+
+/// RemoveLiquidityEvent model.
+class RemoveLiquidityEvent {
+  const RemoveLiquidityEvent({
+    required this.caller,
+    required this.firstTokenId,
+    required this.firstTokenAmount,
+    required this.secondTokenId,
+    required this.secondTokenAmount,
+    required this.lpTokenId,
+    required this.lpTokenAmount,
+    required this.lpSupply,
+    required this.firstTokenReserves,
+    required this.secondTokenReserves,
+    required this.block,
+    required this.epoch,
+    required this.timestamp,
+  });
+
+  final String caller;
+  final String firstTokenId;
+  final BigInt firstTokenAmount;
+  final String secondTokenId;
+  final BigInt secondTokenAmount;
+  final String lpTokenId;
+  final BigInt lpTokenAmount;
+  final BigInt lpSupply;
+  final BigInt firstTokenReserves;
+  final BigInt secondTokenReserves;
+  final BigInt block;
+  final BigInt epoch;
+  final BigInt timestamp;
+
+  static final type = StructType(
+    name: 'RemoveLiquidityEvent',
+    fieldDefinitions: [
+      FieldDefinition(name: 'caller', type: AddressType.type),
+      FieldDefinition(name: 'first_token_id', type: TokenIdentifierType.type),
+      FieldDefinition(name: 'first_token_amount', type: BigUIntType.type),
+      FieldDefinition(name: 'second_token_id', type: TokenIdentifierType.type),
+      FieldDefinition(name: 'second_token_amount', type: BigUIntType.type),
+      FieldDefinition(name: 'lp_token_id', type: TokenIdentifierType.type),
+      FieldDefinition(name: 'lp_token_amount', type: BigUIntType.type),
+      FieldDefinition(name: 'lp_supply', type: BigUIntType.type),
+      FieldDefinition(name: 'first_token_reserves', type: BigUIntType.type),
+      FieldDefinition(name: 'second_token_reserves', type: BigUIntType.type),
+      FieldDefinition(name: 'block', type: U64Type.type),
+      FieldDefinition(name: 'epoch', type: U64Type.type),
+      FieldDefinition(name: 'timestamp', type: U64Type.type),
+    ],
+  );
+
+  factory RemoveLiquidityEvent.fromAbi(TypedValue value) {
+    final struct = value as StructValue;
+    return RemoveLiquidityEvent(
+      caller: infer<String>(struct.getFieldValue('caller').nativeValue),
+      firstTokenId: infer<String>(
+        struct.getFieldValue('first_token_id').nativeValue,
+      ),
+      firstTokenAmount: infer<BigInt>(
+        struct.getFieldValue('first_token_amount').nativeValue,
+      ),
+      secondTokenId: infer<String>(
+        struct.getFieldValue('second_token_id').nativeValue,
+      ),
+      secondTokenAmount: infer<BigInt>(
+        struct.getFieldValue('second_token_amount').nativeValue,
+      ),
+      lpTokenId: infer<String>(struct.getFieldValue('lp_token_id').nativeValue),
+      lpTokenAmount: infer<BigInt>(
+        struct.getFieldValue('lp_token_amount').nativeValue,
+      ),
+      lpSupply: infer<BigInt>(struct.getFieldValue('lp_supply').nativeValue),
+      firstTokenReserves: infer<BigInt>(
+        struct.getFieldValue('first_token_reserves').nativeValue,
+      ),
+      secondTokenReserves: infer<BigInt>(
+        struct.getFieldValue('second_token_reserves').nativeValue,
+      ),
+      block: infer<BigInt>(struct.getFieldValue('block').nativeValue),
+      epoch: infer<BigInt>(struct.getFieldValue('epoch').nativeValue),
+      timestamp: infer<BigInt>(struct.getFieldValue('timestamp').nativeValue),
+    );
+  }
+
+  TypedValue toAbi() {
+    return type.createValue({
+      'caller': caller,
+      'first_token_id': firstTokenId,
+      'first_token_amount': firstTokenAmount,
+      'second_token_id': secondTokenId,
+      'second_token_amount': secondTokenAmount,
+      'lp_token_id': lpTokenId,
+      'lp_token_amount': lpTokenAmount,
+      'lp_supply': lpSupply,
+      'first_token_reserves': firstTokenReserves,
+      'second_token_reserves': secondTokenReserves,
+      'block': block,
+      'epoch': epoch,
+      'timestamp': timestamp,
+    });
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'caller': caller,
+      'first_token_id': firstTokenId,
+      'first_token_amount': firstTokenAmount,
+      'second_token_id': secondTokenId,
+      'second_token_amount': secondTokenAmount,
+      'lp_token_id': lpTokenId,
+      'lp_token_amount': lpTokenAmount,
+      'lp_supply': lpSupply,
+      'first_token_reserves': firstTokenReserves,
+      'second_token_reserves': secondTokenReserves,
+      'block': block,
+      'epoch': epoch,
+      'timestamp': timestamp,
+    };
+  }
+}

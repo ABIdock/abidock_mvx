@@ -1,0 +1,34 @@
+import 'package:abidock_mvx/abidock_mvx.dart';
+
+/// Queries getPermissions endpoint.
+///
+/// #### Read-only:
+/// Yes
+///
+/// #### Parameters:
+/// - `address`: Address
+///
+/// #### Returns:
+/// - `output`: u32
+///
+/// #### Throws:
+/// - [NetworkException] if network request fails
+/// - [ABIException] if ABI decoding fails
+Future<int> getPermissions(
+  SmartContractController controller,
+  String address,
+) async {
+  final addressValue = AddressType.type.createValue(address);
+
+  return executeQuery(
+    endpointName: 'getPermissions',
+    action: () async {
+      final result = await controller.query(
+        endpointName: 'getPermissions',
+        arguments: [addressValue],
+      );
+
+      return infer<int>(result[0]);
+    },
+  );
+}

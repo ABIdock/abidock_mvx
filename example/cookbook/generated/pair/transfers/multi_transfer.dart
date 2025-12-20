@@ -1,0 +1,59 @@
+import 'package:abidock_mvx/abidock_mvx.dart';
+
+/// Transfers multiple ESDT/NFT tokens in a single transaction.
+///
+/// Creates and signs a transaction for transferring multiple tokens
+/// (fungible, semi-fungible, or non-fungible) in a single transaction.
+/// Efficient for batch token transfers.
+///
+/// Example:
+/// ```dart
+/// final provider = GatewayProvider(
+///   gatewayUrl: 'https://gateway.multiversx.com',
+/// );
+/// final tx = await multi(
+///   provider,
+///   sender: alice,
+///   nonce: nonce,
+///   receiver: bobAddress,
+///   transfers: [
+///     TokenTransfer.fungible(
+///       tokenIdentifier: 'TOKEN-abc123',
+///       amount: BigInt.from(500),
+///     ),
+///     TokenTransfer.nonFungible(
+///       tokenIdentifier: 'NFT-def456',
+///       nonce: 1,
+///       amount: BigInt.one,
+///     ),
+///   ],
+/// );
+/// await provider.sendTransaction(tx);
+/// ```
+Future<Transaction> multi(
+  NetworkProvider provider,
+  IAccount sender,
+  Nonce nonce,
+  Address receiver,
+  List<TokenTransfer> transfers, {
+  Address? relayer,
+  Address? guardian,
+  GasLimit? gasLimit,
+}) async {
+  final transfersCtrl = TransfersController(chainId: provider.chainId);
+
+  final tx = await transfersCtrl.createTransactionForMultiTokenTransfer(
+    sender,
+    nonce,
+    TokenTransferInput(receiver: receiver, transfers: transfers),
+    baseOptions: gasLimit != null || relayer != null || guardian != null
+        ? BaseControllerInput(
+            gasLimit: gasLimit,
+            relayer: relayer,
+            guardian: guardian,
+          )
+        : const BaseControllerInput(),
+  );
+
+  return tx;
+}

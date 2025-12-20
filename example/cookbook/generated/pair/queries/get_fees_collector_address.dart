@@ -1,0 +1,27 @@
+import 'package:abidock_mvx/abidock_mvx.dart';
+
+/// Queries getFeesCollectorAddress endpoint.
+///
+/// #### Read-only:
+/// Yes
+///
+/// #### Returns:
+/// - `output`: Address
+///
+/// #### Throws:
+/// - [NetworkException] if network request fails
+/// - [ABIException] if ABI decoding fails
+Future<String> getFeesCollectorAddress(
+  SmartContractController controller,
+) async {
+  return executeQuery(
+    endpointName: 'getFeesCollectorAddress',
+    action: () async {
+      final result = await controller.query(
+        endpointName: 'getFeesCollectorAddress',
+      );
+
+      return infer<String>(result[0]);
+    },
+  );
+}

@@ -1,0 +1,136 @@
+import 'dart:async';
+
+import 'package:abidock_mvx/abidock_mvx.dart';
+
+import '../models/add_liquidity_event.dart';
+import '../models/remove_liquidity_event.dart';
+import '../models/swap_event.dart';
+import '../models/swap_no_fee_and_forward_event.dart';
+
+/// HTTP polling stream that fans out every event.
+/// Runs one polling loop and exposes typed getters.
+final class MultiEventPollingStream {
+  MultiEventPollingStream({
+    required this.controller,
+    Duration pollingInterval = const Duration(seconds: 10),
+    String? startFrom,
+  }) {
+    _baseStream = controller
+        .streamAllEvents(pollingInterval: pollingInterval, startFrom: startFrom)
+        .asBroadcastStream();
+  }
+
+  final SmartContractController controller;
+  late final Stream<ParsedEvent> _baseStream;
+
+  /// Stream of swap events.
+  Stream<SwapEvent> get swap => _baseStream
+      .where((event) => event.definition.identifier == 'swap')
+      .map((parsedEvent) {
+        final eventStruct = parsedEvent.getValueByName('swap_event');
+        if (eventStruct == null) {
+          throw StateError('Event struct not found in parsed event');
+        }
+        return SwapEvent.fromAbi(eventStruct);
+      });
+
+  /// Stream of swap_no_fee_and_forward events.
+  Stream<SwapNoFeeAndForwardEvent> get swapNoFeeAndForward => _baseStream
+      .where(
+        (event) => event.definition.identifier == 'swap_no_fee_and_forward',
+      )
+      .map((parsedEvent) {
+        final eventStruct = parsedEvent.getValueByName(
+          'swap_no_fee_and_forward_event',
+        );
+        if (eventStruct == null) {
+          throw StateError('Event struct not found in parsed event');
+        }
+        return SwapNoFeeAndForwardEvent.fromAbi(eventStruct);
+      });
+
+  /// Stream of add_liquidity events.
+  Stream<AddLiquidityEvent> get addLiquidity => _baseStream
+      .where((event) => event.definition.identifier == 'add_liquidity')
+      .map((parsedEvent) {
+        final eventStruct = parsedEvent.getValueByName('add_liquidity_event');
+        if (eventStruct == null) {
+          throw StateError('Event struct not found in parsed event');
+        }
+        return AddLiquidityEvent.fromAbi(eventStruct);
+      });
+
+  /// Stream of remove_liquidity events.
+  Stream<RemoveLiquidityEvent> get removeLiquidity => _baseStream
+      .where((event) => event.definition.identifier == 'remove_liquidity')
+      .map((parsedEvent) {
+        final eventStruct = parsedEvent.getValueByName(
+          'remove_liquidity_event',
+        );
+        if (eventStruct == null) {
+          throw StateError('Event struct not found in parsed event');
+        }
+        return RemoveLiquidityEvent.fromAbi(eventStruct);
+      });
+
+  /// Stream of all event types as dynamic objects.
+  ///
+  /// Use type checking to handle different event types:
+  /// ```dart
+  /// stream.all.listen((event) {
+  ///   if (event is SwapEvent) {
+  ///     // Handle swap
+  ///   }
+  ///   else if (event is SwapNoFeeAndForwardEvent) {
+  ///     // Handle swap_no_fee_and_forward
+  ///   }
+  ///   else if (event is AddLiquidityEvent) {
+  ///     // Handle add_liquidity
+  ///   }
+  /// });
+  /// ```
+  Stream<dynamic> get all {
+    return _baseStream
+        .asyncMap((parsedEvent) async {
+          final identifier = parsedEvent.definition.identifier;
+          switch (identifier) {
+            case 'swap':
+              final struct = parsedEvent.getValueByName('swap_event');
+              return struct != null ? SwapEvent.fromAbi(struct) : null;
+            case 'swap_no_fee_and_forward':
+              final struct = parsedEvent.getValueByName(
+                'swap_no_fee_and_forward_event',
+              );
+              return struct != null
+                  ? SwapNoFeeAndForwardEvent.fromAbi(struct)
+                  : null;
+            case 'add_liquidity':
+              final struct = parsedEvent.getValueByName('add_liquidity_event');
+              return struct != null ? AddLiquidityEvent.fromAbi(struct) : null;
+            case 'remove_liquidity':
+              final struct = parsedEvent.getValueByName(
+                'remove_liquidity_event',
+              );
+              return struct != null
+                  ? RemoveLiquidityEvent.fromAbi(struct)
+                  : null;
+            default:
+              return null;
+          }
+        })
+        .where((event) => event != null)
+        .cast<dynamic>();
+  }
+
+  /// Stream filtered to only specified event types.
+  ///
+  /// #### Example
+  /// ```dart
+  /// stream.only([SwapEvent, SwapNoFeeAndForwardEvent]).listen((event) {
+  ///   // Only swap and swap_no_fee_and_forward events
+  /// });
+  /// ```
+  Stream<dynamic> only(List<Type> types) {
+    return all.where((event) => types.contains(event.runtimeType));
+  }
+}

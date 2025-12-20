@@ -1,0 +1,300 @@
+/**
+ * CSS files with the .module.css suffix will be treated as CSS modules
+ * and scoped locally.
+ */
+
+.heroBanner {
+  padding: 6rem 0;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(180deg, #f0f9ff 0%, #e0f2fe 100%);
+}
+
+[data-theme='dark'] .heroBanner {
+  background: linear-gradient(180deg, #060e1b 0%, #0a1628 100%);
+}
+
+.logoContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
+.heroLogo {
+  width: 120px;
+  height: 120px;
+  filter: drop-shadow(0 0 20px rgba(0, 153, 179, 0.3));
+  animation: pulseLight 3s ease-in-out infinite;
+}
+
+.flutterLogo {
+  width: 100px;
+  height: 100px;
+  filter: drop-shadow(0 0 15px rgba(69, 209, 253, 0.3));
+}
+
+[data-theme='dark'] .heroLogo {
+  filter: drop-shadow(0 0 30px rgba(1, 233, 255, 0.4));
+  animation: pulseDark 3s ease-in-out infinite;
+}
+
+[data-theme='dark'] .flutterLogo {
+  filter: drop-shadow(0 0 20px rgba(69, 209, 253, 0.5));
+}
+
+@keyframes pulseLight {
+  0%, 100% {
+    filter: drop-shadow(0 0 20px rgba(0, 153, 179, 0.3));
+  }
+  50% {
+    filter: drop-shadow(0 0 30px rgba(0, 153, 179, 0.5));
+  }
+}
+
+@keyframes pulseDark {
+  0%, 100% {
+    filter: drop-shadow(0 0 30px rgba(1, 233, 255, 0.4));
+  }
+  50% {
+    filter: drop-shadow(0 0 50px rgba(1, 233, 255, 0.6));
+  }
+}
+
+.heroTitle {
+  font-size: 3.5rem;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin-bottom: 1rem;
+}
+
+[data-theme='dark'] .heroTitle {
+  color: #ffffff;
+}
+
+.heroSubtitle {
+  font-size: 1.5rem;
+  color: #4a4a5a;
+  margin-bottom: 2rem;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+[data-theme='dark'] .heroSubtitle {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.buttons .button--primary {
+  background: #0077b6;
+  border-color: #0077b6;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.buttons .button--primary:hover {
+  background: #005f92;
+  border-color: #005f92;
+  color: #ffffff;
+}
+
+.buttons .button--secondary {
+  background: transparent;
+  border: 2px solid #0077b6;
+  color: #0077b6;
+}
+
+.buttons .button--secondary:hover {
+  background: rgba(0, 119, 182, 0.1);
+  border-color: #005f92;
+  color: #005f92;
+}
+
+[data-theme='dark'] .buttons .button--primary {
+  background: #01e9ff;
+  border-color: #01e9ff;
+  color: #060e1b;
+}
+
+[data-theme='dark'] .buttons .button--primary:hover {
+  background: #33edff;
+  border-color: #33edff;
+  color: #060e1b;
+}
+
+[data-theme='dark'] .buttons .button--secondary {
+  border-color: #01e9ff;
+  color: #01e9ff;
+}
+
+[data-theme='dark'] .buttons .button--secondary:hover {
+  background: rgba(1, 233, 255, 0.1);
+  border-color: #33edff;
+  color: #33edff;
+}
+
+@media screen and (max-width: 996px) {
+  .heroBanner {
+    padding: 3rem 1rem;
+  }
+  
+  .heroTitle {
+    font-size: 2.5rem;
+  }
+  
+  .heroSubtitle {
+    font-size: 1.2rem;
+  }
+  
+  .heroLogo {
+    width: 120px;
+    height: 120px;
+  }
+}
+
+/* Features Section */
+.features {
+  padding: 4rem 0;
+  background: #ffffff;
+}
+
+[data-theme='dark'] .features {
+  background: #0a1628;
+}
+
+.featureCard {
+  text-align: center;
+  padding: 2rem;
+  border-radius: 12px;
+  background: rgba(0, 119, 182, 0.05);
+  border: 1px solid rgba(0, 119, 182, 0.15);
+  height: 100%;
+  transition: all 0.3s ease;
+}
+
+[data-theme='dark'] .featureCard {
+  background: rgba(1, 233, 255, 0.05);
+  border-color: rgba(1, 233, 255, 0.1);
+}
+
+.featureCard:hover {
+  background: rgba(0, 119, 182, 0.1);
+  border-color: rgba(0, 119, 182, 0.3);
+  transform: translateY(-5px);
+}
+
+[data-theme='dark'] .featureCard:hover {
+  background: rgba(1, 233, 255, 0.1);
+  border-color: rgba(1, 233, 255, 0.3);
+}
+
+.featureIcon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.featureCard h3 {
+  color: #0077b6;
+  margin-bottom: 0.5rem;
+}
+
+[data-theme='dark'] .featureCard h3 {
+  color: #01e9ff;
+}
+
+.featureCard p {
+  color: #4a4a5a;
+  margin: 0;
+}
+
+[data-theme='dark'] .featureCard p {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Code Section */
+.codeSection {
+  padding: 4rem 0;
+  background: #f7f7f7;
+}
+
+[data-theme='dark'] .codeSection {
+  background: #060e1b;
+}
+
+.sectionTitle {
+  text-align: center;
+  color: #1a1a2e;
+  margin-bottom: 2rem;
+}
+
+[data-theme='dark'] .sectionTitle {
+  color: #ffffff;
+}
+
+.codeGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1px;
+  background: rgba(0, 119, 182, 0.15);
+  border: 1px solid rgba(0, 119, 182, 0.15);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+[data-theme='dark'] .codeGrid {
+  background: rgba(1, 233, 255, 0.15);
+  border-color: rgba(1, 233, 255, 0.15);
+}
+
+@media screen and (max-width: 768px) {
+  .codeGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.codeItem {
+  background: #ffffff;
+  padding: 1.25rem;
+}
+
+[data-theme='dark'] .codeItem {
+  background: #0a1628;
+}
+
+.codeLabel {
+  display: block;
+  color: #0077b6;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.75rem;
+}
+
+[data-theme='dark'] .codeLabel {
+  color: #01e9ff;
+}
+
+.codeItem pre {
+  margin: 0;
+  color: #1a1a2e;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+[data-theme='dark'] .codeItem pre {
+  color: #e1e1e1;
+}

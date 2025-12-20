@@ -1,0 +1,23 @@
+import 'package:abidock_mvx/abidock_mvx.dart';
+
+/// Queries getSecondTokenId endpoint.
+///
+/// #### Read-only:
+/// Yes
+///
+/// #### Returns:
+/// - `output`: TokenIdentifier
+///
+/// #### Throws:
+/// - [NetworkException] if network request fails
+/// - [ABIException] if ABI decoding fails
+Future<String> getSecondTokenId(SmartContractController controller) async {
+  return executeQuery(
+    endpointName: 'getSecondTokenId',
+    action: () async {
+      final result = await controller.query(endpointName: 'getSecondTokenId');
+
+      return infer<String>(result[0]);
+    },
+  );
+}

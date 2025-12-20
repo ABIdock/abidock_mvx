@@ -1,0 +1,195 @@
+import 'dart:typed_data';
+
+import 'package:abidock_mvx/abidock_mvx.dart';
+
+import 'transfers/egld_transfer.dart' as egld_transfer;
+import 'transfers/esdt_transfer.dart' as esdt_transfer;
+import 'transfers/multi_transfer.dart' as multi_transfer;
+import 'transfers/nft_transfer.dart' as nft_transfer;
+
+/// Stateless transfer helper for direct token moves.
+/// Handles EGLD, ESDT, NFT, and multi-token batches without controllers.
+class TransferService {
+  const TransferService(this._provider);
+
+  final NetworkProvider _provider;
+
+  /// Transfers native EGLD tokens.
+  Future<Transaction> egld(
+    IAccount sender,
+    Nonce nonce,
+    Address receiver,
+    Balance amount, {
+    Address? relayer,
+    Address? guardian,
+    Uint8List? data,
+    GasLimit? gasLimit,
+  }) => egld_transfer.egld(
+    _provider,
+    sender,
+    nonce,
+    receiver,
+    amount,
+    relayer: relayer,
+    guardian: guardian,
+    data: data,
+    gasLimit: gasLimit,
+  );
+
+  /// Transfers ESDT fungible tokens.
+  Future<Transaction> esdt(
+    IAccount sender,
+    Nonce nonce,
+    Address receiver,
+    String tokenId,
+    BigInt amount, {
+    Address? relayer,
+    Address? guardian,
+    GasLimit? gasLimit,
+  }) => esdt_transfer.esdt(
+    _provider,
+    sender,
+    nonce,
+    receiver,
+    tokenId,
+    amount,
+    relayer: relayer,
+    guardian: guardian,
+    gasLimit: gasLimit,
+  );
+
+  /// Transfers NFT/SFT tokens.
+  Future<Transaction> nft(
+    IAccount sender,
+    Nonce nonce,
+    Address receiver,
+    String tokenId,
+    int tokenNonce,
+    BigInt amount, {
+    Address? relayer,
+    Address? guardian,
+    GasLimit? gasLimit,
+  }) => nft_transfer.nft(
+    _provider,
+    sender,
+    nonce,
+    receiver,
+    tokenId,
+    tokenNonce,
+    amount,
+    relayer: relayer,
+    guardian: guardian,
+    gasLimit: gasLimit,
+  );
+
+  /// Transfers multiple ESDT/NFT tokens.
+  Future<Transaction> multi(
+    IAccount sender,
+    Nonce nonce,
+    Address receiver,
+    List<TokenTransfer> transfers, {
+    Address? relayer,
+    Address? guardian,
+    GasLimit? gasLimit,
+  }) => multi_transfer.multi(
+    _provider,
+    sender,
+    nonce,
+    receiver,
+    transfers,
+    relayer: relayer,
+    guardian: guardian,
+    gasLimit: gasLimit,
+  );
+
+  /// Raw transfer factory exposed for custom batching.
+  TransferTransactionsFactory get transferFactory =>
+      TransferTransactionsFactory(
+        config: TransferTransactionsConfig(chainId: _provider.chainId),
+      );
+
+  /// Unsigned EGLD transfer for offline batching.
+  Transaction egldUnsigned({
+    required Address sender,
+    required Nonce nonce,
+    required Address receiver,
+    required Balance amount,
+    Uint8List? data,
+    GasLimit? gasLimit,
+  }) {
+    return transferFactory
+        .createTransactionForNativeTokenTransfer(
+          sender: sender,
+          receiver: receiver,
+          nativeAmount: amount,
+          data: data,
+          gasLimit: gasLimit,
+        )
+        .copyWith(newNonce: nonce);
+  }
+
+  /// Unsigned ESDT transfer for offline batching.
+  Transaction esdtUnsigned({
+    required Address sender,
+    required Nonce nonce,
+    required Address receiver,
+    required String tokenId,
+    required BigInt amount,
+    GasLimit? gasLimit,
+  }) {
+    return transferFactory
+        .createTransactionForEsdtTransfer(
+          sender: sender,
+          receiver: receiver,
+          tokenTransfers: [
+            TokenTransfer.fungible(tokenIdentifier: tokenId, amount: amount),
+          ],
+          gasLimit: gasLimit,
+        )
+        .copyWith(newNonce: nonce);
+  }
+
+  /// Unsigned NFT/SFT transfer for offline batching.
+  Transaction nftUnsigned({
+    required Address sender,
+    required Nonce nonce,
+    required Address receiver,
+    required String tokenId,
+    required int tokenNonce,
+    required BigInt amount,
+    GasLimit? gasLimit,
+  }) {
+    return transferFactory
+        .createTransactionForEsdtTransfer(
+          sender: sender,
+          receiver: receiver,
+          tokenTransfers: [
+            TokenTransfer.nonFungible(
+              tokenIdentifier: tokenId,
+              nonce: tokenNonce,
+              amount: amount,
+            ),
+          ],
+          gasLimit: gasLimit,
+        )
+        .copyWith(newNonce: nonce);
+  }
+
+  /// Unsigned multi-token transfer for offline batching.
+  Transaction multiUnsigned({
+    required Address sender,
+    required Nonce nonce,
+    required Address receiver,
+    required List<TokenTransfer> transfers,
+    GasLimit? gasLimit,
+  }) {
+    return transferFactory
+        .createTransactionForEsdtTransfer(
+          sender: sender,
+          receiver: receiver,
+          tokenTransfers: transfers,
+          gasLimit: gasLimit,
+        )
+        .copyWith(newNonce: nonce);
+  }
+}

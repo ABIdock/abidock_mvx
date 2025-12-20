@@ -1,0 +1,40 @@
+import 'dart:async';
+
+import 'package:abidock_mvx/abidock_mvx.dart';
+
+import '../../models/swap_no_fee_and_forward_event.dart';
+
+/// HTTP polling stream for swap_no_fee_and_forward events.
+///
+/// #### Event Fields:
+/// - `tokenIdOut`: TokenIdentifier (indexed)
+/// - `caller`: Address (indexed)
+/// - `epoch`: u64 (indexed)
+/// - `swapNoFeeAndForwardEvent`: SwapNoFeeAndForwardEvent
+final class SwapNoFeeAndForwardPollingStream {
+  const SwapNoFeeAndForwardPollingStream(this.controller);
+
+  final SmartContractController controller;
+
+  /// Starts polling for swap_no_fee_and_forward events.
+  Stream<SwapNoFeeAndForwardEvent> call({
+    Duration pollingInterval = const Duration(seconds: 10),
+    String? startFrom,
+  }) {
+    return controller
+        .streamEvents(
+          eventIdentifier: 'swap_no_fee_and_forward',
+          pollingInterval: pollingInterval,
+          startFrom: startFrom,
+        )
+        .map((parsedEvent) {
+          final eventStruct = parsedEvent.getValueByName(
+            'swap_no_fee_and_forward_event',
+          );
+          if (eventStruct == null) {
+            throw StateError('Event struct not found in parsed event');
+          }
+          return SwapNoFeeAndForwardEvent.fromAbi(eventStruct);
+        });
+  }
+}

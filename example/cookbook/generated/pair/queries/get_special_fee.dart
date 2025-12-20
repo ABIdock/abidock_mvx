@@ -1,0 +1,23 @@
+import 'package:abidock_mvx/abidock_mvx.dart';
+
+/// Queries getSpecialFee endpoint.
+///
+/// #### Read-only:
+/// Yes
+///
+/// #### Returns:
+/// - `output`: u64
+///
+/// #### Throws:
+/// - [NetworkException] if network request fails
+/// - [ABIException] if ABI decoding fails
+Future<BigInt> getSpecialFee(SmartContractController controller) async {
+  return executeQuery(
+    endpointName: 'getSpecialFee',
+    action: () async {
+      final result = await controller.query(endpointName: 'getSpecialFee');
+
+      return infer<BigInt>(result[0]);
+    },
+  );
+}

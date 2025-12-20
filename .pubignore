@@ -1,0 +1,10 @@
+# Files to exclude from publishing to pub.dev
+
+# Docusaurus documentation website
+docs/
+
+# Publishing scripts (internal workflow)
+scripts/
+
+# Generated examples (too large for package)
+example/cookbook/generated/

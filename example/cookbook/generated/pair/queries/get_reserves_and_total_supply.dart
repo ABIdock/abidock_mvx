@@ -1,0 +1,33 @@
+import 'package:abidock_mvx/abidock_mvx.dart';
+
+/// Queries getReservesAndTotalSupply endpoint.
+///
+/// #### Read-only:
+/// Yes
+///
+/// #### Returns:
+/// - `output`: BigUint
+/// - `output`: BigUint
+/// - `output`: BigUint
+///
+/// #### Throws:
+/// - [NetworkException] if network request fails
+/// - [ABIException] if ABI decoding fails
+Future<(BigInt, BigInt, BigInt)> getReservesAndTotalSupply(
+  SmartContractController controller,
+) async {
+  return executeQuery(
+    endpointName: 'getReservesAndTotalSupply',
+    action: () async {
+      final result = await controller.query(
+        endpointName: 'getReservesAndTotalSupply',
+      );
+
+      return (
+        infer<BigInt>(result[0]),
+        infer<BigInt>(result[1]),
+        infer<BigInt>(result[2]),
+      );
+    },
+  );
+}

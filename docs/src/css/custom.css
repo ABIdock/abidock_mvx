@@ -1,0 +1,79 @@
+/**
+ * Any CSS included here will be global. The classic template
+ * bundles Infima by default. Infima is a CSS framework designed to
+ * work well for content-centric websites.
+ */
+
+/* Import Nunito font from Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;600;700;800&display=swap');
+
+/* Light mode - readable styling */
+:root {
+  --ifm-font-family-base: 'Nunito', system-ui, -apple-system, sans-serif;
+  --ifm-color-primary: #0077b6;
+  --ifm-color-primary-dark: #006da8;
+  --ifm-color-primary-darker: #00669e;
+  --ifm-color-primary-darkest: #005482;
+  --ifm-color-primary-light: #0081c4;
+  --ifm-color-primary-lighter: #008bce;
+  --ifm-color-primary-lightest: #00a3ea;
+  --ifm-code-font-size: 95%;
+  --ifm-background-color: #ffffff;
+  --ifm-navbar-background-color: #ffffff;
+  --ifm-footer-background-color: #f8f9fa;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 119, 182, 0.1);
+  
+  /* Text colors for better readability */
+  --ifm-font-color-base: #1a1a2e;
+  --ifm-heading-color: #0d1117;
+  --ifm-link-color: #0077b6;
+}
+
+/* Dark mode */
+[data-theme='dark'] {
+  --ifm-color-primary: #01e9ff;
+  --ifm-color-primary-dark: #01d2e6;
+  --ifm-color-primary-darker: #01c6d9;
+  --ifm-color-primary-darkest: #01a3b3;
+  --ifm-color-primary-light: #1aebff;
+  --ifm-color-primary-lighter: #33edff;
+  --ifm-color-primary-lightest: #66f2ff;
+  --ifm-background-color: #0d1117;
+  --ifm-navbar-background-color: #161b22;
+  --ifm-footer-background-color: #0d1117;
+  --docusaurus-highlighted-code-line-bg: rgba(1, 233, 255, 0.15);
+  --ifm-font-color-base: #e6edf3;
+  --ifm-heading-color: #ffffff;
+}
+
+/* Code blocks - Light mode */
+pre {
+  background-color: #f6f8fa !important;
+  border: 1px solid #d0d7de;
+  border-radius: 8px;
+}
+
+[data-theme='dark'] pre {
+  background-color: #1e1e1e !important;
+  border-color: #30363d;
+}
+
+code {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+}
+
+/* Inline code - Light mode */
+:not(pre) > code {
+  background-color: rgba(0, 119, 182, 0.08);
+  border: 1px solid rgba(0, 119, 182, 0.2);
+  color: #0077b6;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* Inline code - Dark mode */
+[data-theme='dark'] :not(pre) > code {
+  background-color: rgba(1, 233, 255, 0.1);
+  border: 1px solid rgba(1, 233, 255, 0.2);
+  color: #01e9ff;
+}

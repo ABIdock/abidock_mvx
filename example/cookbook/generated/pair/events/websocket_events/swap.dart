@@ -1,0 +1,71 @@
+import 'dart:async';
+
+import 'package:abidock_mvx/abidock_mvx.dart';
+
+import '../../models/swap_event.dart';
+
+/// Real-time WebSocket stream for swap events.
+///
+/// #### Event Fields:
+/// - `tokenIn`: TokenIdentifier (indexed)
+/// - `tokenOut`: TokenIdentifier (indexed)
+/// - `caller`: Address (indexed)
+/// - `epoch`: u64 (indexed)
+/// - `swapEvent`: SwapEvent
+final class SwapWebSocketStream {
+  SwapWebSocketStream({
+    required SmartContractController controller,
+    required String websocketUrl,
+    Map<String, String>? headers,
+    bool autoReconnect = true,
+    Duration reconnectDelay = const Duration(milliseconds: 300),
+    Duration connectionTimeout = const Duration(seconds: 5),
+    Duration pingInterval = const Duration(seconds: 10),
+  }) : _controller = controller {
+    _config = WebSocketEventStreamConfig.byIdentifiers(
+      websocketUrl: websocketUrl,
+      identifiers: ['swap'],
+      contractAddress: _controller.contractAddress,
+      abi: _controller.abi,
+      autoReconnect: autoReconnect,
+      reconnectDelay: reconnectDelay,
+      connectionTimeout: connectionTimeout,
+      pingInterval: pingInterval,
+      logger: _controller.logger,
+    );
+
+    _stream = WebSocketEventStream(_config);
+  }
+
+  final SmartContractController _controller;
+  late final WebSocketEventStreamConfig _config;
+  late final WebSocketEventStream _stream;
+
+  /// Stream of typed SwapEvent events filtered server-side.
+  /// Converts WebSocket payloads into strongly typed objects.
+  Stream<SwapEvent> get events => EventConverter.filterByIdentifier<SwapEvent>(
+    _stream.events,
+    'swap',
+    (parsed) => EventConverter.convertEvent<SwapEvent>(
+      parsed,
+      SwapEvent.fromAbi,
+      SwapEvent.type,
+    ),
+  );
+
+  Stream<WebSocketStatusChange> get statusChanges => _stream.statusChanges;
+
+  Stream<WebSocketEventError> get errors => _stream.errors;
+
+  Future<void> connect() => _stream.connect();
+
+  Future<void> disconnect() => _stream.disconnect();
+
+  Future<void> dispose() => _stream.dispose();
+
+  WebSocketStatus get status => _stream.status;
+
+  void pause() => _stream.pause();
+
+  void resume() => _stream.resume();
+}

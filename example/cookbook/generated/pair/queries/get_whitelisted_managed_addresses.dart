@@ -1,0 +1,30 @@
+import 'package:abidock_mvx/abidock_mvx.dart';
+
+/// Queries getWhitelistedManagedAddresses endpoint.
+///
+/// #### Read-only:
+/// Yes
+///
+/// #### Returns:
+/// - `output`: variadic&lt;Address&gt;
+///
+/// #### Throws:
+/// - [NetworkException] if network request fails
+/// - [ABIException] if ABI decoding fails
+Future<List<String>> getWhitelistedManagedAddresses(
+  SmartContractController controller,
+) async {
+  return executeQuery(
+    endpointName: 'getWhitelistedManagedAddresses',
+    action: () async {
+      final result = await controller.query(
+        endpointName: 'getWhitelistedManagedAddresses',
+      );
+
+      if (result.isEmpty) {
+        return <String>[];
+      }
+      return infer<List<String>>(result[0]);
+    },
+  );
+}

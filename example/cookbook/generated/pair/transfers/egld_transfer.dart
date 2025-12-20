@@ -1,0 +1,33 @@
+import 'dart:typed_data';
+
+import 'package:abidock_mvx/abidock_mvx.dart';
+
+/// Transfers native EGLD tokens.
+Future<Transaction> egld(
+  NetworkProvider provider,
+  IAccount sender,
+  Nonce nonce,
+  Address receiver,
+  Balance amount, {
+  Address? relayer,
+  Address? guardian,
+  Uint8List? data,
+  GasLimit? gasLimit,
+}) async {
+  final transfersCtrl = TransfersController(chainId: provider.chainId);
+
+  final tx = await transfersCtrl.createTransactionForNativeTransfer(
+    sender,
+    nonce,
+    NativeTransferInput(receiver: receiver, amount: amount, data: data),
+    baseOptions: gasLimit != null || relayer != null || guardian != null
+        ? BaseControllerInput(
+            gasLimit: gasLimit,
+            relayer: relayer,
+            guardian: guardian,
+          )
+        : const BaseControllerInput(),
+  );
+
+  return tx;
+}

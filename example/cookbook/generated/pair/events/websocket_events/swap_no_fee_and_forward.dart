@@ -1,0 +1,71 @@
+import 'dart:async';
+
+import 'package:abidock_mvx/abidock_mvx.dart';
+
+import '../../models/swap_no_fee_and_forward_event.dart';
+
+/// Real-time WebSocket stream for swap_no_fee_and_forward events.
+///
+/// #### Event Fields:
+/// - `tokenIdOut`: TokenIdentifier (indexed)
+/// - `caller`: Address (indexed)
+/// - `epoch`: u64 (indexed)
+/// - `swapNoFeeAndForwardEvent`: SwapNoFeeAndForwardEvent
+final class SwapNoFeeAndForwardWebSocketStream {
+  SwapNoFeeAndForwardWebSocketStream({
+    required SmartContractController controller,
+    required String websocketUrl,
+    Map<String, String>? headers,
+    bool autoReconnect = true,
+    Duration reconnectDelay = const Duration(milliseconds: 300),
+    Duration connectionTimeout = const Duration(seconds: 5),
+    Duration pingInterval = const Duration(seconds: 10),
+  }) : _controller = controller {
+    _config = WebSocketEventStreamConfig.byIdentifiers(
+      websocketUrl: websocketUrl,
+      identifiers: ['swap_no_fee_and_forward'],
+      contractAddress: _controller.contractAddress,
+      abi: _controller.abi,
+      autoReconnect: autoReconnect,
+      reconnectDelay: reconnectDelay,
+      connectionTimeout: connectionTimeout,
+      pingInterval: pingInterval,
+      logger: _controller.logger,
+    );
+
+    _stream = WebSocketEventStream(_config);
+  }
+
+  final SmartContractController _controller;
+  late final WebSocketEventStreamConfig _config;
+  late final WebSocketEventStream _stream;
+
+  /// Stream of typed SwapNoFeeAndForwardEvent events filtered server-side.
+  /// Converts WebSocket payloads into strongly typed objects.
+  Stream<SwapNoFeeAndForwardEvent> get events =>
+      EventConverter.filterByIdentifier<SwapNoFeeAndForwardEvent>(
+        _stream.events,
+        'swap_no_fee_and_forward',
+        (parsed) => EventConverter.convertEvent<SwapNoFeeAndForwardEvent>(
+          parsed,
+          SwapNoFeeAndForwardEvent.fromAbi,
+          SwapNoFeeAndForwardEvent.type,
+        ),
+      );
+
+  Stream<WebSocketStatusChange> get statusChanges => _stream.statusChanges;
+
+  Stream<WebSocketEventError> get errors => _stream.errors;
+
+  Future<void> connect() => _stream.connect();
+
+  Future<void> disconnect() => _stream.disconnect();
+
+  Future<void> dispose() => _stream.dispose();
+
+  WebSocketStatus get status => _stream.status;
+
+  void pause() => _stream.pause();
+
+  void resume() => _stream.resume();
+}

@@ -1,0 +1,68 @@
+import 'package:abidock_mvx/abidock_mvx.dart';
+
+/// PriceObservation model.
+class PriceObservation {
+  const PriceObservation({
+    required this.firstTokenReserveAccumulated,
+    required this.secondTokenReserveAccumulated,
+    required this.weightAccumulated,
+    required this.recordingRound,
+  });
+
+  final BigInt firstTokenReserveAccumulated;
+  final BigInt secondTokenReserveAccumulated;
+  final BigInt weightAccumulated;
+  final BigInt recordingRound;
+
+  static final type = StructType(
+    name: 'PriceObservation',
+    fieldDefinitions: [
+      FieldDefinition(
+        name: 'first_token_reserve_accumulated',
+        type: BigUIntType.type,
+      ),
+      FieldDefinition(
+        name: 'second_token_reserve_accumulated',
+        type: BigUIntType.type,
+      ),
+      FieldDefinition(name: 'weight_accumulated', type: U64Type.type),
+      FieldDefinition(name: 'recording_round', type: U64Type.type),
+    ],
+  );
+
+  factory PriceObservation.fromAbi(TypedValue value) {
+    final struct = value as StructValue;
+    return PriceObservation(
+      firstTokenReserveAccumulated: infer<BigInt>(
+        struct.getFieldValue('first_token_reserve_accumulated').nativeValue,
+      ),
+      secondTokenReserveAccumulated: infer<BigInt>(
+        struct.getFieldValue('second_token_reserve_accumulated').nativeValue,
+      ),
+      weightAccumulated: infer<BigInt>(
+        struct.getFieldValue('weight_accumulated').nativeValue,
+      ),
+      recordingRound: infer<BigInt>(
+        struct.getFieldValue('recording_round').nativeValue,
+      ),
+    );
+  }
+
+  TypedValue toAbi() {
+    return type.createValue({
+      'first_token_reserve_accumulated': firstTokenReserveAccumulated,
+      'second_token_reserve_accumulated': secondTokenReserveAccumulated,
+      'weight_accumulated': weightAccumulated,
+      'recording_round': recordingRound,
+    });
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'first_token_reserve_accumulated': firstTokenReserveAccumulated,
+      'second_token_reserve_accumulated': secondTokenReserveAccumulated,
+      'weight_accumulated': weightAccumulated,
+      'recording_round': recordingRound,
+    };
+  }
+}

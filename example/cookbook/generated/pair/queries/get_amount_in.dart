@@ -1,0 +1,37 @@
+import 'package:abidock_mvx/abidock_mvx.dart';
+
+/// Queries getAmountIn endpoint.
+///
+/// #### Read-only:
+/// Yes
+///
+/// #### Parameters:
+/// - `tokenWanted`: TokenIdentifier
+/// - `amountWanted`: BigUint
+///
+/// #### Returns:
+/// - `output`: BigUint
+///
+/// #### Throws:
+/// - [NetworkException] if network request fails
+/// - [ABIException] if ABI decoding fails
+Future<BigInt> getAmountIn(
+  SmartContractController controller,
+  String tokenWanted,
+  BigInt amountWanted,
+) async {
+  final tokenWantedValue = TokenIdentifierType.type.createValue(tokenWanted);
+  final amountWantedValue = BigUIntType.type.createValue(amountWanted);
+
+  return executeQuery(
+    endpointName: 'getAmountIn',
+    action: () async {
+      final result = await controller.query(
+        endpointName: 'getAmountIn',
+        arguments: [tokenWantedValue, amountWantedValue],
+      );
+
+      return infer<BigInt>(result[0]);
+    },
+  );
+}

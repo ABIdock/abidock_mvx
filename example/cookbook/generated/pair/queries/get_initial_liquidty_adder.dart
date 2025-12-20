@@ -1,0 +1,27 @@
+import 'package:abidock_mvx/abidock_mvx.dart';
+
+/// Queries getInitialLiquidtyAdder endpoint.
+///
+/// #### Read-only:
+/// Yes
+///
+/// #### Returns:
+/// - `output`: Option&lt;Address&gt;
+///
+/// #### Throws:
+/// - [NetworkException] if network request fails
+/// - [ABIException] if ABI decoding fails
+Future<String?> getInitialLiquidtyAdder(
+  SmartContractController controller,
+) async {
+  return executeQuery(
+    endpointName: 'getInitialLiquidtyAdder',
+    action: () async {
+      final result = await controller.query(
+        endpointName: 'getInitialLiquidtyAdder',
+      );
+
+      return infer<String?>(result[0]);
+    },
+  );
+}

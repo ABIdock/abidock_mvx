@@ -1,0 +1,27 @@
+import 'package:abidock_mvx/abidock_mvx.dart';
+
+/// Queries getFeesCollectorCutPercentage endpoint.
+///
+/// #### Read-only:
+/// Yes
+///
+/// #### Returns:
+/// - `output`: u64
+///
+/// #### Throws:
+/// - [NetworkException] if network request fails
+/// - [ABIException] if ABI decoding fails
+Future<BigInt> getFeesCollectorCutPercentage(
+  SmartContractController controller,
+) async {
+  return executeQuery(
+    endpointName: 'getFeesCollectorCutPercentage',
+    action: () async {
+      final result = await controller.query(
+        endpointName: 'getFeesCollectorCutPercentage',
+      );
+
+      return infer<BigInt>(result[0]);
+    },
+  );
+}

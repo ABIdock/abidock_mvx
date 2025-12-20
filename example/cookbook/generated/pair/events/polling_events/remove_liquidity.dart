@@ -1,0 +1,41 @@
+import 'dart:async';
+
+import 'package:abidock_mvx/abidock_mvx.dart';
+
+import '../../models/remove_liquidity_event.dart';
+
+/// HTTP polling stream for remove_liquidity events.
+///
+/// #### Event Fields:
+/// - `firstToken`: TokenIdentifier (indexed)
+/// - `secondToken`: TokenIdentifier (indexed)
+/// - `caller`: Address (indexed)
+/// - `epoch`: u64 (indexed)
+/// - `removeLiquidityEvent`: RemoveLiquidityEvent
+final class RemoveLiquidityPollingStream {
+  const RemoveLiquidityPollingStream(this.controller);
+
+  final SmartContractController controller;
+
+  /// Starts polling for remove_liquidity events.
+  Stream<RemoveLiquidityEvent> call({
+    Duration pollingInterval = const Duration(seconds: 10),
+    String? startFrom,
+  }) {
+    return controller
+        .streamEvents(
+          eventIdentifier: 'remove_liquidity',
+          pollingInterval: pollingInterval,
+          startFrom: startFrom,
+        )
+        .map((parsedEvent) {
+          final eventStruct = parsedEvent.getValueByName(
+            'remove_liquidity_event',
+          );
+          if (eventStruct == null) {
+            throw StateError('Event struct not found in parsed event');
+          }
+          return RemoveLiquidityEvent.fromAbi(eventStruct);
+        });
+  }
+}

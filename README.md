@@ -37,7 +37,7 @@ Add `abidock_mvx` to your `pubspec.yaml`:
 
 ```yaml title="pubspec.yaml"
 dependencies:
-  abidock_mvx: ^1.0.0
+  abidock_mvx: ^1.0.0-beta.1
 ```
 
 ### Step 2: Install packages

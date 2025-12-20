@@ -35,15 +35,6 @@ dev_dependencies:
 topics:
   - blockchain
   - multiversx
-  - mvx
-  - egld
   - web3
-  - crypto
-  - cryptocurrency
-  - wallet
   - smart-contracts
-  - dapp
-  - elrond
-  - defi
-  - sdk
-  - transaction
+  - egld

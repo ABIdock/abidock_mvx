@@ -1,8 +1,5 @@
 name: abidock_mvx
-description: >
-  MultiversX (EGLD) blockchain SDK for Dart and Flutter. Build Web3 dApps with 
-  wallet management, transaction signing, smart contract interaction, and MVX/EGLD 
-  token operations. Complete crypto toolkit for MultiversX blockchain development.
+description: Full-Featured MultiversX blockchain SDK for Dart/Flutter.
 version: 1.0.0-beta.1
 homepage: https://github.com/ABIdock/abidock_mvx
 repository: https://github.com/ABIdock/abidock_mvx
@@ -29,8 +26,8 @@ dependencies:
   yaml: ^3.1.3
 
 dev_dependencies:
-  test: ^1.28.0 
-  flutter_lints: ^6.0.0
+  test: ^1.28.0
+  lints: ^6.0.0
 
 topics:
   - blockchain

@@ -2,6 +2,7 @@
 /// Generated on: 2025-12-11T01:22:31.825781
 ///
 /// Run: dart run bin/codegen/tools/extract_package_symbols.dart
+library;
 
 const knownPackageSymbols = <String>{
   'AbiArgumentSerializationException',

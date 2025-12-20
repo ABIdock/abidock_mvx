@@ -1,6 +1,7 @@
 /// Extracts public symbols from lib/ and generates known_package_symbols.dart
 ///
 /// Usage: dart run bin/codegen/tools/extract_package_symbols.dart
+library;
 
 import 'dart:io';
 

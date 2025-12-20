@@ -29,10 +29,10 @@ jobs:
       - name: Analyze project
         run: dart analyze --fatal-infos
 
+      - name: Create pub credentials
+        run: |
+          mkdir -p $HOME/.config/dart
+          echo '${{ secrets.PUB_CREDENTIALS_JSON }}' > $HOME/.config/dart/pub-credentials.json
+
       - name: Publish to pub.dev
-        uses: k-paxian/dart-package-publisher@v1.6
-        with:
-          accessToken: ${{ secrets.PUB_ACCESS_TOKEN }}
-          refreshToken: ${{ secrets.PUB_REFRESH_TOKEN }}
-          flutter: false
-          skipTests: true
+        run: dart pub publish --force

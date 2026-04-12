@@ -1,7 +1,7 @@
 /// Binary codecs for encoding/decoding smart contract data types.
 ///
 /// Provides encoding and decoding for primitives, collections, composites,
-/// and special types following MultiversX ABI specification.
+/// and special types following the ABI specification.
 export 'binary_codec.dart';
 export 'codec_base.dart';
 export 'collections/collection_codecs.dart';

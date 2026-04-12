@@ -62,7 +62,7 @@ class Address {
   /// ```
   Address.fromBech32(final String bech32)
     : hrp = _extractHrp(bech32),
-      bytes = _bech32Encoder.decode(bech32);
+      bytes = Bech32Encoder(hrp: _extractHrp(bech32)).decode(bech32);
 
   /// Creates Address from hexadecimal string.
   ///
@@ -96,7 +96,8 @@ class Address {
   /// ```
   static bool isValid(String bech32) {
     try {
-      final List<int> decoded = _bech32Encoder.decode(bech32);
+      final String hrp = _extractHrp(bech32);
+      final List<int> decoded = Bech32Encoder(hrp: hrp).decode(bech32);
       return decoded.length == _addressLength;
     } catch (e) {
       return false;
@@ -124,6 +125,15 @@ class Address {
 
   /// Checks if address is empty (0 bytes).
   bool get isEmpty => bytes.isEmpty;
+
+  /// Checks if address is the zero address (32 zero bytes).
+  bool get isZero {
+    if (bytes.length != _addressLength) return false;
+    for (int i = 0; i < _addressLength; i++) {
+      if (bytes[i] != 0) return false;
+    }
+    return true;
+  }
 
   /// Checks if address is smart contract address.
   ///
@@ -167,12 +177,11 @@ class Address {
   String toString() => bech32;
 
   static const int _addressLength = 32;
-  static const Bech32Encoder _bech32Encoder = Bech32Encoder(hrp: 'erd');
 
   /// Extracts HRP from Bech32 address string.
   static String _extractHrp(String bech32) {
-    final separatorIndex = bech32.indexOf('1');
-    if (separatorIndex == -1) return 'erd';
+    final separatorIndex = bech32.lastIndexOf('1');
+    if (separatorIndex <= 0) return 'erd';
     return bech32.substring(0, separatorIndex);
   }
 

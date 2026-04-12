@@ -136,8 +136,9 @@ Possible statuses after sending:
 | Status | Description |
 |--------|-------------|
 | `pending` | In mempool, not yet processed |
+| `executed` | Executed in block |
 | `success` | Executed successfully |
-| `fail` | Execution failed |
+| `failed` | Execution failed |
 | `invalid` | Invalid transaction |
 
 ```dart

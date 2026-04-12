@@ -13,12 +13,25 @@ class ScryptKeyDerivationParams {
   /// - `r` - Block size parameter (default 8)
   /// - `p` - Parallelization parameter (default 1)
   /// - `dklen` - Derived key length in bytes (default 32)
-  const ScryptKeyDerivationParams({
+  ScryptKeyDerivationParams({
     this.n = 16384,
     this.r = 8,
     this.p = 1,
     this.dklen = 32,
-  });
+  }) {
+    if (n < 16384 || (n & (n - 1)) != 0) {
+      throw ArgumentError.value(n, 'n', 'must be power of 2 and >= 16384');
+    }
+    if (r < 8) {
+      throw ArgumentError.value(r, 'r', 'must be >= 8');
+    }
+    if (p < 1) {
+      throw ArgumentError.value(p, 'p', 'must be >= 1');
+    }
+    if (dklen != 32) {
+      throw ArgumentError.value(dklen, 'dklen', 'must be 32');
+    }
+  }
 
   /// CPU/memory cost parameter.
   final int n;

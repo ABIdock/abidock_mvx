@@ -1,5 +1,6 @@
 /// Binary codecs for composite types (Struct, Tuple, Enum, ExplicitEnum).
 
+import 'dart:convert';
 import 'dart:typed_data';
 
 import '../../../utils/sdk_exceptions.dart';
@@ -365,7 +366,7 @@ class ExplicitEnumBinaryCodec with ValidationMixin {
   /// #### Throws
   /// - `AbiBinaryCodecException` - If variant name unknown
   ExplicitEnumValue decodeTopLevel(Uint8List buffer, ExplicitEnumType type) {
-    final String variantName = String.fromCharCodes(buffer);
+    final String variantName = utf8.decode(buffer);
 
     final ExplicitEnumVariantDefinition? variant = type.variants
         .cast<ExplicitEnumVariantDefinition?>()
@@ -414,7 +415,7 @@ class ExplicitEnumBinaryCodec with ValidationMixin {
       offset + 4,
       offset + 4 + length,
     );
-    final String variantName = String.fromCharCodes(stringBytes);
+    final String variantName = utf8.decode(stringBytes);
 
     final ExplicitEnumVariantDefinition? variant = type.variants
         .cast<ExplicitEnumVariantDefinition?>()
@@ -440,19 +441,19 @@ class ExplicitEnumBinaryCodec with ValidationMixin {
   /// #### Returns
   /// `Uint8List` - ASCII encoded variant name
   Uint8List encodeTopLevel(ExplicitEnumValue value) {
-    return Uint8List.fromList(value.variantName.codeUnits);
+    return Uint8List.fromList(utf8.encode(value.variantName));
   }
 
-  /// Encodes ExplicitEnum for nested (4-byte length + string).
+  /// Encodes ExplicitEnum for nested (4-byte length + UTF-8 string).
   ///
   /// #### Parameters
   /// - `value` - ExplicitEnum value to encode
   ///
   /// #### Returns
-  /// `Uint8List` - 4-byte big-endian length followed by ASCII variant name
+  /// `Uint8List` - 4-byte big-endian length followed by UTF-8 variant name
   Uint8List encodeNested(ExplicitEnumValue value) {
     final Uint8List stringBytes = Uint8List.fromList(
-      value.variantName.codeUnits,
+      utf8.encode(value.variantName),
     );
 
     return (BinaryBuilder()

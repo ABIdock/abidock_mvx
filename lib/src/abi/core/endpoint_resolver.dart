@@ -102,9 +102,11 @@ class EndpointResolver {
       case EndpointType.payable:
         return abi.endpoints.where((AbiEndpoint e) => e.isPayable).toList();
       case EndpointType.readonly:
-        return abi.endpoints.where((AbiEndpoint e) => e.isView).toList();
+        return abi.endpoints
+            .where((AbiEndpoint e) => e.isReadonly || e.mutability == null && e.isView)
+            .toList();
       case EndpointType.pure:
-        return abi.endpoints.where((AbiEndpoint e) => e.isView).toList();
+        return abi.endpoints.where((AbiEndpoint e) => e.isPure).toList();
     }
   }
 
@@ -205,8 +207,7 @@ class EndpointResolver {
 
   /// Checks if parameter is variadic.
   bool _isVariadicParameter(AbiParameter param) {
-    final String typeName = param.type.name.toLowerCase();
-    return typeName.startsWith('variadic<') || typeName.startsWith('multi<');
+    return param.type is VariadicType;
   }
 
   /// Validates argument types match endpoint definition.

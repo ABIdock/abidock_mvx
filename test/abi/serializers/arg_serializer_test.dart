@@ -28,7 +28,7 @@ void main() {
       expect(oddLength[0], [0x0f, 0xff]);
 
       final empty = serializer.stringToBuffers('');
-      expect(empty[0], isEmpty);
+      expect(empty, isEmpty);
     });
 
     test('validates separator constant', () {

@@ -9,7 +9,7 @@ void main() {
       expect(identical(type1, type2), isTrue);
     });
     test('type name', () {
-      expect(BigIntType.type.name, 'Bigint');
+      expect(BigIntType.type.name, 'BigInt');
     });
   });
   group('BigIntValue', () {

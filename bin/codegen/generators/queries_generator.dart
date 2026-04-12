@@ -219,7 +219,7 @@ class QueriesGenerator extends GeneratorBase {
   }
 
   void _collectTypeNames(AbiType type, Set<String> types) {
-    if (type is StructType || type is EnumType) {
+    if (type is StructType || type is EnumType || type is ExplicitEnumType) {
       types.add(type.name);
     } else if (type is OptionType) {
       _collectTypeNames(type.innerType, types);

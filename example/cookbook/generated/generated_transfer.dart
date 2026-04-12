@@ -1,8 +1,6 @@
 import 'dart:io';
 import 'package:abidock_mvx/abidock_mvx.dart';
 
-import 'pair/pair.dart';
-
 void main() async {
   final alicePem = File('assets/alice.pem').readAsStringSync();
   final alice = await Account.fromPem(alicePem);
@@ -15,12 +13,14 @@ void main() async {
     'erd12m6dwylyqvz3282j857mldsdrfln476ww7k3kmpq0f0h7pvhl8qs4ucen5',
   );
 
-  final controller = TransferService(provider);
-  final tx = await controller.egld(
+  final controller = TransfersController(chainId: const ChainId('D'));
+  final tx = await controller.createTransactionForNativeTransfer(
     alice,
     currentNonce,
-    bobAddress,
-    Balance.fromEgld(0.1),
+    NativeTransferInput(
+      receiver: bobAddress,
+      amount: Balance.fromEgld(0.1),
+    ),
   );
 
   final txHash = await provider.sendTransaction(tx);

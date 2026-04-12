@@ -124,7 +124,7 @@ class TypeFormulaLexer {
     final StringBuffer buffer = StringBuffer();
 
     while (_currentChar != null &&
-        (_currentChar!.contains(RegExp(r'[a-zA-Z0-9_]')))) {
+        (_currentChar!.contains(RegExp(r'[a-zA-Z0-9_-]')))) {
       buffer.write(_currentChar);
       _advance();
     }

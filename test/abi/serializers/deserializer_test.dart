@@ -490,36 +490,35 @@ void main() {
       expect(result, isNull);
     });
 
-    test('0x00 marker throws (top-level Option uses empty for None)', () {
-      // Per ABI spec, top-level Option None is empty bytes, not 0x00
-      // 0x00 is only valid for nested Option encoding
+    test('single zero byte decodes as Some(0) (top-level has no marker)', () {
+      // Top-level Option has no marker byte.
+      // Non-empty buffer = Some(top-level decoded inner).
       final type = OptionType(U32Type.type);
-      expect(
-        () => deserializer.deserializeValue(_encode([0x00]), type),
-        throwsA(isA<DeserializationException>()),
-      );
+      final result = deserializer.deserializeValue(_encode([0x00]), type);
+      expect(result, 0);
     });
 
     test('Some u32', () {
+      // Top-level Option: no marker, just the top-level encoded inner value
       final type = OptionType(U32Type.type);
-      final bytes = <int>[0x01, 0x00, 0x00, 0x00, 0x2A];
+      final bytes = <int>[0x00, 0x00, 0x00, 0x2A];
       final result = deserializer.deserializeValue(_encode(bytes), type);
       expect(result, 42);
     });
 
     test('Some u8', () {
+      // Top-level Option: no marker, just the top-level encoded inner value
       final type = OptionType(U8Type.type);
-      final bytes = <int>[0x01, 0x2A];
+      final bytes = <int>[0x2A];
       final result = deserializer.deserializeValue(_encode(bytes), type);
       expect(result, 42);
     });
 
-    test('invalid marker throws', () {
+    test('any non-empty buffer decodes as Some (top-level has no marker)', () {
+      // Per spec, any non-empty buffer is Some for top-level Option
       final type = OptionType(U32Type.type);
-      expect(
-        () => deserializer.deserializeValue(_encode([0x02]), type),
-        throwsA(isA<DeserializationException>()),
-      );
+      final result = deserializer.deserializeValue(_encode([0x02]), type);
+      expect(result, 2);
     });
   });
 
@@ -1044,8 +1043,8 @@ void main() {
   });
 
   group('Error Cases', () {
-    test('empty numeric returns zero (MultiversX ABI spec)', () {
-      // In MultiversX ABI, empty bytes at top-level represent zero
+    test('empty numeric returns zero', () {
+      // Empty bytes at top-level represent zero
       expect(
         deserializer.deserializeValue(_encode([]), U32Type.type),
         equals(0),

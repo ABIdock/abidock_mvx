@@ -7,7 +7,7 @@ void main() {
   group('ScryptKeyDerivationParams', () {
     group('default parameters', () {
       test('has correct default values', () {
-        const params = ScryptKeyDerivationParams();
+        final params = ScryptKeyDerivationParams();
         expect(params.n, equals(16384));
         expect(params.r, equals(8));
         expect(params.p, equals(1));
@@ -16,30 +16,62 @@ void main() {
     });
 
     group('custom parameters', () {
-      test('accepts custom n value', () {
-        const params = ScryptKeyDerivationParams(n: 8192);
-        expect(params.n, equals(8192));
+      test('accepts custom n value (power of 2, >= 16384)', () {
+        final params = ScryptKeyDerivationParams(n: 32768);
+        expect(params.n, equals(32768));
       });
 
       test('accepts custom r value', () {
-        const params = ScryptKeyDerivationParams(r: 16);
+        final params = ScryptKeyDerivationParams(r: 16);
         expect(params.r, equals(16));
       });
 
       test('accepts custom p value', () {
-        const params = ScryptKeyDerivationParams(p: 2);
+        final params = ScryptKeyDerivationParams(p: 2);
         expect(params.p, equals(2));
       });
+    });
 
-      test('accepts custom dklen value', () {
-        const params = ScryptKeyDerivationParams(dklen: 64);
-        expect(params.dklen, equals(64));
+    group('validation', () {
+      test('rejects n below 16384', () {
+        expect(
+          () => ScryptKeyDerivationParams(n: 8192),
+          throwsA(isA<ArgumentError>()),
+        );
+      });
+
+      test('rejects n that is not a power of 2', () {
+        expect(
+          () => ScryptKeyDerivationParams(n: 20000),
+          throwsA(isA<ArgumentError>()),
+        );
+      });
+
+      test('rejects r below 8', () {
+        expect(
+          () => ScryptKeyDerivationParams(r: 4),
+          throwsA(isA<ArgumentError>()),
+        );
+      });
+
+      test('rejects p below 1', () {
+        expect(
+          () => ScryptKeyDerivationParams(p: 0),
+          throwsA(isA<ArgumentError>()),
+        );
+      });
+
+      test('rejects dklen different from 32', () {
+        expect(
+          () => ScryptKeyDerivationParams(dklen: 64),
+          throwsA(isA<ArgumentError>()),
+        );
       });
     });
 
     group('generateDerivedKey', () {
       test('generates key of correct length', () {
-        const params = ScryptKeyDerivationParams();
+        final params = ScryptKeyDerivationParams();
         final password = Uint8List.fromList('test_password'.codeUnits);
         final salt = Uint8List.fromList(List.filled(32, 1));
         final key = params.generateDerivedKey(password, salt);
@@ -47,7 +79,7 @@ void main() {
       });
 
       test('generates different keys for different passwords', () {
-        const params = ScryptKeyDerivationParams();
+        final params = ScryptKeyDerivationParams();
         final salt = Uint8List.fromList(List.filled(32, 1));
         final password1 = Uint8List.fromList('password1'.codeUnits);
         final password2 = Uint8List.fromList('password2'.codeUnits);
@@ -57,7 +89,7 @@ void main() {
       });
 
       test('generates different keys for different salts', () {
-        const params = ScryptKeyDerivationParams();
+        final params = ScryptKeyDerivationParams();
         final password = Uint8List.fromList('password'.codeUnits);
         final salt1 = Uint8List.fromList(List.filled(32, 1));
         final salt2 = Uint8List.fromList(List.filled(32, 2));
@@ -67,7 +99,7 @@ void main() {
       });
 
       test('same inputs produce same output', () {
-        const params = ScryptKeyDerivationParams();
+        final params = ScryptKeyDerivationParams();
         final password = Uint8List.fromList('test'.codeUnits);
         final salt = Uint8List.fromList(List.filled(32, 42));
         final key1 = params.generateDerivedKey(password, salt);
@@ -75,16 +107,8 @@ void main() {
         expect(key1, equals(key2));
       });
 
-      test('respects custom dklen', () {
-        const params = ScryptKeyDerivationParams(dklen: 64);
-        final password = Uint8List.fromList('test'.codeUnits);
-        final salt = Uint8List.fromList(List.filled(32, 1));
-        final key = params.generateDerivedKey(password, salt);
-        expect(key.length, equals(64));
-      });
-
       test('handles empty password', () {
-        const params = ScryptKeyDerivationParams();
+        final params = ScryptKeyDerivationParams();
         final password = Uint8List(0);
         final salt = Uint8List.fromList(List.filled(32, 1));
         final key = params.generateDerivedKey(password, salt);
@@ -92,7 +116,7 @@ void main() {
       });
 
       test('handles unicode password', () {
-        const params = ScryptKeyDerivationParams();
+        final params = ScryptKeyDerivationParams();
         final password = Uint8List.fromList('пароль密码🔐'.codeUnits);
         final salt = Uint8List.fromList(List.filled(32, 1));
         final key = params.generateDerivedKey(password, salt);

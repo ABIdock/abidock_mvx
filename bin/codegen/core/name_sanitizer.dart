@@ -31,7 +31,7 @@ class NameSanitizer {
     'final',
     'finally',
     'for',
-    'Function', // Added: built-in type
+    'function', // Added: built-in type (lowercase to match identifier comparison)
     'get', // Added: soft keyword (getter)
     'hide', // Added: soft keyword (import)
     'if',
@@ -88,7 +88,7 @@ class NameSanitizer {
       result = 'field$result';
     }
 
-    if (_dartKeywords.contains(result)) {
+    if (_dartKeywords.contains(result.toLowerCase())) {
       result = '${result}Value';
     }
 

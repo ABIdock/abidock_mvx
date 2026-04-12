@@ -82,11 +82,14 @@ class ArgumentEncoder {
   /// - `ArgumentEncodingException` - Encoding failure
   List<String> encodeTypedValues(List<TypedValue> values) {
     try {
-      return values.map((TypedValue value) {
+      final List<String> result = <String>[];
+      for (final TypedValue value in values) {
         try {
-          final Uint8List buffer = serializer.codec.encodeTopLevel(value);
-          return _bytesToHex(buffer);
+          _expandAndEncode(value, result);
         } catch (e, stackTrace) {
+          if (e is ArgumentEncodingException) {
+            rethrow;
+          }
           throw ArgumentEncodingException(
             'Failed to encode typed value: ${value.type}',
             argumentValue: value,
@@ -95,7 +98,8 @@ class ArgumentEncoder {
             stackTrace: stackTrace,
           );
         }
-      }).toList();
+      }
+      return result;
     } catch (e) {
       if (e is ArgumentEncodingException) {
         rethrow;
@@ -104,6 +108,36 @@ class ArgumentEncoder {
         'Failed to encode arguments: $e',
         cause: e,
       );
+    }
+  }
+
+  /// Expands multi-value types and encodes each part as a separate hex argument.
+  ///
+  /// #### Parameters
+  /// - `value` - TypedValue to expand and encode
+  /// - `result` - Accumulator list for hex-encoded arguments
+  void _expandAndEncode(TypedValue value, List<String> result) {
+    if (value is VariadicValue) {
+      if (value.isCounted) {
+        final Uint8List countBuffer = serializer.codec.encodeTopLevel(
+          U32Value(value.length),
+        );
+        result.add(_bytesToHex(countBuffer));
+      }
+      for (final TypedValue item in value.items) {
+        _expandAndEncode(item, result);
+      }
+    } else if (value is CompositeValue) {
+      for (final TypedValue field in value.fields) {
+        _expandAndEncode(field, result);
+      }
+    } else if (value is OptionalValue) {
+      if (value.isProvided) {
+        _expandAndEncode(value.value!, result);
+      }
+    } else {
+      final Uint8List buffer = serializer.codec.encodeTopLevel(value);
+      result.add(_bytesToHex(buffer));
     }
   }
 

@@ -1,6 +1,7 @@
 /// Smart contract event querying and streaming functionality.
 /// Provides event querying, watching, and real-time streaming via polling.
 
+import 'dart:convert';
 import 'dart:typed_data';
 
 import '../../../core/transaction/transaction_event_parser.dart';
@@ -8,6 +9,7 @@ import '../../../core/transaction/transaction_on_network.dart';
 import '../../../core/transaction/transaction_watcher.dart';
 import '../../../infrastructure/logging/logger.dart';
 import '../../../infrastructure/network/network_provider.dart';
+import '../../../utils/event_deduplicator.dart';
 import '../../../utils/helpers.dart';
 import '../../../utils/hex_utils.dart';
 import '../../../utils/sdk_exceptions.dart';
@@ -467,7 +469,7 @@ final class SmartContractEventRunner {
   /// ```
   Stream<ParsedEvent> streamEvents({
     required String eventIdentifier,
-    Duration pollingInterval = const Duration(seconds: 2),
+    Duration pollingInterval = const Duration(milliseconds: 500),
     String? startFrom,
   }) async* {
     logger?.info(
@@ -479,12 +481,12 @@ final class SmartContractEventRunner {
       },
     );
 
-    final Set<String> seenTxHashes = <String>{};
+    final EventDeduplicator seenTxHashes = EventDeduplicator(maxSize: 10000, ttl: const Duration(minutes: 10));
     String? lastTxHash = startFrom;
     int totalEventsEmitted = 0;
 
     final String eventTopicHex = HexUtils.bytesToHex(
-      Uint8List.fromList(eventIdentifier.codeUnits),
+      Uint8List.fromList(utf8.encode(eventIdentifier)),
     );
 
     while (true) {
@@ -533,7 +535,7 @@ final class SmartContractEventRunner {
             'txHash',
           );
 
-          if (seenTxHashes.contains(txHash)) {
+          if (!seenTxHashes.shouldProcess(txHash)) {
             continue;
           }
 
@@ -572,7 +574,6 @@ final class SmartContractEventRunner {
             );
 
             yield event;
-            seenTxHashes.add(txHash);
           } catch (e) {
             logger?.error(
               'Error parsing event in stream',
@@ -625,7 +626,7 @@ final class SmartContractEventRunner {
   /// );
   /// ```
   Stream<ParsedEvent> streamAllEvents({
-    Duration pollingInterval = const Duration(seconds: 2),
+    Duration pollingInterval = const Duration(milliseconds: 500),
     String? startFrom,
   }) async* {
     logger?.info(
@@ -636,14 +637,14 @@ final class SmartContractEventRunner {
       },
     );
 
-    final Set<String> seenTxHashes = <String>{};
+    final EventDeduplicator seenTxHashes = EventDeduplicator(maxSize: 10000, ttl: const Duration(minutes: 10));
     String? lastTxHash = startFrom;
     int totalEventsEmitted = 0;
 
     final Map<String, String> eventHexMap = <String, String>{};
     for (final EventDefinition eventDef in abi.events) {
       final String hex = HexUtils.bytesToHex(
-        Uint8List.fromList(eventDef.identifier.codeUnits),
+        Uint8List.fromList(utf8.encode(eventDef.identifier)),
       );
       eventHexMap[hex] = eventDef.identifier;
     }
@@ -694,7 +695,7 @@ final class SmartContractEventRunner {
             'txHash',
           );
 
-          if (seenTxHashes.contains(txHash)) {
+          if (!seenTxHashes.shouldProcess(txHash)) {
             continue;
           }
 
@@ -735,7 +736,6 @@ final class SmartContractEventRunner {
             );
 
             yield event;
-            seenTxHashes.add(txHash);
           } catch (e) {
             logger?.error(
               'Error parsing event in stream',

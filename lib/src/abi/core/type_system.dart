@@ -360,7 +360,7 @@ abstract class TypedValue {
   /// `dynamic` - Native Dart value
   dynamic valueOf() => nativeValue;
 
-  /// Converts to bytes using nested encoding (fixed-width).
+  /// Converts to byte representation.
   ///
   /// #### Returns
   /// `List<int>` - Byte array representation

@@ -13,10 +13,12 @@ class AccountAwaitingOptions {
   ///
   /// #### Parameters
   /// - `timeout` - Maximum wait time before throwing timeout exception (default 60s)
-  /// - `pollingInterval` - Time between state checks (default 2s)
+  /// - `pollingInterval` - Time between state checks (default 500ms)
+  /// - `maxConsecutiveErrors` - Maximum consecutive errors before giving up (default 5)
   const AccountAwaitingOptions({
-    this.timeout = const Duration(seconds: 30),
+    this.timeout = const Duration(seconds: 60),
     this.pollingInterval = const Duration(milliseconds: 500),
+    this.maxConsecutiveErrors = 5,
   });
 
   /// Max wait time.
@@ -24,6 +26,9 @@ class AccountAwaitingOptions {
 
   /// Polling interval.
   final Duration pollingInterval;
+
+  /// Maximum consecutive errors before throwing.
+  final int maxConsecutiveErrors;
 }
 
 /// Waits for account state changes on the blockchain with polling.
@@ -56,10 +61,12 @@ class AccountAwaiter {
     final opts = options ?? const AccountAwaitingOptions();
     final startTime = DateTime.now();
     final endTime = startTime.add(opts.timeout);
+    int consecutiveErrors = 0;
 
     while (DateTime.now().isBefore(endTime)) {
       try {
         final account = await networkProvider.getAccount(address);
+        consecutiveErrors = 0;
 
         if (condition(account)) {
           return account;
@@ -67,10 +74,18 @@ class AccountAwaiter {
 
         await Future<void>.delayed(opts.pollingInterval);
       } catch (e) {
-        throw AccountAwaiterException(
-          'Error while polling account state for ${address.bech32}',
-          cause: e,
-        );
+        consecutiveErrors++;
+        if (consecutiveErrors >= opts.maxConsecutiveErrors) {
+          throw AccountAwaiterException(
+            'Error while polling account state for ${address.bech32} '
+            '($consecutiveErrors consecutive errors)',
+            cause: e,
+          );
+        }
+
+        // Exponential backoff on errors: pollingInterval * 2^(errors-1)
+        final backoff = opts.pollingInterval * (1 << (consecutiveErrors - 1));
+        await Future<void>.delayed(backoff);
       }
     }
 

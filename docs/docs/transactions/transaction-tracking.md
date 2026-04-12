@@ -51,8 +51,9 @@ final tx = await watcher.awaitCompleted(txHash, options: options);
 | Status | Description | Final? |
 |--------|-------------|--------|
 | `pending` | In mempool | No |
+| `executed` | Executed in block | Yes |
 | `success` | Completed successfully | Yes |
-| `fail` | Execution failed | Yes |
+| `failed` | Execution failed | Yes |
 | `invalid` | Rejected by network | Yes |
 
 ## Handling Results

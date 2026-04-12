@@ -42,6 +42,8 @@ const sidebars: SidebarsConfig = {
         'transactions/account-management',
         'transactions/transaction-tracking',
         'transactions/outcome-parsers',
+        'transactions/nonce-manager',
+        'transactions/decoding-transactions',
       ],
     },
     {

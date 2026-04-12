@@ -194,10 +194,10 @@ final class I16Value extends IntNumericalValue {
   bool operator >(I16Value other) => greaterThan(other);
   bool operator >=(I16Value other) => greaterThanOrEqual(other);
 
-  I16Value operator &(I16Value other) => I16Value(value & other.value);
-  I16Value operator |(I16Value other) => I16Value(value | other.value);
-  I16Value operator ^(I16Value other) => I16Value(value ^ other.value);
-  I16Value operator ~() => I16Value(~value);
-  I16Value operator <<(int shift) => I16Value(value << shift);
-  I16Value operator >>(int shift) => I16Value(value >> shift);
+  I16Value operator &(I16Value other) => createInstance(value & other.value);
+  I16Value operator |(I16Value other) => createInstance(value | other.value);
+  I16Value operator ^(I16Value other) => createInstance(value ^ other.value);
+  I16Value operator ~() => createInstance(~value);
+  I16Value operator <<(int shift) => createInstance(value << shift);
+  I16Value operator >>(int shift) => createInstance(value >> shift);
 }

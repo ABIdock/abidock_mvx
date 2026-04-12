@@ -1,7 +1,5 @@
 import 'dart:async';
-import 'package:dio/dio.dart';
 import '../../infrastructure/network/network_provider.dart';
-import '../../utils/helpers.dart';
 import '../../utils/sdk_exceptions.dart';
 import 'transaction_on_network.dart';
 import 'transaction_status.dart';
@@ -32,8 +30,9 @@ class TransactionAwaitingOptions {
   ///
   /// #### Parameters
   /// - `timeout` - Maximum wait time before throwing timeout exception (default: 60s)
-  /// - `pollingInterval` - Delay between status checks (default: 2s)
-  /// - `patience` - Extra wait after block detection for finalization (default: 5s)
+  /// - `pollingInterval` - Delay between status checks (default: 400ms)
+  /// - `patience` - Extra wait after block detection for finalization (default: 800ms)
+  /// - `maxConsecutiveErrors` - Abort after this many consecutive fetch failures (default: 5)
   ///
   /// #### Example
   /// ```dart
@@ -44,9 +43,10 @@ class TransactionAwaitingOptions {
   /// );
   /// ```
   const TransactionAwaitingOptions({
-    this.timeout = const Duration(seconds: 30),
+    this.timeout = const Duration(seconds: 60),
     this.pollingInterval = const Duration(milliseconds: 400),
     this.patience = const Duration(milliseconds: 800),
+    this.maxConsecutiveErrors = 5,
   });
 
   /// Maximum wait time before timeout.
@@ -57,6 +57,9 @@ class TransactionAwaitingOptions {
 
   /// Extra wait time after block detection for finalization.
   final Duration patience;
+
+  /// Max consecutive fetch errors before giving up with the original cause.
+  final int maxConsecutiveErrors;
 }
 
 /// Polls blockchain to monitor transaction status until completion.
@@ -108,17 +111,10 @@ class TransactionWatcher {
   ///   watcher.close();
   /// }
   /// ```
-  factory TransactionWatcher({required NetworkProvider networkProvider}) {
-    return TransactionWatcher._(
-      apiUrl: networkProvider.baseUrl,
-      dio: Dio(BaseOptions(baseUrl: networkProvider.baseUrl)),
-    );
-  }
+  TransactionWatcher({required NetworkProvider networkProvider})
+    : _networkProvider = networkProvider;
 
-  TransactionWatcher._({required this.apiUrl, Dio? dio}) : _dio = dio ?? Dio();
-
-  final String apiUrl;
-  final Dio _dio;
+  final NetworkProvider _networkProvider;
 
   /// Awaits transaction until final state (executed, failed, or invalid).
   ///
@@ -216,6 +212,7 @@ class TransactionWatcher {
   }) async {
     final DateTime startTime = DateTime.now();
     TransactionOnNetwork? lastTx;
+    int consecutiveErrors = 0;
 
     while (true) {
       final Duration elapsed = DateTime.now().difference(startTime);
@@ -229,6 +226,7 @@ class TransactionWatcher {
 
       try {
         lastTx = await fetchTransaction(txHash);
+        consecutiveErrors = 0;
 
         if (predicate(lastTx.status)) {
           if (lastTx.isInBlock && options.patience.inMilliseconds > 0) {
@@ -240,7 +238,19 @@ class TransactionWatcher {
 
         await Future<void>.delayed(options.pollingInterval);
       } catch (e) {
-        await Future<void>.delayed(options.pollingInterval);
+        consecutiveErrors++;
+        if (consecutiveErrors >= options.maxConsecutiveErrors) {
+          throw TransactionWatcherException(
+            'Transaction polling failed $consecutiveErrors consecutive times',
+            transactionHash: txHash,
+            cause: e,
+          );
+        }
+        final Duration backoff = Duration(
+          milliseconds:
+              options.pollingInterval.inMilliseconds * (1 << (consecutiveErrors - 1)),
+        );
+        await Future<void>.delayed(backoff);
         continue;
       }
     }
@@ -249,22 +259,7 @@ class TransactionWatcher {
   /// Fetches current transaction state from blockchain.
   Future<TransactionOnNetwork> fetchTransaction(String txHash) async {
     try {
-      final String url = '$apiUrl/transactions/$txHash';
-      final Response<dynamic> response = await _dio.get(url);
-
-      if (response.statusCode != 200) {
-        throw TransactionWatcherException(
-          'Failed to fetch transaction: HTTP ${response.statusCode}',
-          transactionHash: txHash,
-        );
-      }
-
-      final Map<String, dynamic> data = requireAs<Map<String, dynamic>>(
-        response.data,
-        'response.data',
-      );
-
-      return TransactionOnNetwork.fromApiResponse(data, txHash: txHash);
+      return await _networkProvider.getTransaction(txHash);
     } catch (e) {
       if (e is TransactionWatcherException) {
         rethrow;
@@ -289,6 +284,6 @@ class TransactionWatcher {
 
   /// Closes HTTP client and frees resources.
   void close() {
-    _dio.close();
+    _networkProvider.close();
   }
 }

@@ -95,7 +95,7 @@ void main() {
       test('throws on negative amount', () {
         expect(
           () => TokenTransferValue.fromPrimitives(
-            tokenIdentifier: 'TOKEN-abc',
+            tokenIdentifier: 'TOKEN-abc123',
             amount: BigInt.from(-100),
           ),
           throwsArgumentError,
@@ -105,7 +105,7 @@ void main() {
       test('throws on zero nonce', () {
         expect(
           () => TokenTransferValue.fromPrimitives(
-            tokenIdentifier: 'TOKEN-abc',
+            tokenIdentifier: 'TOKEN-abc123',
             amount: BigInt.from(100),
             nonce: BigInt.zero,
           ),
@@ -134,7 +134,7 @@ void main() {
       test('handles large amounts', () {
         final largeAmount = BigInt.parse('999999999999999999999999999999');
         final transfer = TokenTransferValue.fromPrimitives(
-          tokenIdentifier: 'TOKEN-abc',
+          tokenIdentifier: 'TOKEN-abc123',
           amount: largeAmount,
         );
         expect(transfer.amount.value, equals(largeAmount));
@@ -142,7 +142,7 @@ void main() {
 
       test('handles zero amount', () {
         final transfer = TokenTransferValue.fromPrimitives(
-          tokenIdentifier: 'TOKEN-abc',
+          tokenIdentifier: 'TOKEN-abc123',
           amount: BigInt.zero,
         );
         expect(transfer.amount.value, equals(BigInt.zero));

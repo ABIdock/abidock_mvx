@@ -131,8 +131,7 @@ class ResponseParser {
 
   /// Checks if type is an optional type.
   bool _isOptionalType(AbiType type) {
-    return type.name.toLowerCase() == 'optional' ||
-        type.name.toLowerCase() == 'option';
+    return type is OptionalType || type is OptionType;
   }
 
   /// Unwraps the inner type from an optional type.
@@ -171,33 +170,34 @@ class ResponseParser {
     }
   }
 
-  /// Converts hex or base64 to bytes.
+  /// Converts base64 or hex to bytes.
   Uint8List _stringToBytes(String data) {
     if (data.isEmpty) {
       return Uint8List(0);
     }
 
+    try {
+      return Uint8List.fromList(base64.decode(data));
+    } catch (_) {
+      // Not valid base64, try hex
+    }
     if (_isHexString(data)) {
       return HexUtils.hexToBytes(data);
     }
-    try {
-      return Uint8List.fromList(base64.decode(data));
-    } catch (e) {
-      throw ResponseParsingException(
-        'Invalid data encoding: must be hex or base64',
-        rawData: data,
-        cause: e,
-      );
-    }
+    throw ResponseParsingException(
+      'Invalid data encoding: must be base64 or hex',
+      rawData: data,
+    );
   }
+
+  static final RegExp _hexRegex = RegExp(r'^[0-9a-fA-F]+$');
 
   /// Checks if a string is valid hex.
   bool _isHexString(String str) {
     if (str.isEmpty) return true;
     if (str.length % 2 != 0) return false;
 
-    final RegExp hexRegex = RegExp(r'^[0-9a-fA-F]+$');
-    return hexRegex.hasMatch(str);
+    return _hexRegex.hasMatch(str);
   }
 
   /// Parses response with explicit output types (no endpoint required).

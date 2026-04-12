@@ -310,26 +310,24 @@ final class ExplicitEnumValue extends TypedValue {
   /// Discriminant of the selected variant.
   int get discriminant => variant.discriminant;
 
-  /// Encodes enum to 4-byte big-endian discriminant.
+  /// Encodes enum discriminant as a single byte (u8).
+  ///
+  /// Enum discriminants are encoded as 1-byte unsigned integers,
+  /// consistent with [EnumValue.toBytes].
   ///
   /// #### Returns
-  /// 4-byte array representing the discriminant as big-endian unsigned int
+  /// Single-byte array representing the discriminant as u8
   ///
   /// #### Example
   /// ```dart
-  /// final ok = statusEnum.createValue(200); // discriminant 200
+  /// final ok = statusEnum.createValue(1); // discriminant 1
   /// final bytes = ok.toBytes();
-  /// print(bytes); // [0, 0, 0, 200]
-  ///
-  /// final notFound = statusEnum.createValue(404); // discriminant 404
-  /// print(notFound.toBytes()); // [0, 0, 1, 148]
+  /// print(bytes); // [1]
   /// ```
   @pragma('vm:prefer-inline')
   @override
   List<int> toBytes() {
-    return (ByteData(
-      4,
-    )..setUint32(0, discriminant, Endian.big)).buffer.asUint8List();
+    return Uint8List(1)..[0] = discriminant;
   }
 
   /// Checks if this enum value is the specified variant.

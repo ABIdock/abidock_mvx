@@ -1,4 +1,5 @@
 /// Native serializer for smart contract arguments.
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:meta/meta.dart';
@@ -111,12 +112,25 @@ class NativeSerializer {
 
       for (int i = 0; i < parameters.length; i++) {
         final EndpointParameterDefinition parameter = parameters[i];
-        final TypedValue value = _convertToTypedValue(
-          args[i],
-          parameter.type,
-          'Parameter ${parameter.name} at index $i',
-        );
-        values.add(value);
+        if (i == parameters.length - 1 && parameter.type is VariadicType) {
+          final VariadicType varType = parameter.type as VariadicType;
+          final List<TypedValue> variadicItems = <TypedValue>[];
+          for (int j = i; j < args.length; j++) {
+            variadicItems.add(_convertToTypedValue(
+              args[j],
+              varType.itemType,
+              'Variadic parameter ${parameter.name} at index $j',
+            ));
+          }
+          values.add(VariadicValue(variadicItems, itemType: varType.itemType));
+        } else {
+          final TypedValue value = _convertToTypedValue(
+            args[i],
+            parameter.type,
+            'Parameter ${parameter.name} at index $i',
+          );
+          values.add(value);
+        }
       }
 
       return values;
@@ -137,7 +151,7 @@ class NativeSerializer {
       endpoint.input,
     );
 
-    if (!(cardinality.min <= args.length && args.length <= cardinality.max)) {
+    if (!(cardinality.min <= args.length && (cardinality.max == -1 || args.length <= cardinality.max))) {
       throw AbiNativeSerializationException(
         'Wrong number of arguments for endpoint ${endpoint.name}: '
         'expected between ${cardinality.min} and ${cardinality.max} arguments, '
@@ -719,7 +733,7 @@ class NativeSerializer {
       if (value.startsWith('0x') || value.startsWith('0X')) {
         return HexUtils.hexToBytes(value.substring(2));
       }
-      return Uint8List.fromList(value.codeUnits);
+      return Uint8List.fromList(utf8.encode(value));
     }
 
     throw AbiNativeSerializationException(
@@ -730,22 +744,25 @@ class NativeSerializer {
   /// Converts native to address.
   static Uint8List _convertNativeToAddress(dynamic native, String context) {
     if (native is String) {
-      if (native.startsWith('erd1')) {
-        try {
-          const Bech32Encoder bech32Encoder = Bech32Encoder(hrp: 'erd');
-          final Uint8List bytes = bech32Encoder.decode(native);
+      final int separatorIndex = native.lastIndexOf('1');
+      if (separatorIndex > 0) {
+        final String hrp = native.substring(0, separatorIndex);
+        if (hrp.isNotEmpty && !native.startsWith('0x') && native.length > 10) {
+          try {
+            final Bech32Encoder bech32Encoder = Bech32Encoder(hrp: hrp);
+            final Uint8List bytes = bech32Encoder.decode(native);
 
-          if (bytes.length != 32) {
-            throw AbiNativeSerializationException(
-              'Invalid bech32 address: expected 32 bytes, got ${bytes.length} for $context',
-            );
+            if (bytes.length != 32) {
+              throw AbiNativeSerializationException(
+                'Invalid bech32 address: expected 32 bytes, got ${bytes.length} for $context',
+              );
+            }
+
+            return Uint8List.fromList(bytes);
+          } catch (e) {
+            // Fall through to hex detection below if bech32 decode fails
+            if (e is AbiNativeSerializationException) rethrow;
           }
-
-          return Uint8List.fromList(bytes);
-        } catch (e) {
-          throw AbiNativeSerializationException(
-            'Invalid bech32 address format for $context: $e',
-          );
         }
       }
       if (native.startsWith('0x')) {

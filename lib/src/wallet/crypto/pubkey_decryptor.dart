@@ -58,25 +58,33 @@ class PubkeyDecryptor {
     }
 
     final decryptorSecretBytes = decryptorSecretKey.bytes;
-    final x25519Secret = x25519.PrivateKey(decryptorSecretBytes);
-
-    final x25519EdhPubKey = x25519.PublicKey(edhPubKeyBytes);
-    final box = x25519.Box(
-      myPrivateKey: x25519Secret,
-      theirPublicKey: x25519EdhPubKey,
-    );
 
     try {
-      final decryptedMessage = box.decrypt(
-        x25519.EncryptedMessage(cipherText: ciphertext, nonce: nonce),
+      final x25519Secret = x25519.PrivateKey(decryptorSecretBytes);
+
+      final x25519EdhPubKey = x25519.PublicKey(edhPubKeyBytes);
+      final box = x25519.Box(
+        myPrivateKey: x25519Secret,
+        theirPublicKey: x25519EdhPubKey,
       );
-      return Uint8List.fromList(decryptedMessage);
-    } catch (e) {
-      throw DecryptorException(
-        'Failed authentication for given ciphertext. '
-        'Either wrong recipient, tampered message, or incorrect nonce.',
-        cause: e,
-      );
+
+      try {
+        final decryptedMessage = box.decrypt(
+          x25519.EncryptedMessage(cipherText: ciphertext, nonce: nonce),
+        );
+        return Uint8List.fromList(decryptedMessage);
+      } catch (e) {
+        throw DecryptorException(
+          'Failed authentication for given ciphertext. '
+          'Either wrong recipient, tampered message, or incorrect nonce.',
+          cause: e,
+        );
+      }
+    } finally {
+      // Zero out secret bytes
+      for (int i = 0; i < decryptorSecretBytes.length; i++) {
+        decryptorSecretBytes[i] = 0;
+      }
     }
   }
 }

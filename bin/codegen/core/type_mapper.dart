@@ -1,6 +1,8 @@
 import 'package:abidock_mvx/src/abi/abi.dart';
 
+/// Maps ABI types to Dart types for generated code.
 class TypeMapper {
+  /// Maps an [AbiType] to a Dart type string.
   String mapToDartType(AbiType type) {
     if (type is U8Type || type is U16Type || type is U32Type) return 'int';
     if (type is U64Type || type is BigUIntType) return 'BigInt';
@@ -16,6 +18,7 @@ class TypeMapper {
     if (type is H256Type) return 'Uint8List';
     if (type is CodeMetadataType) return 'List<int>';
     if (type is NothingType) return 'void';
+    if (type is TokenTransferType) return 'TokenTransferValue';
 
     if (type is OptionType) {
       final inner = mapToDartType(type.innerType);
@@ -89,6 +92,7 @@ class TypeMapper {
     if (type is H256Type) return 'H256Type.type';
     if (type is CodeMetadataType) return 'CodeMetadataType.type';
     if (type is NothingType) return 'NothingType.type';
+    if (type is TokenTransferType) return 'TokenTransferType.type';
 
     if (type is OptionType) {
       return 'OptionType(${mapToTypeExpression(type.innerType)})';
@@ -210,6 +214,7 @@ class TypeMapper {
     if (type is H256Type) return 'H256';
     if (type is CodeMetadataType) return 'CodeMetadata';
     if (type is NothingType) return 'Nothing';
+    if (type is TokenTransferType) return 'TokenTransfer';
 
     if (type is OptionType) {
       return 'Option<${getAbiTypeString(type.innerType)}>';

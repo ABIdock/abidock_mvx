@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:meta/meta.dart';
 
+import '../../../core/address.dart' as core;
 import '../../../utils/hex_utils.dart';
 import '../../../wallet/crypto/bech32_encoder.dart';
 import '../../core/type_system.dart';
@@ -232,7 +233,11 @@ final class AddressValue extends TypedValue {
   /// print(walletAddr.isSmartContract); // false
   /// ```
   bool get isSmartContract {
-    return value.length > 8 && value[8] == 0x05;
+    if (value.length < 10) return false;
+    for (int i = 0; i < 8; i++) {
+      if (value[i] != 0x00) return false;
+    }
+    return value[8] == 0x05 && value[9] == 0x00;
   }
 
   /// Checks if this address is a wallet (user) address.
@@ -299,7 +304,11 @@ final class AddressValue extends TypedValue {
       throw ArgumentError('shardCount must be greater than 0, got $shardCount');
     }
     if (value.isEmpty) return 0;
-    return value[value.length - 1] % shardCount;
+    final coreAddress = core.Address(Uint8List.fromList(value));
+    return core.Address.getShardOfAddress(
+      coreAddress,
+      numberOfShards: shardCount,
+    );
   }
 
   /// Compares this address with another AddressValue.

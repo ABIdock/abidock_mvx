@@ -44,7 +44,7 @@ class DelegationTransactionsFactory {
   final ArgSerializer _argSerializer = ArgSerializer();
   final DelegationTransactionsConfig config;
 
-  static const String _delegationManagerAddressHex =
+  static const String _delegationManagerAddress =
       'erd1qqqqqqqqqqqqqqqpqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqylllslmq6y6';
 
   /// Creates transaction for creating new delegation contract.
@@ -80,7 +80,7 @@ class DelegationTransactionsFactory {
 
     return _buildTransaction(
       sender: sender,
-      receiver: Address.fromBech32(_delegationManagerAddressHex),
+      receiver: Address.fromBech32(_delegationManagerAddress),
       functionName: 'createNewDelegationContract',
       args: args,
       value: amount,

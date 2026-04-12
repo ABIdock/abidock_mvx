@@ -130,6 +130,9 @@ class TokenManagementTransactionsFactory {
     required int decimals,
     TokenProperties properties = const TokenProperties(),
   }) {
+    _validateTokenName(tokenName);
+    _validateTokenTicker(tokenTicker);
+
     final List<TypedValue> args = <TypedValue>[
       StringValue(tokenName),
       StringValue(tokenTicker),
@@ -167,6 +170,9 @@ class TokenManagementTransactionsFactory {
     required String tokenTicker,
     TokenProperties properties = const TokenProperties(),
   }) {
+    _validateTokenName(tokenName);
+    _validateTokenTicker(tokenTicker);
+
     final List<TypedValue> args = <TypedValue>[
       StringValue(tokenName),
       StringValue(tokenTicker),
@@ -189,6 +195,9 @@ class TokenManagementTransactionsFactory {
     required String tokenTicker,
     TokenProperties properties = const TokenProperties(),
   }) {
+    _validateTokenName(tokenName);
+    _validateTokenTicker(tokenTicker);
+
     final List<TypedValue> args = <TypedValue>[
       StringValue(tokenName),
       StringValue(tokenTicker),
@@ -212,6 +221,9 @@ class TokenManagementTransactionsFactory {
     required int decimals,
     TokenProperties properties = const TokenProperties(),
   }) {
+    _validateTokenName(tokenName);
+    _validateTokenTicker(tokenTicker);
+
     final List<TypedValue> args = <TypedValue>[
       StringValue(tokenName),
       StringValue(tokenTicker),
@@ -236,6 +248,9 @@ class TokenManagementTransactionsFactory {
     required int decimals,
     TokenProperties properties = const TokenProperties(),
   }) {
+    _validateTokenName(tokenName);
+    _validateTokenTicker(tokenTicker);
+
     final List<TypedValue> args = <TypedValue>[
       StringValue(tokenName),
       StringValue(tokenTicker),
@@ -734,6 +749,9 @@ class TokenManagementTransactionsFactory {
     required String tokenTicker,
     TokenProperties properties = const TokenProperties(),
   }) {
+    _validateTokenName(tokenName);
+    _validateTokenTicker(tokenTicker);
+
     final List<TypedValue> args = <TypedValue>[
       StringValue(tokenName),
       StringValue(tokenTicker),
@@ -747,6 +765,28 @@ class TokenManagementTransactionsFactory {
       value: Balance.fromString(config.issueCost),
       gasLimit: config.gasLimitRegisterDynamic,
     );
+  }
+
+  /// Validates token name format (3-20 alphanumeric characters).
+  static void _validateTokenName(String tokenName) {
+    if (!RegExp(r'^[A-Za-z0-9]{3,20}$').hasMatch(tokenName)) {
+      throw ArgumentError.value(
+        tokenName,
+        'tokenName',
+        'Token name must be 3-20 alphanumeric characters',
+      );
+    }
+  }
+
+  /// Validates token ticker format (3-10 uppercase alphanumeric characters).
+  static void _validateTokenTicker(String tokenTicker) {
+    if (!RegExp(r'^[A-Z0-9]{3,10}$').hasMatch(tokenTicker)) {
+      throw ArgumentError.value(
+        tokenTicker,
+        'tokenTicker',
+        'Token ticker must be 3-10 uppercase alphanumeric characters',
+      );
+    }
   }
 
   List<TypedValue> _propertiesAsArgs(TokenProperties props) {

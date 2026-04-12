@@ -1,3 +1,4 @@
+/// Sanitizes identifiers that collide with Dart keywords.
 class KeywordSanitizer {
   static const dartKeywords = {
     'abstract',
@@ -47,6 +48,7 @@ class KeywordSanitizer {
     'required',
     'rethrow',
     'return',
+    'sealed',
     'set',
     'show',
     'static',
@@ -60,6 +62,7 @@ class KeywordSanitizer {
     'typedef',
     'var',
     'void',
+    'when',
     'while',
     'with',
     'yield',

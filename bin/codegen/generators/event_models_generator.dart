@@ -178,6 +178,8 @@ final class EventModelsGenerator extends GeneratorBase {
         final isEnum = field.abiType is EnumType;
         final isListOfCustomStruct = _isListOfCustomStruct(field.abiType, abi);
 
+        final isExplicitEnum = field.abiType is ExplicitEnumType;
+
         if (isListOfCustomStruct) {
           final elementTypeName = _getListElementTypeName(field.dartType);
           buffer.writeln('      ${field.name}: () {');
@@ -188,7 +190,7 @@ final class EventModelsGenerator extends GeneratorBase {
             '        return listValue.elements.map((item) => $elementTypeName.fromAbi(item)).toList();',
           );
           buffer.writeln('      }(),');
-        } else if (isEnum) {
+        } else if (isEnum || isExplicitEnum) {
           buffer.writeln('      ${field.name}: () {');
           buffer.writeln(
             '        final fieldValue = struct.getFieldValue(\'${field.abiName}\');',
@@ -411,9 +413,13 @@ final class EventModelsGenerator extends GeneratorBase {
   }
 
   bool _isListOfCustomStruct(AbiType type, SmartContractAbi abi) {
-    if (type is! ListType) return false;
-    final elementType = type.elementType;
-    return abi.types.containsKey(elementType.name);
+    if (type is ListType) {
+      return abi.types.containsKey(type.elementType.name);
+    }
+    if (type is ArrayType) {
+      return abi.types.containsKey(type.elementType.name);
+    }
+    return false;
   }
 
   String _getListElementTypeName(String dartType) {

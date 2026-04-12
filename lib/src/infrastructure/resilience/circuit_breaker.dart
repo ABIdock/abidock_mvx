@@ -19,6 +19,7 @@ class CircuitBreaker {
     this.failureThreshold = 3,
     this.timeout = const Duration(seconds: 10),
     this.retryDelay = const Duration(seconds: 15),
+    this.successThresholdForClose = 1,
     this.onOpen,
     this.onClose,
     this.onHalfOpen,
@@ -44,6 +45,12 @@ class CircuitBreaker {
 
   /// Wait time before attempting recovery.
   final Duration retryDelay;
+
+  /// Consecutive successes required in half-open state before closing circuit.
+  final int successThresholdForClose;
+
+  /// Consecutive success count in half-open state.
+  int _halfOpenSuccessCount = 0;
 
   /// Callback when circuit opens.
   final void Function()? onOpen;
@@ -97,17 +104,22 @@ class CircuitBreaker {
   /// Transition to half-open state.
   void _transitionToHalfOpen() {
     _state = CircuitState.halfOpen;
+    _halfOpenSuccessCount = 0;
     onHalfOpen?.call();
   }
 
   /// Handle successful operation.
   void _onSuccess() {
     _lastSuccessTime = DateTime.now();
+    _failureCount = 0;
 
     if (_state == CircuitState.halfOpen) {
-      _failureCount = 0;
-      _state = CircuitState.closed;
-      onClose?.call();
+      _halfOpenSuccessCount++;
+      if (_halfOpenSuccessCount >= successThresholdForClose) {
+        _halfOpenSuccessCount = 0;
+        _state = CircuitState.closed;
+        onClose?.call();
+      }
     }
   }
 
@@ -117,6 +129,7 @@ class CircuitBreaker {
     _lastFailureTime = DateTime.now();
 
     if (_state == CircuitState.halfOpen) {
+      _halfOpenSuccessCount = 0;
       _state = CircuitState.open;
       onOpen?.call();
     } else if (_failureCount >= failureThreshold) {

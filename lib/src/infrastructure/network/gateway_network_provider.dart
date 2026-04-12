@@ -8,6 +8,7 @@ import '../../core/transaction/transaction_on_network.dart';
 import '../../utils/helpers.dart';
 import '../logging/logger.dart';
 import 'base_network_provider.dart';
+import 'block_on_network.dart';
 import 'network_config.dart';
 import 'network_economics.dart';
 import 'network_status.dart';
@@ -148,6 +149,41 @@ class GatewayNetworkProvider extends BaseNetworkProvider {
       'address/${address.bech32}/nft';
 
   @override
+  String fungibleTokenDefinitionEndpoint(String identifier) =>
+      throw UnsupportedError(
+        'Fungible token definition is not exposed by the Gateway provider. '
+        'Use ApiNetworkProvider.getDefinitionOfFungibleToken instead.',
+      );
+
+  @override
+  String tokenCollectionDefinitionEndpoint(String collection) =>
+      throw UnsupportedError(
+        'Collection definition is not exposed by the Gateway provider. '
+        'Use ApiNetworkProvider.getDefinitionOfTokenCollection instead.',
+      );
+
+  @override
+  String nonFungibleInstanceEndpoint(String collection, int nonce) =>
+      throw UnsupportedError(
+        'NFT instance lookup is not exposed by the Gateway provider. '
+        'Use ApiNetworkProvider.getNonFungibleToken instead.',
+      );
+
+  @override
+  String blockByHashEndpoint(String hash) => 'block/by-hash/$hash';
+
+  @override
+  String latestBlockEndpoint(int shard) {
+    // Gateway: fetch network status to discover the latest observed nonce,
+    // then fetch the block. We cannot express this as a single path, so the
+    // endpoint hook returns a status path and the parser dispatches accordingly.
+    return 'network/status/$shard';
+  }
+
+  @override
+  String hyperblockByNonceEndpoint(int nonce) => 'hyperblock/by-nonce/$nonce';
+
+  @override
   NetworkConfig parseNetworkConfig(Map<String, dynamic> response) {
     final Map<String, dynamic> configData =
         optionalAs<Map<String, dynamic>>(response['config'], 'config') ??
@@ -197,7 +233,7 @@ class GatewayNetworkProvider extends BaseNetworkProvider {
     int txCount,
   ) {
     if (response is Map<String, dynamic>) {
-      final int numSent = int.parse(response['numOfSentTxs'].toString());
+      final int numSent = optionalAs<int>(response['numOfSentTxs'], 'numOfSentTxs') ?? 0;
       final Map<String, dynamic> txHashesMap =
           optionalAs<Map<String, dynamic>>(
             response['txsHashes'],
@@ -303,6 +339,93 @@ class GatewayNetworkProvider extends BaseNetworkProvider {
       }
     }
     return <TokenOnNetwork>[];
+  }
+
+  @override
+  TokenOnNetwork parseFungibleTokenDefinition(
+    dynamic response,
+    String identifier,
+  ) {
+    throw UnsupportedError(
+      'Fungible token definition is not exposed by the Gateway provider.',
+    );
+  }
+
+  @override
+  TokenOnNetwork parseTokenCollectionDefinition(
+    dynamic response,
+    String collection,
+  ) {
+    throw UnsupportedError(
+      'Collection definition is not exposed by the Gateway provider.',
+    );
+  }
+
+  @override
+  TokenOnNetwork parseNonFungibleInstance(
+    dynamic response,
+    String collection,
+    int nonce,
+  ) {
+    throw UnsupportedError(
+      'NFT instance lookup is not exposed by the Gateway provider.',
+    );
+  }
+
+  @override
+  BlockOnNetwork parseBlock(dynamic response) {
+    final Map<String, dynamic> data = requireAs<Map<String, dynamic>>(
+      response,
+      'response',
+    );
+    final Map<String, dynamic> blockData =
+        optionalAs<Map<String, dynamic>>(data['block'], 'block') ?? data;
+    return BlockOnNetwork.fromJson(blockData);
+  }
+
+  @override
+  HyperblockOnNetwork parseHyperblock(dynamic response) {
+    final Map<String, dynamic> data = requireAs<Map<String, dynamic>>(
+      response,
+      'response',
+    );
+    final Map<String, dynamic> hyperblock =
+        optionalAs<Map<String, dynamic>>(data['hyperblock'], 'hyperblock') ??
+        data;
+    return HyperblockOnNetwork.fromJson(hyperblock);
+  }
+
+  /// Fetches the latest block for [shard] via Gateway.
+  ///
+  /// Gateway does not expose a direct "latest block" endpoint, so this method
+  /// first reads `network/status/{shard}` to discover the current nonce and
+  /// then fetches the block by nonce.
+  @override
+  Future<BlockOnNetwork> getLatestBlock({int shard = 4294967295}) async {
+    logger?.debug(
+      'Fetching latest block via gateway',
+      context: <String, dynamic>{'shard': shard.toString()},
+    );
+
+    final dynamic statusResponse = await executeWithCircuitBreaker(
+      () => doGetGeneric('network/status/$shard'),
+    );
+    final Map<String, dynamic> statusData = requireAs<Map<String, dynamic>>(
+      statusResponse,
+      'response',
+    );
+    final Map<String, dynamic> status =
+        optionalAs<Map<String, dynamic>>(statusData['status'], 'status') ??
+        statusData;
+    final int nonce =
+        optionalInt(status['erd_nonce'], 'erd_nonce') ??
+        optionalInt(status['nonce'], 'nonce') ??
+        0;
+
+    final dynamic blockResponse = await executeWithCircuitBreaker(
+      () => doGetGeneric('block/by-nonce/$nonce?shard=$shard'),
+    );
+    return parseBlock(blockResponse);
   }
 
   @override

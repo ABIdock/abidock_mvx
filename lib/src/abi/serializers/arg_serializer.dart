@@ -115,7 +115,7 @@ class ArgSerializer {
   /// #### Parameters
   /// - `joinedString` - Hex string with @ separators
   List<Uint8List> stringToBuffers(String joinedString) {
-    if (joinedString.isEmpty) return <Uint8List>[Uint8List(0)];
+    if (joinedString.isEmpty) return <Uint8List>[];
 
     return joinedString
         .split(argumentsSeparator)

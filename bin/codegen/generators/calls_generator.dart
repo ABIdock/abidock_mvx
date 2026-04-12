@@ -404,11 +404,14 @@ class CallsGenerator extends GeneratorBase {
     for (final input in endpoint.inputs) {
       _collectTypeNames(input.type, types);
     }
+    for (final output in endpoint.outputs) {
+      _collectTypeNames(output.type, types);
+    }
     return types;
   }
 
   void _collectTypeNames(AbiType type, Set<String> types) {
-    if (type is StructType || type is EnumType) {
+    if (type is StructType || type is EnumType || type is ExplicitEnumType) {
       types.add(type.name);
     } else if (type is OptionType) {
       _collectTypeNames(type.innerType, types);
@@ -423,6 +426,10 @@ class CallsGenerator extends GeneratorBase {
     } else if (type is TupleType) {
       for (final elem in type.elementTypes) {
         _collectTypeNames(elem, types);
+      }
+    } else if (type is CompositeType) {
+      for (final field in type.fieldTypes) {
+        _collectTypeNames(field, types);
       }
     }
   }

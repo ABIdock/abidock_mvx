@@ -313,4 +313,29 @@ abstract interface class IBinaryCodec {
   /// #### Throws
   /// - `AbiBinaryCodecException` - If encoding fails
   Uint8List encodeNested(TypedValue value, {int depth = 0});
+
+  /// Encodes top-level value to buffer.
+  ///
+  /// #### Parameters
+  /// - `value` - Value to encode
+  ///
+  /// #### Returns
+  /// `Uint8List` - Binary representation
+  ///
+  /// #### Throws
+  /// - `AbiBinaryCodecException` - If encoding fails
+  Uint8List encodeTopLevel(TypedValue value);
+
+  /// Decodes top-level value from buffer.
+  ///
+  /// #### Parameters
+  /// - `buffer` - Buffer containing value
+  /// - `type` - Target ABI type
+  ///
+  /// #### Returns
+  /// `TypedValue` - Decoded value
+  ///
+  /// #### Throws
+  /// - `AbiBinaryCodecException` - If decoding fails
+  TypedValue decodeTopLevel(Uint8List buffer, AbiType type);
 }

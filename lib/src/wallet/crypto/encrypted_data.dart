@@ -55,6 +55,12 @@ class EncryptedData {
         'mac': final String mac,
       },
     }) {
+      final ScryptKeyDerivationParams params;
+      try {
+        params = ScryptKeyDerivationParams(n: n, r: r, p: p, dklen: dklen);
+      } on ArgumentError catch (e) {
+        throw FormatException('Invalid keystore KDF parameters: ${e.message}');
+      }
       return EncryptedData(
         version: version,
         id: id,
@@ -62,7 +68,7 @@ class EncryptedData {
         iv: iv,
         cipher: cipher,
         kdf: kdf,
-        kdfparams: ScryptKeyDerivationParams(n: n, r: r, p: p, dklen: dklen),
+        kdfparams: params,
         salt: salt,
         mac: mac,
       );

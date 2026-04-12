@@ -18,6 +18,7 @@ export 'network/account_storage.dart';
 export 'network/account_storage_entry.dart';
 export 'network/api_network_provider.dart';
 export 'network/base_network_provider.dart';
+export 'network/block_on_network.dart';
 export 'network/gateway_network_provider.dart';
 export 'network/network.dart';
 export 'network/network_config.dart';

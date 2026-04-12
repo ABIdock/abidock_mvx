@@ -67,7 +67,7 @@ class Encryptor {
     Uint8List? derivedKeySecondHalf;
 
     try {
-      const ScryptKeyDerivationParams kdParams = ScryptKeyDerivationParams();
+      final ScryptKeyDerivationParams kdParams = ScryptKeyDerivationParams();
       derivedKey = kdParams.generateDerivedKey(passwordBytes, randomness.salt);
 
       derivedKeyFirstHalf = derivedKey.sublist(0, 16);

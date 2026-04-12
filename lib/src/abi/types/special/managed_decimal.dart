@@ -315,15 +315,28 @@ final class ManagedDecimalValue extends TypedValue {
 
     BigInt fractionalPart = BigInt.zero;
     if (parts.length == 2) {
-      final String fractionalStr = parts[1].padRight(scale, '0');
-      if (fractionalStr.length > scale) {
-        throw ArgumentError.value(
-          value,
-          'value',
-          'Fractional part exceeds scale of $scale',
-        );
+      if (scale == 0) {
+        // When scale is 0, a fractional part is only valid if it's all zeros
+        final bool allZeros = parts[1].split('').every((String c) => c == '0');
+        if (!allZeros) {
+          throw ArgumentError.value(
+            value,
+            'value',
+            'Fractional part exceeds scale of $scale',
+          );
+        }
+        // fractionalPart remains BigInt.zero
+      } else {
+        final String fractionalStr = parts[1].padRight(scale, '0');
+        if (fractionalStr.length > scale) {
+          throw ArgumentError.value(
+            value,
+            'value',
+            'Fractional part exceeds scale of $scale',
+          );
+        }
+        fractionalPart = BigInt.parse(fractionalStr);
       }
-      fractionalPart = BigInt.parse(fractionalStr);
     }
 
     final BigInt multiplier = BigInt.from(10).pow(scale);
@@ -531,13 +544,17 @@ final class ManagedDecimalSignedValue extends ManagedDecimalValue {
     required int scale,
     bool isVariable = false,
   }) {
-    return ManagedDecimalValue.fromDouble(
-          value,
-          scale: scale,
-          isSigned: true,
-          isVariable: isVariable,
-        )
-        as ManagedDecimalSignedValue;
+    final ManagedDecimalValue parsed = ManagedDecimalValue.fromDouble(
+      value,
+      scale: scale,
+      isSigned: true,
+      isVariable: isVariable,
+    );
+    return ManagedDecimalSignedValue(
+      parsed.value,
+      scale: parsed.scale,
+      isVariable: isVariable,
+    );
   }
 
   /// Creates a signed ManagedDecimal from a string.
@@ -546,12 +563,16 @@ final class ManagedDecimalSignedValue extends ManagedDecimalValue {
     required int scale,
     bool isVariable = false,
   }) {
-    return ManagedDecimalValue.fromString(
-          value,
-          scale: scale,
-          isSigned: true,
-          isVariable: isVariable,
-        )
-        as ManagedDecimalSignedValue;
+    final ManagedDecimalValue parsed = ManagedDecimalValue.fromString(
+      value,
+      scale: scale,
+      isSigned: true,
+      isVariable: isVariable,
+    );
+    return ManagedDecimalSignedValue(
+      parsed.value,
+      scale: parsed.scale,
+      isVariable: isVariable,
+    );
   }
 }

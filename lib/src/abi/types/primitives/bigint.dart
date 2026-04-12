@@ -29,7 +29,7 @@ import 'numerical.dart';
 /// ```
 @immutable
 final class BigIntType extends NumericalType {
-  BigIntType._() : super(name: 'Bigint', sizeInBytes: null, isSigned: true);
+  BigIntType._() : super(name: 'BigInt', sizeInBytes: null, isSigned: true);
 
   static final BigIntType _instance = BigIntType._();
 
@@ -171,6 +171,12 @@ final class BigIntValue extends NumericalValue {
         bytes[i] = sum & 0xFF;
         carry = sum >> 8;
       }
+    }
+
+    if (!isNegative && bytes.isNotEmpty && (bytes[0] & 0x80) != 0) {
+      final Uint8List extended = Uint8List(bytes.length + 1);
+      extended.setRange(1, extended.length, bytes);
+      return extended;
     }
 
     return bytes;

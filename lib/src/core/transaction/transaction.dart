@@ -325,7 +325,7 @@ final class Transaction {
   @override
   String toString() {
     return 'Transaction{'
-        'function: $_data, '
+        'data: $_data, '
         'sender: ${sender.bech32}, '
         'receiver: ${receiver.bech32}, '
         'value: $value, '
@@ -473,7 +473,9 @@ final class Transaction {
       gasLimit: GasLimit(JsonUtils.parseInt(plain['gasLimit'], 50000)),
       gasPrice: GasPrice(JsonUtils.parseInt(plain['gasPrice'], 1000000000)),
       chainId: ChainId(optionalAs<String>(chainIdValue, 'chainId') ?? '1'),
-      version: TransactionVersion(JsonUtils.parseInt(plain['version'], 1)),
+      version: TransactionVersion.validated(
+        JsonUtils.parseInt(plain['version'], 1),
+      ),
       data: dataBytes ?? Uint8List(0),
       senderUsername: senderUsername,
       receiverUsername: receiverUsername,

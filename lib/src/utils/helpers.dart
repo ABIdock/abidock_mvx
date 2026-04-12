@@ -76,7 +76,7 @@ T infer<T>(T value) => value;
 /// Wraps the transaction creation in a try-catch block and converts
 /// generic exceptions into [TransactionCreationException].
 ///
-/// Rethrows [NetworkException], [ABIException], and [ValidationException]
+/// Rethrows [NetworkException], [SerializationException], and [ValidationException]
 /// as they already provide detailed error information.
 ///
 /// Example:

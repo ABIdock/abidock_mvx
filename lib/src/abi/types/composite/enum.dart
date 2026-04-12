@@ -32,7 +32,10 @@ final class EnumVariantDefinition {
     required this.name,
     required this.discriminant,
     this.fields,
-  });
+  }) : assert(
+         discriminant >= 0 && discriminant <= 255,
+         'Discriminant must be in u8 range (0-255)',
+       );
 
   /// Name of this variant.
   final String name;

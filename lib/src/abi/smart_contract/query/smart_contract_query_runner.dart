@@ -209,18 +209,37 @@ final class SmartContractQueryRunner {
   /// - `networkProvider` - Network provider for API calls
   /// - `abi` - Smart contract ABI for encoding/decoding
   /// - `logger` - Optional logger for debugging
-  SmartContractQueryRunner({
+  factory SmartContractQueryRunner({
+    required SmartContractAddress contractAddress,
+    required NetworkProvider networkProvider,
+    required SmartContractAbi abi,
+    Logger? logger,
+  }) {
+    final EndpointResolver resolver = EndpointResolver(abi, logger: logger);
+    return SmartContractQueryRunner._internal(
+      contractAddress: contractAddress,
+      networkProvider: networkProvider,
+      abi: abi,
+      endpointResolver: resolver,
+      responseParser: ResponseParser(
+        serializer: ArgSerializer(),
+        resolver: resolver,
+      ),
+      logger: logger,
+    );
+  }
+
+  SmartContractQueryRunner._internal({
     required this.contractAddress,
     required NetworkProvider networkProvider,
     required SmartContractAbi abi,
+    required EndpointResolver endpointResolver,
+    required ResponseParser responseParser,
     this.logger,
   }) : _networkProvider = networkProvider,
        _abi = abi,
-       _endpointResolver = EndpointResolver(abi, logger: logger),
-       _responseParser = ResponseParser(
-         serializer: ArgSerializer(),
-         resolver: EndpointResolver(abi, logger: logger),
-       ),
+       _endpointResolver = endpointResolver,
+       _responseParser = responseParser,
        _rawArgValidator = RawArgumentValidator(ArgSerializer());
 
   /// Creates query runner without ABI for raw [TypedValue] or [Uint8List] arguments.

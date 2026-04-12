@@ -170,13 +170,20 @@ class RetryHelper {
   }
 
   /// Calculates next delay using exponential backoff with jitter.
+  ///
+  /// Clamps the base delay to maxDelay before adding jitter so the
+  /// final delay never exceeds maxDelay plus the jitter allowance.
   Duration _calculateNextDelay(Duration currentDelay) {
     final int baseDelayMs =
         (currentDelay.inMilliseconds * config.backoffMultiplier).round();
 
+    final int clampedBaseMs = baseDelayMs > config.maxDelay.inMilliseconds
+        ? config.maxDelay.inMilliseconds
+        : baseDelayMs;
+
     final int jitterMs =
-        (baseDelayMs * config.jitterFactor * _random.nextDouble()).round();
-    final int delayWithJitterMs = baseDelayMs + jitterMs;
+        (clampedBaseMs * config.jitterFactor * _random.nextDouble()).round();
+    final int delayWithJitterMs = clampedBaseMs + jitterMs;
 
     final Duration nextDelay = Duration(milliseconds: delayWithJitterMs);
 

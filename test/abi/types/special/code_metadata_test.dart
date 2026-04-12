@@ -30,8 +30,7 @@ void main() {
     });
 
     test('should check flag constants and properties', () {
-      // Flag constants match MultiversX ABI spec (big-endian 16-bit layout)
-      // See: https://docs.multiversx.com/developers/data/code-metadata/#bit-flag-layout
+      // Flag constants use big-endian 16-bit layout
       expect(CodeMetadataValue.upgradeableFlag, 0x0100); // LSB of first byte
       expect(CodeMetadataValue.readableFlag, 0x0400); // 3rd LSB of first byte
       expect(CodeMetadataValue.payableFlag, 0x0002); // 2nd LSB of second byte

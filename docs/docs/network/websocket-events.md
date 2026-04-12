@@ -153,9 +153,6 @@ stream.statusChanges.listen((change) {
     case WebSocketStatus.error:
       print('Error occurred');
       break;
-    case WebSocketStatus.closed:
-      print('Connection closed');
-      break;
   }
 });
 ```
@@ -255,7 +252,7 @@ void main() async {
   await Future.delayed(Duration(minutes: 5));
   
   // Cleanup
-  await stream.close();
+  await stream.disconnect();
 
 }
 ```
@@ -276,14 +273,14 @@ print('Reconnect attempts: \${stream.reconnectAttempts}');
 
 ```dart
 // Close the WebSocket connection
-await stream.close();
+await stream.disconnect();
 ```
 
 ## Best Practices
 
 - Use `byIdentifiers` to filter events server-side (more efficient)
 - Provide the ABI for automatic event parsing into typed Dart objects
-- Always call `close()` when done
+- Always call `disconnect()` when done
 - Handle errors to prevent crashes
 - Auto-reconnect handles temporary disconnections
 

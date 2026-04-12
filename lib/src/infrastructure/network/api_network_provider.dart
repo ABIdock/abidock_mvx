@@ -9,6 +9,7 @@ import '../../utils/helpers.dart';
 import '../../utils/sdk_exceptions.dart';
 import '../logging/logger.dart';
 import 'base_network_provider.dart';
+import 'block_on_network.dart';
 import 'network_config.dart';
 import 'network_economics.dart';
 import 'network_status.dart';
@@ -152,6 +153,34 @@ class ApiNetworkProvider extends BaseNetworkProvider {
   @override
   String nonFungibleTokensEndpoint(Address address) =>
       'accounts/${address.bech32}/nfts';
+
+  @override
+  String fungibleTokenDefinitionEndpoint(String identifier) =>
+      'tokens/$identifier';
+
+  @override
+  String tokenCollectionDefinitionEndpoint(String collection) =>
+      'collections/$collection';
+
+  @override
+  String nonFungibleInstanceEndpoint(String collection, int nonce) {
+    final String nonceHex = nonce.toRadixString(16).padLeft(2, '0');
+    return 'nfts/$collection-$nonceHex';
+  }
+
+  @override
+  String blockByHashEndpoint(String hash) => 'blocks/$hash';
+
+  @override
+  String latestBlockEndpoint(int shard) =>
+      'blocks?shard=$shard&size=1';
+
+  @override
+  String hyperblockByNonceEndpoint(int nonce) =>
+      throw UnsupportedError(
+        'Hyperblocks are not exposed by the API provider. '
+        'Use GatewayNetworkProvider.getHyperblock instead.',
+      );
 
   @override
   NetworkConfig parseNetworkConfig(Map<String, dynamic> response) {
@@ -306,6 +335,82 @@ class ApiNetworkProvider extends BaseNetworkProvider {
   TokenOnNetwork parseTokenOfAccount(dynamic response, String tokenIdentifier) {
     return TokenOnNetwork.fromJson(
       requireAs<Map<String, dynamic>>(response, 'response'),
+    );
+  }
+
+  @override
+  TokenOnNetwork parseFungibleTokenDefinition(
+    dynamic response,
+    String identifier,
+  ) {
+    final Map<String, dynamic> data = requireAs<Map<String, dynamic>>(
+      response,
+      'response',
+    );
+    return TokenOnNetwork.fromJson(<String, dynamic>{
+      'identifier': data['identifier'] ?? identifier,
+      'balance': data['balance'] ?? '0',
+      'nonce': data['nonce'] ?? 0,
+      ...data,
+    });
+  }
+
+  @override
+  TokenOnNetwork parseTokenCollectionDefinition(
+    dynamic response,
+    String collection,
+  ) {
+    final Map<String, dynamic> data = requireAs<Map<String, dynamic>>(
+      response,
+      'response',
+    );
+    return TokenOnNetwork.fromJson(<String, dynamic>{
+      'identifier': data['collection'] ?? data['identifier'] ?? collection,
+      'collection': data['collection'] ?? collection,
+      'balance': data['balance'] ?? '0',
+      'nonce': data['nonce'] ?? 0,
+      ...data,
+    });
+  }
+
+  @override
+  TokenOnNetwork parseNonFungibleInstance(
+    dynamic response,
+    String collection,
+    int nonce,
+  ) {
+    final Map<String, dynamic> data = requireAs<Map<String, dynamic>>(
+      response,
+      'response',
+    );
+    final String nonceHex = nonce.toRadixString(16).padLeft(2, '0');
+    return TokenOnNetwork.fromJson(<String, dynamic>{
+      'identifier': data['identifier'] ?? '$collection-$nonceHex',
+      'collection': data['collection'] ?? collection,
+      'balance': data['balance'] ?? '1',
+      'nonce': data['nonce'] ?? nonce,
+      ...data,
+    });
+  }
+
+  @override
+  BlockOnNetwork parseBlock(dynamic response) {
+    if (response is List && response.isNotEmpty) {
+      final dynamic first = response.first;
+      return BlockOnNetwork.fromJson(
+        requireAs<Map<String, dynamic>>(first, 'blocks[0]'),
+      );
+    }
+    return BlockOnNetwork.fromJson(
+      requireAs<Map<String, dynamic>>(response, 'response'),
+    );
+  }
+
+  @override
+  HyperblockOnNetwork parseHyperblock(dynamic response) {
+    throw UnsupportedError(
+      'Hyperblocks are not exposed by the API provider. '
+      'Use GatewayNetworkProvider.getHyperblock instead.',
     );
   }
 

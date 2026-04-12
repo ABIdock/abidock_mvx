@@ -12,9 +12,11 @@ import '../types/primitives/bytes.dart';
 import '../types/primitives/numerical.dart';
 import '../types/primitives/string.dart';
 import '../types/special/code_metadata.dart';
+import '../types/special/composite.dart';
 import '../types/special/h256.dart';
 import '../types/special/managed_decimal.dart';
 import '../types/special/nothing.dart';
+import '../types/special/optional.dart';
 import '../types/special/token_identifier.dart';
 import '../types/special/variadic.dart';
 import 'type_system.dart';
@@ -97,16 +99,28 @@ T onTypeSelect<T>(AbiType type, TypeMatchCallbacks<T> callbacks) {
     return callbacks.onTokenIdentifier();
   }
 
+  if (type is EgldOrEsdtTokenIdentifierType) {
+    return callbacks.onEgldOrEsdtTokenIdentifier();
+  }
+
+  if (type is OptionalType) {
+    return callbacks.onOptional();
+  }
+
+  if (type is CompositeType) {
+    return callbacks.onComposite();
+  }
+
   if (type is CodeMetadataType) {
     return callbacks.onCodeMetadata();
   }
 
-  if (type is ManagedDecimalType) {
-    return callbacks.onManagedDecimal();
-  }
-
   if (type is ManagedDecimalSignedType) {
     return callbacks.onManagedDecimalSigned();
+  }
+
+  if (type is ManagedDecimalType) {
+    return callbacks.onManagedDecimal();
   }
 
   return callbacks.onOther();
@@ -185,16 +199,28 @@ T onTypedValueSelect<T>(TypedValue value, ValueMatchCallbacks<T> callbacks) {
     return callbacks.onTokenIdentifier();
   }
 
+  if (value is EgldOrEsdtTokenIdentifierValue) {
+    return callbacks.onEgldOrEsdtTokenIdentifier();
+  }
+
+  if (value is OptionalValue) {
+    return callbacks.onOptional();
+  }
+
+  if (value is CompositeValue) {
+    return callbacks.onComposite();
+  }
+
   if (value is CodeMetadataValue) {
     return callbacks.onCodeMetadata();
   }
 
-  if (value is ManagedDecimalValue) {
-    return callbacks.onManagedDecimal();
-  }
-
   if (value is ManagedDecimalSignedValue) {
     return callbacks.onManagedDecimalSigned();
+  }
+
+  if (value is ManagedDecimalValue) {
+    return callbacks.onManagedDecimal();
   }
 
   return callbacks.onOther();
@@ -217,6 +243,9 @@ class TypeMatchCallbacks<T> {
   /// - `onNothing` - Handler for Nothing type (optional)
   /// - `onH256` - Handler for H256 type (optional)
   /// - `onTokenIdentifier` - Handler for TokenIdentifier type (optional)
+  /// - `onEgldOrEsdtTokenIdentifier` - Handler for EgldOrEsdtTokenIdentifier type (optional)
+  /// - `onOptional` - Handler for Optional type (optional)
+  /// - `onComposite` - Handler for Composite type (optional)
   /// - `onCodeMetadata` - Handler for CodeMetadata type (optional)
   /// - `onManagedDecimal` - Handler for ManagedDecimal type (optional)
   /// - `onManagedDecimalSigned` - Handler for ManagedDecimalSigned type (optional)
@@ -237,6 +266,9 @@ class TypeMatchCallbacks<T> {
     TypeCallback<T>? onNothing,
     TypeCallback<T>? onH256,
     TypeCallback<T>? onTokenIdentifier,
+    TypeCallback<T>? onEgldOrEsdtTokenIdentifier,
+    TypeCallback<T>? onOptional,
+    TypeCallback<T>? onComposite,
     TypeCallback<T>? onCodeMetadata,
     TypeCallback<T>? onManagedDecimal,
     TypeCallback<T>? onManagedDecimalSigned,
@@ -254,6 +286,10 @@ class TypeMatchCallbacks<T> {
        onH256 = onH256 ?? _unsupported('H256 type'),
        onTokenIdentifier =
            onTokenIdentifier ?? _unsupported('TokenIdentifier type'),
+       onEgldOrEsdtTokenIdentifier = onEgldOrEsdtTokenIdentifier ??
+           _unsupported('EgldOrEsdtTokenIdentifier type'),
+       onOptional = onOptional ?? _unsupported('Optional type'),
+       onComposite = onComposite ?? _unsupported('Composite type'),
        onCodeMetadata = onCodeMetadata ?? _unsupported('CodeMetadata type'),
        onManagedDecimal =
            onManagedDecimal ?? _unsupported('ManagedDecimal type'),
@@ -297,6 +333,15 @@ class TypeMatchCallbacks<T> {
   /// Callback for TokenIdentifier type.
   final TypeCallback<T> onTokenIdentifier;
 
+  /// Callback for EgldOrEsdtTokenIdentifier type.
+  final TypeCallback<T> onEgldOrEsdtTokenIdentifier;
+
+  /// Callback for Optional type.
+  final TypeCallback<T> onOptional;
+
+  /// Callback for Composite type.
+  final TypeCallback<T> onComposite;
+
   /// Callback for CodeMetadata type.
   final TypeCallback<T> onCodeMetadata;
 
@@ -331,6 +376,9 @@ class ValueMatchCallbacks<T> {
   /// - `onNothing` - Handler for Nothing value (optional)
   /// - `onH256` - Handler for H256 value (optional)
   /// - `onTokenIdentifier` - Handler for TokenIdentifier value (optional)
+  /// - `onEgldOrEsdtTokenIdentifier` - Handler for EgldOrEsdtTokenIdentifier value (optional)
+  /// - `onOptional` - Handler for Optional value (optional)
+  /// - `onComposite` - Handler for Composite value (optional)
   /// - `onCodeMetadata` - Handler for CodeMetadata value (optional)
   /// - `onManagedDecimal` - Handler for ManagedDecimal value (optional)
   /// - `onManagedDecimalSigned` - Handler for ManagedDecimalSigned value (optional)
@@ -351,6 +399,9 @@ class ValueMatchCallbacks<T> {
     TypeCallback<T>? onNothing,
     TypeCallback<T>? onH256,
     TypeCallback<T>? onTokenIdentifier,
+    TypeCallback<T>? onEgldOrEsdtTokenIdentifier,
+    TypeCallback<T>? onOptional,
+    TypeCallback<T>? onComposite,
     TypeCallback<T>? onCodeMetadata,
     TypeCallback<T>? onManagedDecimal,
     TypeCallback<T>? onManagedDecimalSigned,
@@ -368,6 +419,10 @@ class ValueMatchCallbacks<T> {
        onH256 = onH256 ?? _unsupported('H256 value'),
        onTokenIdentifier =
            onTokenIdentifier ?? _unsupported('TokenIdentifier value'),
+       onEgldOrEsdtTokenIdentifier = onEgldOrEsdtTokenIdentifier ??
+           _unsupported('EgldOrEsdtTokenIdentifier value'),
+       onOptional = onOptional ?? _unsupported('Optional value'),
+       onComposite = onComposite ?? _unsupported('Composite value'),
        onCodeMetadata = onCodeMetadata ?? _unsupported('CodeMetadata value'),
        onManagedDecimal =
            onManagedDecimal ?? _unsupported('ManagedDecimal value'),
@@ -410,6 +465,15 @@ class ValueMatchCallbacks<T> {
 
   /// Callback for TokenIdentifier value.
   final TypeCallback<T> onTokenIdentifier;
+
+  /// Callback for EgldOrEsdtTokenIdentifier value.
+  final TypeCallback<T> onEgldOrEsdtTokenIdentifier;
+
+  /// Callback for Optional value.
+  final TypeCallback<T> onOptional;
+
+  /// Callback for Composite value.
+  final TypeCallback<T> onComposite;
 
   /// Callback for CodeMetadata value.
   final TypeCallback<T> onCodeMetadata;

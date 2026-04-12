@@ -194,10 +194,10 @@ final class I32Value extends IntNumericalValue {
   bool operator >(I32Value other) => greaterThan(other);
   bool operator >=(I32Value other) => greaterThanOrEqual(other);
 
-  I32Value operator &(I32Value other) => I32Value(value & other.value);
-  I32Value operator |(I32Value other) => I32Value(value | other.value);
-  I32Value operator ^(I32Value other) => I32Value(value ^ other.value);
-  I32Value operator ~() => I32Value(~value);
-  I32Value operator <<(int shift) => I32Value(value << shift);
-  I32Value operator >>(int shift) => I32Value(value >> shift);
+  I32Value operator &(I32Value other) => createInstance(value & other.value);
+  I32Value operator |(I32Value other) => createInstance(value | other.value);
+  I32Value operator ^(I32Value other) => createInstance(value ^ other.value);
+  I32Value operator ~() => createInstance(~value);
+  I32Value operator <<(int shift) => createInstance(value << shift);
+  I32Value operator >>(int shift) => createInstance(value >> shift);
 }

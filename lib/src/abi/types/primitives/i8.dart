@@ -160,7 +160,7 @@ final class I8Value extends IntNumericalValue {
 
   static final List<Uint8List> _precomputed = List.generate(
     256,
-    (i) => Uint8List(1)..[0] = i - 128,
+    (i) => Uint8List(1)..[0] = (i - 128) & 0xFF,
     growable: false,
   );
 
@@ -180,10 +180,10 @@ final class I8Value extends IntNumericalValue {
   bool operator >(I8Value other) => greaterThan(other);
   bool operator >=(I8Value other) => greaterThanOrEqual(other);
 
-  I8Value operator &(I8Value other) => I8Value(value & other.value);
-  I8Value operator |(I8Value other) => I8Value(value | other.value);
-  I8Value operator ^(I8Value other) => I8Value(value ^ other.value);
-  I8Value operator ~() => I8Value(~value);
-  I8Value operator <<(int shift) => I8Value(value << shift);
-  I8Value operator >>(int shift) => I8Value(value >> shift);
+  I8Value operator &(I8Value other) => createInstance(value & other.value);
+  I8Value operator |(I8Value other) => createInstance(value | other.value);
+  I8Value operator ^(I8Value other) => createInstance(value ^ other.value);
+  I8Value operator ~() => createInstance(~value);
+  I8Value operator <<(int shift) => createInstance(value << shift);
+  I8Value operator >>(int shift) => createInstance(value >> shift);
 }

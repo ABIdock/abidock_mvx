@@ -523,4 +523,14 @@ class _BinaryCodecStub implements IBinaryCodec {
   Uint8List encodeNested(TypedValue value, {int depth = 0}) {
     return _codec.encodeNested(value, depth: depth + 1);
   }
+
+  @override
+  Uint8List encodeTopLevel(TypedValue value) {
+    return _codec.encodeTopLevel(value);
+  }
+
+  @override
+  TypedValue decodeTopLevel(Uint8List buffer, AbiType type) {
+    return _codec.decodeTopLevel(buffer, type);
+  }
 }

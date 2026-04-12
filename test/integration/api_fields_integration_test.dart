@@ -240,13 +240,13 @@ void main() {
         mainnetTxHashWithScResults,
       );
 
-      expect(tx.smartContractResults, isA<List<Map<String, dynamic>>?>());
+      expect(tx.smartContractResults, isA<List<SmartContractResult>?>());
       if (tx.smartContractResults != null &&
           tx.smartContractResults!.isNotEmpty) {
         final scr = tx.smartContractResults!.first;
-        expect(scr['hash'], isNotEmpty);
-        expect(scr['sender'], isNotEmpty);
-        expect(scr['receiver'], isNotEmpty);
+        expect(scr.hash, isNotEmpty);
+        expect(scr.sender.bech32, isNotEmpty);
+        expect(scr.receiver.bech32, isNotEmpty);
       }
     });
 
@@ -555,11 +555,11 @@ void main() {
       () async {
         final tx = await gatewayMainnet.getTransaction(mainnetTxHash);
 
-        expect(tx.smartContractResults, isA<List<Map<String, dynamic>>?>());
+        expect(tx.smartContractResults, isA<List<SmartContractResult>?>());
         if (tx.smartContractResults != null &&
             tx.smartContractResults!.isNotEmpty) {
           final scr = tx.smartContractResults!.first;
-          expect(scr['hash'], isNotEmpty);
+          expect(scr.hash, isNotEmpty);
         }
       },
     );

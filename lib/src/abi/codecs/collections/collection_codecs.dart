@@ -28,30 +28,26 @@ class OptionBinaryCodec with ValidationMixin {
 
   /// Decodes Option from top-level buffer.
   ///
+  /// Top-level Option has no marker byte.
+  /// Empty buffer = None, non-empty = Some(top-level decoded inner).
+  ///
   /// #### Parameters
-  /// - `buffer` - Binary data (empty for None, 0x01+value for Some)
+  /// - `buffer` - Binary data (empty for None, top-level inner for Some)
   /// - `type` - Option type specification
   ///
   /// #### Returns
   /// `OptionValue` - Decoded value
   ///
   /// #### Throws
-  /// - `AbiBinaryCodecException` - If marker invalid or inner value decode fails
+  /// - `AbiBinaryCodecException` - If inner value decode fails
   OptionValue decodeTopLevel(Uint8List buffer, OptionType type) {
     if (buffer.isEmpty) {
       return OptionValue.none(type);
     }
 
-    if (buffer[0] != 0x01) {
-      throw const AbiBinaryCodecException(
-        'Invalid marker for Option (expected 0x01)',
-      );
-    }
-
-    final (TypedValue innerValue, _) = binaryCodec.decodeNested(
-      buffer.sublist(1),
+    final TypedValue innerValue = binaryCodec.decodeTopLevel(
+      buffer,
       type.innerType,
-      0,
     );
     return OptionValue.some(type, innerValue);
   }
@@ -96,11 +92,14 @@ class OptionBinaryCodec with ValidationMixin {
 
   /// Encodes Option for top-level.
   ///
+  /// Top-level Option has no marker byte.
+  /// None = empty buffer, Some = top-level encoded inner value.
+  ///
   /// #### Parameters
   /// - `value` - Option value to encode
   ///
   /// #### Returns
-  /// `Uint8List` - Empty for None, or 0x01+encoded value for Some
+  /// `Uint8List` - Empty for None, or top-level encoded inner for Some
   ///
   /// #### Throws
   /// - `AbiBinaryCodecException` - If validation fails
@@ -111,11 +110,7 @@ class OptionBinaryCodec with ValidationMixin {
       return BinaryCodecUtils.emptyBuffer;
     }
 
-    final Uint8List innerBytes = binaryCodec.encodeNested(value.value!);
-    return (BinaryBuilder()
-          ..addBytes(_marker01)
-          ..addBytes(innerBytes))
-        .toBytes();
+    return binaryCodec.encodeTopLevel(value.value!);
   }
 
   /// Encodes Option for nested.
@@ -150,12 +145,12 @@ class OptionBinaryCodec with ValidationMixin {
   void _validateOptionValue(OptionValue value) {
     if (value.isNone && value.value != null) {
       throw const AbiBinaryCodecException(
-        'Option marked as None but contains value - data corruption detected',
+        'Option marked as None but contains a value',
       );
     }
     if (!value.isNone && value.value == null) {
       throw const AbiBinaryCodecException(
-        'Option marked as Some but value is null - data corruption detected',
+        'Option marked as Some but value is null',
       );
     }
   }

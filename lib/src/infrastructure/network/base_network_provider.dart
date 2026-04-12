@@ -19,6 +19,7 @@ import '../resilience/circuit_breaker.dart';
 import '../resilience/circuit_breaker_exception.dart';
 import 'account_storage.dart';
 import 'account_storage_entry.dart';
+import 'block_on_network.dart';
 import 'network_config.dart';
 import 'network_provider.dart';
 import 'network_status.dart';
@@ -156,6 +157,30 @@ abstract class BaseNetworkProvider implements NetworkProvider {
   @protected
   String nonFungibleTokensEndpoint(Address address);
 
+  /// Endpoint for fungible-token metadata lookup.
+  @protected
+  String fungibleTokenDefinitionEndpoint(String identifier);
+
+  /// Endpoint for collection (NFT/SFT/MetaESDT) metadata lookup.
+  @protected
+  String tokenCollectionDefinitionEndpoint(String collection);
+
+  /// Endpoint for a single NFT / SFT / MetaESDT instance by `collection-nonceHex`.
+  @protected
+  String nonFungibleInstanceEndpoint(String collection, int nonce);
+
+  /// Endpoint for fetching a block by hash.
+  @protected
+  String blockByHashEndpoint(String hash);
+
+  /// Endpoint for fetching the latest block for a shard.
+  @protected
+  String latestBlockEndpoint(int shard);
+
+  /// Endpoint for fetching a hyperblock by nonce.
+  @protected
+  String hyperblockByNonceEndpoint(int nonce);
+
   /// Parses NetworkConfig from response.
   @protected
   NetworkConfig parseNetworkConfig(Map<String, dynamic> response);
@@ -203,6 +228,30 @@ abstract class BaseNetworkProvider implements NetworkProvider {
   /// Parses single token from response.
   @protected
   TokenOnNetwork parseTokenOfAccount(dynamic response, String tokenIdentifier);
+
+  /// Parses a fungible-token definition payload.
+  @protected
+  TokenOnNetwork parseFungibleTokenDefinition(dynamic response, String identifier);
+
+  /// Parses a collection definition payload.
+  @protected
+  TokenOnNetwork parseTokenCollectionDefinition(dynamic response, String collection);
+
+  /// Parses a single NFT instance payload.
+  @protected
+  TokenOnNetwork parseNonFungibleInstance(
+    dynamic response,
+    String collection,
+    int nonce,
+  );
+
+  /// Parses a block payload.
+  @protected
+  BlockOnNetwork parseBlock(dynamic response);
+
+  /// Parses a hyperblock payload.
+  @protected
+  HyperblockOnNetwork parseHyperblock(dynamic response);
 
   /// Extracts data from generic GET response.
   @protected
@@ -636,6 +685,110 @@ abstract class BaseNetworkProvider implements NetworkProvider {
     );
 
     return parseNonFungibleTokens(response);
+  }
+
+  @override
+  Future<TokenOnNetwork> getDefinitionOfFungibleToken(String identifier) async {
+    logger?.debug(
+      'Fetching fungible token definition',
+      context: <String, dynamic>{'identifier': identifier},
+    );
+
+    final response = await executeWithCircuitBreaker(
+      () => doGetGeneric(fungibleTokenDefinitionEndpoint(identifier)),
+    );
+
+    return parseFungibleTokenDefinition(response, identifier);
+  }
+
+  @override
+  Future<TokenOnNetwork> getDefinitionOfTokenCollection(
+    String collection,
+  ) async {
+    logger?.debug(
+      'Fetching token collection definition',
+      context: <String, dynamic>{'collection': collection},
+    );
+
+    final response = await executeWithCircuitBreaker(
+      () => doGetGeneric(tokenCollectionDefinitionEndpoint(collection)),
+    );
+
+    return parseTokenCollectionDefinition(response, collection);
+  }
+
+  @override
+  Future<TokenOnNetwork> getNonFungibleToken(
+    String collection,
+    int nonce,
+  ) async {
+    if (nonce <= 0) {
+      throw ArgumentError.value(
+        nonce,
+        'nonce',
+        'NFT/SFT/MetaESDT nonce must be positive',
+      );
+    }
+
+    logger?.debug(
+      'Fetching NFT instance',
+      context: <String, dynamic>{
+        'collection': collection,
+        'nonce': nonce.toString(),
+      },
+    );
+
+    final response = await executeWithCircuitBreaker(
+      () => doGetGeneric(nonFungibleInstanceEndpoint(collection, nonce)),
+    );
+
+    return parseNonFungibleInstance(response, collection, nonce);
+  }
+
+  @override
+  Future<BlockOnNetwork> getBlock(String hash) async {
+    logger?.debug(
+      'Fetching block',
+      context: <String, dynamic>{'hash': hash},
+    );
+
+    final response = await executeWithCircuitBreaker(
+      () => doGetGeneric(blockByHashEndpoint(hash)),
+    );
+
+    return parseBlock(response);
+  }
+
+  @override
+  Future<BlockOnNetwork> getLatestBlock({int shard = 4294967295}) async {
+    logger?.debug(
+      'Fetching latest block',
+      context: <String, dynamic>{'shard': shard.toString()},
+    );
+
+    final response = await executeWithCircuitBreaker(
+      () => doGetGeneric(latestBlockEndpoint(shard)),
+    );
+
+    return parseBlock(response);
+  }
+
+  @override
+  Future<HyperblockOnNetwork> getHyperblock(int nonce) async {
+    if (nonce < 0) {
+      throw ArgumentError.value(nonce, 'nonce', 'Hyperblock nonce must be >= 0');
+    }
+
+    logger?.debug(
+      'Fetching hyperblock',
+      context: <String, dynamic>{'nonce': nonce.toString()},
+    );
+
+    final response = await executeWithCircuitBreaker(
+      () => doGetGeneric(hyperblockByNonceEndpoint(nonce)),
+    );
+
+    return parseHyperblock(response);
   }
 
   @override

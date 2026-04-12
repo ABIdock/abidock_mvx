@@ -170,9 +170,16 @@ class TransactionOnNetwork {
         optionalAs<String>(data['status'], 'status') ?? 'pending';
     final TransactionStatus status = TransactionStatus(statusStr);
     final String? dataStr = optionalAs<String>(data['data'], 'data');
-    final Uint8List dataBytes = dataStr != null
-        ? Uint8List.fromList(base64Decode(dataStr))
-        : Uint8List(0);
+    Uint8List dataBytes;
+    if (dataStr != null) {
+      try {
+        dataBytes = Uint8List.fromList(base64Decode(dataStr));
+      } catch (_) {
+        dataBytes = Uint8List.fromList(utf8.encode(dataStr));
+      }
+    } else {
+      dataBytes = Uint8List(0);
+    }
 
     final String? signatureStr = optionalAs<String>(
       data['signature'],
@@ -197,7 +204,9 @@ class TransactionOnNetwork {
       chainId: ChainId.fromApiResponse(
         optionalAs<String>(data['chainID'], 'chainID'),
       ),
-      version: TransactionVersion((data['version'] as num?)?.toInt() ?? 1),
+      version: TransactionVersion.validated(
+        (data['version'] as num?)?.toInt() ?? 1,
+      ),
       signature: signature,
     );
 
@@ -238,7 +247,10 @@ class TransactionOnNetwork {
       smartContractResults: (optionalAs<List<dynamic>>(
         data['smartContractResults'],
         'smartContractResults',
-      ))?.cast<Map<String, dynamic>>(),
+      ))?.map((dynamic e) => SmartContractResult.fromJson(
+          requireAs<Map<String, dynamic>>(e, 'smartContractResults[]'),
+        ))
+          .toList(),
       logs: logs,
       gasUsed: (data['gasUsed'] as num?)?.toInt(),
       fee: optionalAs<String>(data['fee'], 'fee'),
@@ -333,8 +345,12 @@ class TransactionOnNetwork {
   /// Execution receipt with gas usage.
   final Map<String, dynamic>? executionReceipt;
 
-  /// Smart contract results generated.
-  final List<Map<String, dynamic>>? smartContractResults;
+  /// Smart contract results generated (parsed into typed form).
+  ///
+  /// Each entry carries the decoded `returnCode`, hex-decoded `returnData`,
+  /// and VM call-type metadata, so callers don't have to re-parse the raw
+  /// `@`-delimited data string themselves.
+  final List<SmartContractResult>? smartContractResults;
 
   /// Event logs emitted by transaction.
   final TransactionLogs? logs;
@@ -535,7 +551,7 @@ class TransactionOnNetwork {
     int? timestamp,
     String? function,
     Map<String, dynamic>? executionReceipt,
-    List<Map<String, dynamic>>? smartContractResults,
+    List<SmartContractResult>? smartContractResults,
     TransactionLogs? logs,
     int? gasUsed,
     String? fee,

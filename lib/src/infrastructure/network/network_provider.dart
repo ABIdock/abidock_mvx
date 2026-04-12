@@ -8,6 +8,7 @@ import '../../core/transaction/transaction_on_network.dart';
 import '../../core/transaction/transaction_status.dart';
 import 'account_storage.dart';
 import 'account_storage_entry.dart';
+import 'block_on_network.dart';
 import 'network_config.dart';
 import 'network_economics.dart';
 import 'network_status.dart';
@@ -291,6 +292,114 @@ abstract interface class NetworkProvider {
   /// #### Returns
   /// `List<TokenOnNetwork>` - All NFTs owned by account
   Future<List<TokenOnNetwork>> getNonFungibleTokensOfAccount(Address address);
+
+  /// Fetches on-chain definition of a fungible ESDT.
+  ///
+  /// Returns metadata such as name, ticker, decimals, supply, and capability
+  /// flags (`canMint`, `canBurn`, `canPause`, ...). The result is balance-less
+  /// — this is token-level data, not account-bound.
+  ///
+  /// #### Parameters
+  /// - `identifier` - Token identifier (e.g., `WEGLD-bd4d79`)
+  ///
+  /// #### Returns
+  /// `TokenOnNetwork` - Token definition with metadata and capabilities
+  ///
+  /// #### Throws
+  /// - `UnsupportedError` - If called on a provider that does not index token metadata
+  /// - `NetworkException` - If the token does not exist or the request fails
+  ///
+  /// #### Example
+  /// ```dart
+  /// final token = await provider.getDefinitionOfFungibleToken('WEGLD-bd4d79');
+  /// print('${token.name} (${token.ticker}) — ${token.decimals} decimals');
+  /// print('Supply: ${token.supply}');
+  /// ```
+  Future<TokenOnNetwork> getDefinitionOfFungibleToken(String identifier);
+
+  /// Fetches on-chain definition of an NFT/SFT/MetaESDT collection.
+  ///
+  /// Returns collection-level metadata (name, ticker, type, capabilities).
+  /// Individual NFT instances are retrieved via [getNonFungibleToken].
+  ///
+  /// #### Parameters
+  /// - `collection` - Collection identifier (e.g., `EROBOT-527a29`)
+  ///
+  /// #### Returns
+  /// `TokenOnNetwork` - Collection definition with metadata and capabilities
+  ///
+  /// #### Throws
+  /// - `UnsupportedError` - If called on a provider that does not index collections
+  /// - `NetworkException` - If the collection does not exist
+  ///
+  /// #### Example
+  /// ```dart
+  /// final collection = await provider.getDefinitionOfTokenCollection('EROBOT-527a29');
+  /// print('Type: ${collection.type}');  // NonFungibleESDT, SemiFungibleESDT, MetaESDT
+  /// ```
+  Future<TokenOnNetwork> getDefinitionOfTokenCollection(String collection);
+
+  /// Fetches a specific NFT / SFT / MetaESDT instance.
+  ///
+  /// Returns instance-level fields (nonce, attributes, URIs, royalties, metadata)
+  /// in addition to collection metadata.
+  ///
+  /// #### Parameters
+  /// - `collection` - Collection identifier (e.g., `EROBOT-527a29`)
+  /// - `nonce` - Positive instance nonce
+  ///
+  /// #### Returns
+  /// `TokenOnNetwork` - NFT instance with full metadata
+  ///
+  /// #### Throws
+  /// - `UnsupportedError` - If called on a provider that does not index NFTs
+  /// - `NetworkException` - If the instance does not exist
+  ///
+  /// #### Example
+  /// ```dart
+  /// final nft = await provider.getNonFungibleToken('EROBOT-527a29', 42);
+  /// print('Name: ${nft.name}');
+  /// print('URIs: ${nft.uris}');
+  /// print('Royalties: ${nft.royalties}');
+  /// ```
+  Future<TokenOnNetwork> getNonFungibleToken(String collection, int nonce);
+
+  /// Fetches block metadata by hash.
+  ///
+  /// #### Parameters
+  /// - `hash` - Block hash (hex)
+  ///
+  /// #### Returns
+  /// `BlockOnNetwork` - Block metadata including round, epoch, shard, nonce, prevHash
+  ///
+  /// #### Throws
+  /// - `NetworkException` - If block is not found
+  Future<BlockOnNetwork> getBlock(String hash);
+
+  /// Fetches the most recently observed block for the given shard.
+  ///
+  /// #### Parameters
+  /// - `shard` - Shard ID (0, 1, 2, or `4294967295` for metachain; defaults to metachain)
+  ///
+  /// #### Returns
+  /// `BlockOnNetwork` - Latest block for the shard
+  Future<BlockOnNetwork> getLatestBlock({int shard});
+
+  /// Fetches a hyperblock (cross-shard finalized block) by nonce.
+  ///
+  /// A hyperblock aggregates the latest metablock and all shard miniblocks,
+  /// representing a fully finalized snapshot across shards.
+  ///
+  /// #### Parameters
+  /// - `nonce` - Hyperblock nonce
+  ///
+  /// #### Returns
+  /// `HyperblockOnNetwork` - Hyperblock with nonce, hash, shard blocks, and included transactions
+  ///
+  /// #### Throws
+  /// - `UnsupportedError` - If called on a provider that does not expose hyperblocks
+  /// - `NetworkException` - If the hyperblock does not exist
+  Future<HyperblockOnNetwork> getHyperblock(int nonce);
 
   /// Performs generic GET request.
   ///

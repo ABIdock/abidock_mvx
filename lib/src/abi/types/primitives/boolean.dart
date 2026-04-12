@@ -70,7 +70,7 @@ final class BooleanType extends PrimitiveType {
     throw ArgumentError.value(
       nativeValue,
       'nativeValue',
-      'BooleanType requires bool or int value',
+      'BooleanType requires bool value',
     );
   }
 

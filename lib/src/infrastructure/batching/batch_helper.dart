@@ -360,17 +360,19 @@ class _Semaphore {
       return;
     }
 
+    // Increment count before awaiting to prevent race conditions where
+    // multiple waiters could be released simultaneously.
+    _currentCount++;
     final Completer<void> completer = Completer<void>();
     _waiters.add(completer);
     await completer.future;
   }
 
   void release() {
+    _currentCount--;
     if (_waiters.isNotEmpty) {
       final Completer<void> completer = _waiters.removeAt(0);
       completer.complete();
-    } else {
-      _currentCount--;
     }
   }
 }

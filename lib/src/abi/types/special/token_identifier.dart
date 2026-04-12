@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:meta/meta.dart';
@@ -156,11 +157,11 @@ final class TokenIdentifierValue extends TypedValue {
       );
     }
 
-    if (!RegExp(r'^[A-Za-z0-9]+-[a-f0-9]+$').hasMatch(identifier)) {
+    if (!RegExp(r'^[A-Za-z0-9]+-[a-f0-9]{6}$').hasMatch(identifier)) {
       throw ArgumentError.value(
         identifier,
         'identifier',
-        'TokenIdentifier must match format: TICKER-hexrandom (use EgldOrEsdtTokenIdentifierType for EGLD)',
+        'TokenIdentifier must match format: TICKER-hexrandom (6-char hex suffix, use EgldOrEsdtTokenIdentifierType for EGLD)',
       );
     }
   }
@@ -176,7 +177,7 @@ final class TokenIdentifierValue extends TypedValue {
 
   @pragma('vm:prefer-inline')
   @override
-  List<int> toBytes() => Uint8List.fromList(identifier.codeUnits);
+  List<int> toBytes() => Uint8List.fromList(utf8.encode(identifier));
 
   /// Ticker part (before dash).
   String get ticker {
@@ -346,11 +347,11 @@ final class EgldOrEsdtTokenIdentifierValue extends TypedValue {
       return;
     }
 
-    if (!RegExp(r'^[A-Za-z0-9]+-[a-f0-9]+$').hasMatch(identifier)) {
+    if (!RegExp(r'^[A-Za-z0-9]+-[a-f0-9]{6}$').hasMatch(identifier)) {
       throw ArgumentError.value(
         identifier,
         'identifier',
-        'EgldOrEsdtTokenIdentifier must be either "EGLD" or match format: TICKER-hexrandom',
+        'EgldOrEsdtTokenIdentifier must be either "EGLD" or match format: TICKER-hexrandom (6-char hex suffix)',
       );
     }
   }
@@ -372,7 +373,7 @@ final class EgldOrEsdtTokenIdentifierValue extends TypedValue {
 
   @pragma('vm:prefer-inline')
   @override
-  List<int> toBytes() => Uint8List.fromList(identifier.codeUnits);
+  List<int> toBytes() => Uint8List.fromList(utf8.encode(identifier));
 
   String get ticker {
     if (isEgld) return 'EGLD';

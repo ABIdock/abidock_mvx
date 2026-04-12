@@ -198,6 +198,10 @@ class LRUCache<K, V> {
     }
 
     if (_cache.length >= maxSize) {
+      removeExpired();
+    }
+
+    if (_cache.length >= maxSize) {
       _evictLRU();
     }
 

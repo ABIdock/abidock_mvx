@@ -101,6 +101,31 @@ class TransactionStatus {
   /// ```
   static const TransactionStatus success = TransactionStatus('success');
 
+  /// Transaction was not executable in its block.
+  ///
+  /// Indicates the transaction was proposed but could not be executed.
+  /// This is NOT a final state — the transaction may be retried in a
+  /// subsequent block.
+  ///
+  /// #### Example
+  /// ```dart
+  /// if (txStatus == TransactionStatus.notExecutable) {
+  ///   print('Transaction not executable in this block, will be retried');
+  /// }
+  /// ```
+  static const TransactionStatus notExecutable =
+      TransactionStatus('not-executable-in-block');
+
+  /// Transaction was recalled (relayed v3 / future protocol support).
+  ///
+  /// #### Example
+  /// ```dart
+  /// if (txStatus == TransactionStatus.recalled) {
+  ///   print('Transaction was recalled by relayer');
+  /// }
+  /// ```
+  static const TransactionStatus recalled = TransactionStatus('recalled');
+
   /// Raw status string from blockchain.
   final String status;
 
@@ -170,6 +195,22 @@ class TransactionStatus {
   /// ```
   bool get isInvalid => status.toLowerCase() == 'invalid';
 
+  /// Checks if transaction was not executable in its block.
+  ///
+  /// This is NOT a final state. The transaction may be retried in a
+  /// subsequent block by the protocol.
+  ///
+  /// #### Returns
+  /// `bool` - True if status is 'not-executable-in-block'
+  bool get isNotExecutableInBlock =>
+      status.toLowerCase() == 'not-executable-in-block';
+
+  /// Checks if transaction was recalled.
+  ///
+  /// #### Returns
+  /// `bool` - True if status is 'recalled'
+  bool get isRecalled => status.toLowerCase() == 'recalled';
+
   /// Checks if transaction has completed.
   ///
   /// #### Returns
@@ -184,7 +225,7 @@ class TransactionStatus {
   /// }
   /// print('Transaction finalized');
   /// ```
-  bool get isFinal => !isPending;
+  bool get isFinal => isExecuted || isFailed || isInvalid || isRecalled;
 
   /// Checks if transaction completed successfully.
   ///

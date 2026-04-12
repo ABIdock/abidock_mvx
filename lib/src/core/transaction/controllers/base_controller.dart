@@ -115,8 +115,7 @@ class BaseController {
     int newGasLimit = transaction.gasLimit.value;
     final originalGasLimit = transaction.gasLimit.value;
 
-    if (transaction.guardian != null &&
-        transaction.guardian != Address.zero()) {
+    if (transaction.guardian != null && !transaction.guardian!.isZero) {
       newGasLimit = newGasLimit + extraGasLimitForGuardedTransactions;
       logger?.debug(
         'Adding extra gas for guardian transaction',
@@ -129,7 +128,7 @@ class BaseController {
       );
     }
 
-    if (transaction.relayer != null && transaction.relayer != Address.zero()) {
+    if (transaction.relayer != null && !transaction.relayer!.isZero) {
       newGasLimit = newGasLimit + extraGasLimitForRelayedTransactions;
       if (extraGasLimitForRelayedTransactions > 0) {
         logger?.debug(
@@ -255,8 +254,7 @@ class BaseController {
   /// // Result: version=2, options=2 (GuardedTransaction flag)
   /// ```
   Transaction setVersionAndOptionsForGuardian(Transaction transaction) {
-    if (transaction.guardian != null &&
-        transaction.guardian != Address.zero()) {
+    if (transaction.guardian != null && !transaction.guardian!.isZero) {
       logger?.debug(
         'Configuring guardian transaction',
         context: {

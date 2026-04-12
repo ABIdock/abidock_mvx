@@ -332,7 +332,7 @@ class TokenIdentifierBinaryCodec with ValidationMixin {
   /// #### Returns
   /// `TokenIdentifierValue` - Decoded identifier
   TokenIdentifierValue decodeTopLevel(Uint8List buffer) {
-    final String identifier = String.fromCharCodes(buffer);
+    final String identifier = utf8.decode(buffer);
     return TokenIdentifierValue(identifier);
   }
 
@@ -344,7 +344,7 @@ class TokenIdentifierBinaryCodec with ValidationMixin {
   /// #### Returns
   /// `EgldOrEsdtTokenIdentifierValue` - Decoded identifier
   EgldOrEsdtTokenIdentifierValue decodeTopLevelAsEgldOrEsdt(Uint8List buffer) {
-    final String identifier = String.fromCharCodes(buffer);
+    final String identifier = utf8.decode(buffer);
     return EgldOrEsdtTokenIdentifierValue(identifier);
   }
 
@@ -372,7 +372,7 @@ class TokenIdentifierBinaryCodec with ValidationMixin {
       offset + lengthBytes,
       endOffset,
     );
-    final String identifier = String.fromCharCodes(identifierBytes);
+    final String identifier = utf8.decode(identifierBytes);
     return (TokenIdentifierValue(identifier), lengthBytes + length);
   }
 
@@ -408,7 +408,7 @@ class TokenIdentifierBinaryCodec with ValidationMixin {
       offset + lengthBytes,
       endOffset,
     );
-    final String identifier = String.fromCharCodes(identifierBytes);
+    final String identifier = utf8.decode(identifierBytes);
     return (EgldOrEsdtTokenIdentifierValue(identifier), lengthBytes + length);
   }
 
@@ -420,7 +420,7 @@ class TokenIdentifierBinaryCodec with ValidationMixin {
   /// #### Returns
   /// `Uint8List` - ASCII/UTF-8 bytes of identifier
   Uint8List encodeTopLevel(TokenIdentifierValue value) {
-    return Uint8List.fromList(value.identifier.codeUnits);
+    return Uint8List.fromList(utf8.encode(value.identifier));
   }
 
   /// Encodes EgldOrEsdtTokenIdentifier for top-level (no length prefix).
@@ -431,7 +431,7 @@ class TokenIdentifierBinaryCodec with ValidationMixin {
   /// #### Returns
   /// `Uint8List` - ASCII/UTF-8 bytes
   Uint8List encodeTopLevelEgldOrEsdt(EgldOrEsdtTokenIdentifierValue value) {
-    return Uint8List.fromList(value.identifier.codeUnits);
+    return Uint8List.fromList(utf8.encode(value.identifier));
   }
 
   /// Encodes TokenIdentifier for nested (4-byte length prefix).
@@ -443,7 +443,7 @@ class TokenIdentifierBinaryCodec with ValidationMixin {
   /// `Uint8List` - 4-byte length + ASCII/UTF-8 bytes
   Uint8List encodeNested(TokenIdentifierValue value) {
     final Uint8List identifierBytes = Uint8List.fromList(
-      value.identifier.codeUnits,
+      utf8.encode(value.identifier),
     );
     return (BinaryBuilder()
           ..addU32(identifierBytes.length)
@@ -460,7 +460,7 @@ class TokenIdentifierBinaryCodec with ValidationMixin {
   /// `Uint8List` - 4-byte length + ASCII/UTF-8 bytes
   Uint8List encodeNestedEgldOrEsdt(EgldOrEsdtTokenIdentifierValue value) {
     final Uint8List identifierBytes = Uint8List.fromList(
-      value.identifier.codeUnits,
+      utf8.encode(value.identifier),
     );
     return (BinaryBuilder()
           ..addU32(identifierBytes.length)

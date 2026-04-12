@@ -142,6 +142,12 @@ abstract class NumericalValue extends TypedValue {
       for (int i = 0; i < bytes.length; i++) {
         bytes[i] = ~bytes[i] & 0xff;
       }
+      int carry = 1;
+      for (int i = bytes.length - 1; i >= 0 && carry > 0; i--) {
+        final int sum = bytes[i] + carry;
+        bytes[i] = sum & 0xff;
+        carry = sum >> 8;
+      }
       if (bytes.isNotEmpty && (bytes[0] & 0x80) == 0) {
         bytes.insert(0, 0xff);
       }

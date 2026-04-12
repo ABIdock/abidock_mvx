@@ -137,7 +137,7 @@ class ProtoSerializer {
   /// ```
   Uint8List _serializeValue(BigInt value) {
     if (value == BigInt.zero) {
-      return Uint8List.fromList([0x00, 0x00]);
+      return Uint8List.fromList([0x00]);
     }
 
     final String hexString = value.toRadixString(16);

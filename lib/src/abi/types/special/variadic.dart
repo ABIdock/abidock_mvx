@@ -158,7 +158,7 @@ final class VariadicValue extends TypedValue {
   VariadicValue(this.items, {required AbiType itemType, bool isCounted = false})
     : super(VariadicType._(itemType, isCounted: isCounted)) {
     for (int i = 0; i < items.length; i++) {
-      if (!itemType.equals(items[i].type)) {
+      if (!itemType.isAssignableFrom(items[i].type)) {
         throw ArgumentError.value(
           items[i],
           'items[$i]',

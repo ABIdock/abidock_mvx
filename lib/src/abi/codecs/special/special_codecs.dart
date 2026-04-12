@@ -31,10 +31,9 @@ class OptionalBinaryCodec with ValidationMixin {
       return OptionalValue.missing(type);
     }
 
-    final (TypedValue innerValue, _) = binaryCodec.decodeNested(
+    final TypedValue innerValue = binaryCodec.decodeTopLevel(
       buffer,
       type.innerType,
-      0,
     );
     return OptionalValue.provided(type, innerValue);
   }
@@ -83,7 +82,7 @@ class OptionalBinaryCodec with ValidationMixin {
       return BinaryCodecUtils.emptyBuffer;
     }
 
-    return binaryCodec.encodeNested(value.value!);
+    return binaryCodec.encodeTopLevel(value.value!);
   }
 
   /// Encodes Optional for nested.
@@ -114,12 +113,12 @@ class OptionalBinaryCodec with ValidationMixin {
   void _validateOptionalValue(OptionalValue value) {
     if (value.isMissing && value.value != null) {
       throw const AbiBinaryCodecException(
-        'Optional marked as missing but contains value - data corruption detected',
+        'Optional marked as missing but contains a value',
       );
     }
     if (!value.isMissing && value.value == null) {
       throw const AbiBinaryCodecException(
-        'Optional marked as provided but value is null - data corruption detected',
+        'Optional marked as provided but value is null',
       );
     }
   }
@@ -251,16 +250,16 @@ class ManagedDecimalBinaryCodec with ValidationMixin {
           (buffer[offset + 1] << 16) |
           (buffer[offset + 2] << 8) |
           buffer[offset + 3];
-      if (buffer.length < offset + length) {
+      if (buffer.length < offset + 4 + length) {
         throw AbiBinaryCodecException(
-          'Buffer too short for fixed ManagedDecimal: expected ${offset + length} bytes, got ${buffer.length}',
+          'Buffer too short for fixed ManagedDecimal: expected ${offset + 4 + length} bytes, got ${buffer.length}',
         );
       }
-      payload = buffer.sublist(offset, offset + length);
+      payload = buffer.sublist(offset + 4, offset + 4 + length);
     }
 
     final ManagedDecimalValue result = decodeTopLevel(payload, type);
-    return (result, length);
+    return (result, type.isVariable ? length : 4 + length);
   }
 
   /// Encodes ManagedDecimal for top-level.
@@ -269,12 +268,26 @@ class ManagedDecimalBinaryCodec with ValidationMixin {
   /// - `value` - Decimal value to encode
   ///
   /// #### Returns
-  /// `Uint8List` - For variable: [scale(4 bytes), two's complement value], for fixed: [value only]
+  /// `Uint8List` - For variable: [length(4 bytes), value, scale(4 bytes)], for fixed: [value only]
   ///
   /// #### Throws
   /// - `AbiBinaryCodecException` - If scale mismatch in fixed mode
   Uint8List encodeTopLevel(ManagedDecimalValue value) {
-    return encodeNested(value);
+    final builder = BinaryBuilder();
+    if (value.isVariable) {
+      final Uint8List valueBytes = value.isSigned
+          ? _encodeBigInt(value.value)
+          : BinaryCodecUtils.bigIntToBuffer(value.value);
+      builder.addU32(valueBytes.length);
+      builder.addBytes(valueBytes);
+      builder.addU32(value.scale);
+    } else {
+      final Uint8List valueBytes = value.isSigned
+          ? _encodeBigInt(value.value)
+          : BinaryCodecUtils.bigIntToBuffer(value.value);
+      builder.addBytes(valueBytes);
+    }
+    return builder.toBytes();
   }
 
   /// Encodes ManagedDecimal for nested.
@@ -310,6 +323,7 @@ class ManagedDecimalBinaryCodec with ValidationMixin {
           ? _encodeBigInt(value.value)
           : BinaryCodecUtils.bigIntToBuffer(value.value);
 
+      builder.addU32(valueBytes.length);
       builder.addBytes(valueBytes);
     }
 
@@ -397,8 +411,21 @@ class VariadicBinaryCodec with ValidationMixin {
     final List<TypedValue> items = <TypedValue>[];
     int currentOffset = 0;
     int lastOffset = -1;
+    int? remaining;
 
-    while (currentOffset < buffer.length) {
+    if (type.isCounted) {
+      if (buffer.length < 4) {
+        throw AbiBinaryCodecException(
+          'Buffer too short for counted variadic count prefix: got ${buffer.length}',
+        );
+      }
+      final (int count, int consumed) = BinaryCodecUtils.readLength(buffer, 0);
+      currentOffset = consumed;
+      remaining = count;
+    }
+
+    while (currentOffset < buffer.length &&
+        (remaining == null || remaining > 0)) {
       if (currentOffset == lastOffset) {
         throw AbiBinaryCodecException(
           'Variadic item consumed zero bytes at offset $currentOffset',
@@ -413,6 +440,7 @@ class VariadicBinaryCodec with ValidationMixin {
       );
       items.add(item);
       currentOffset += itemBytes;
+      if (remaining != null) remaining--;
     }
 
     if (currentOffset != buffer.length) {
@@ -423,7 +451,11 @@ class VariadicBinaryCodec with ValidationMixin {
       );
     }
 
-    return VariadicValue(items, itemType: type.itemType);
+    return VariadicValue(
+      items,
+      itemType: type.itemType,
+      isCounted: type.isCounted,
+    );
   }
 
   /// Decodes Variadic from nested position.
@@ -490,6 +522,10 @@ class VariadicBinaryCodec with ValidationMixin {
   /// `Uint8List` - Concatenated nested encodings of all items
   Uint8List encodeNested(VariadicValue value) {
     final builder = BinaryBuilder();
+
+    if (value.isCounted) {
+      builder.addU32(value.length);
+    }
 
     for (final TypedValue item in value.items) {
       builder.addBytes(binaryCodec.encodeNested(item));

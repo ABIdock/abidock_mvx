@@ -212,7 +212,7 @@ final enumValue = value as ExplicitEnumValue;
 
 print(enumValue.discriminant);  // 1
 print(enumValue.variantName);   // 'Active'
-print(enumValue.nativeValue);   // 1
+print(enumValue.nativeValue);   // 'Active' (returns variant name as String)
 ```
 
 ### Explicit Enum vs Regular Enum

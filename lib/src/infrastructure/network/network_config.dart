@@ -1,6 +1,8 @@
 /// Network configuration parameters from the blockchain.
 /// Contains chain ID, gas parameters, transaction requirements, and timing configuration.
 
+import 'dart:developer' as developer;
+
 import '../../utils/helpers.dart';
 import '../../utils/json_utils.dart';
 
@@ -157,6 +159,15 @@ class NetworkConfig {
     );
     if (chainId == null || chainId.isEmpty) {
       throw const FormatException('Network config missing erd_chain_id');
+    }
+
+    if (!const <String>{'D', '1', 'T'}.contains(chainId)) {
+      developer.log(
+        'Unrecognized chain ID: "$chainId". '
+        'Expected one of: "D" (devnet), "1" (mainnet), "T" (testnet).',
+        name: 'NetworkConfig',
+        level: 900, // warning
+      );
     }
 
     return NetworkConfig(

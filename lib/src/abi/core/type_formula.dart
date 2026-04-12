@@ -193,7 +193,7 @@ class TypeFormula {
   bool validate() {
     if (name.isEmpty) return false;
 
-    if (!RegExp(r'^[a-zA-Z][a-zA-Z0-9_]*$').hasMatch(name)) return false;
+    if (!RegExp(r'^[a-zA-Z][a-zA-Z0-9_-]*$').hasMatch(name)) return false;
 
     return typeParameters.every((TypeFormula param) => param.validate());
   }

@@ -182,7 +182,8 @@ class ModelsGenerator extends GeneratorBase {
     buffer.writeln('    return {');
     for (final field in structType.fieldDefinitions) {
       final fieldName = nameSanitizer.sanitizeFieldName(field.name);
-      buffer.writeln('      \'${field.name}\': $fieldName,');
+      final jsonValue = _generateToJsonValue(field.type, fieldName);
+      buffer.writeln('      \'${field.name}\': $jsonValue,');
     }
     buffer.writeln('    };');
     buffer.writeln('  }');
@@ -250,7 +251,14 @@ class ModelsGenerator extends GeneratorBase {
     buffer.writeln('    ');
     buffer.writeln('    // Handle int discriminant');
     buffer.writeln('    if (nativeValue is int) {');
-    buffer.writeln('      return $enumName.values[nativeValue];');
+    buffer.writeln(
+      '      final discriminants = <int>[${enumType.variants.map((v) => '${v.discriminant}').join(', ')}];',
+    );
+    buffer.writeln('      final idx = discriminants.indexOf(nativeValue);');
+    buffer.writeln(
+      '      if (idx < 0) throw ArgumentError(\'Unknown $enumName discriminant: \$nativeValue\');',
+    );
+    buffer.writeln('      return $enumName.values[idx];');
     buffer.writeln('    }');
     buffer.writeln('    ');
     buffer.writeln('    // Handle String variant name (from event parsing)');
@@ -345,7 +353,14 @@ class ModelsGenerator extends GeneratorBase {
     buffer.writeln('    ');
     buffer.writeln('    // Handle int discriminant');
     buffer.writeln('    if (nativeValue is int) {');
-    buffer.writeln('      return $enumName.values[nativeValue];');
+    buffer.writeln(
+      '      final discriminants = <int>[${enumType.variants.map((v) => '${v.discriminant}').join(', ')}];',
+    );
+    buffer.writeln('      final idx = discriminants.indexOf(nativeValue);');
+    buffer.writeln(
+      '      if (idx < 0) throw ArgumentError(\'Unknown $enumName discriminant: \$nativeValue\');',
+    );
+    buffer.writeln('      return $enumName.values[idx];');
     buffer.writeln('    }');
     buffer.writeln('    ');
     buffer.writeln('    // Handle String variant name');
@@ -454,6 +469,10 @@ class ModelsGenerator extends GeneratorBase {
       for (final elem in type.elementTypes) {
         _collectTypeDependencies(elem, deps);
       }
+    } else if (type is CompositeType) {
+      for (final field in type.fieldTypes) {
+        _collectTypeDependencies(field, deps);
+      }
     }
   }
 
@@ -535,7 +554,7 @@ class ModelsGenerator extends GeneratorBase {
         if (innerConversion.endsWith('.toAbi()')) {
           return '$fieldName?.toAbi()';
         }
-        return '$fieldName != null ? ${innerConversion.replaceAll(fieldName, fieldName)} : null';
+        return '$fieldName != null ? $innerConversion : null';
       }
       return fieldName;
     }
@@ -560,9 +579,57 @@ class ModelsGenerator extends GeneratorBase {
   }
 
   bool _isListOfCustomStruct(AbiType type) {
-    if (type is! ListType) return false;
-    final elementType = type.elementType;
-    return abi.types.containsKey(elementType.name);
+    if (type is ListType) {
+      return abi.types.containsKey(type.elementType.name);
+    }
+    if (type is ArrayType) {
+      return abi.types.containsKey(type.elementType.name);
+    }
+    return false;
+  }
+
+  /// Generates a JSON-safe expression for a field value.
+  String _generateToJsonValue(AbiType type, String fieldName) {
+    if (type is StructType) {
+      return '$fieldName.toJson()';
+    }
+    if (type is EnumType || type is ExplicitEnumType) {
+      return '$fieldName.index';
+    }
+    if (type is AddressType) {
+      return fieldName;
+    }
+    if (type is BigUIntType ||
+        type is BigIntType ||
+        type is U64Type ||
+        type is I64Type ||
+        type is ManagedDecimalType) {
+      return '$fieldName.toString()';
+    }
+    if (type is OptionType || type is OptionalType) {
+      final AbiType innerType = type is OptionType
+          ? type.innerType
+          : (type as OptionalType).innerType;
+      final innerJson = _generateToJsonValue(innerType, fieldName);
+      if (innerJson != fieldName) {
+        if (innerJson.startsWith('$fieldName.')) {
+          return '$fieldName?.${innerJson.substring(fieldName.length + 1)}';
+        }
+        return '$fieldName != null ? $innerJson : null';
+      }
+      return fieldName;
+    }
+    if (type is ListType || type is ArrayType) {
+      final AbiType elementType = type is ListType
+          ? type.elementType
+          : (type as ArrayType).elementType;
+      final elementJson = _generateToJsonValue(elementType, 'e');
+      if (elementJson != 'e') {
+        return '$fieldName.map((e) => $elementJson).toList()';
+      }
+      return fieldName;
+    }
+    return fieldName;
   }
 
   String _getListElementTypeName(String dartType) {

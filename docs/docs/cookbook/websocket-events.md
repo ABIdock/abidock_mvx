@@ -140,7 +140,7 @@ await swapStream.connect();
 await swapStream.disconnect();
 
 // Check connection status
-if (swapStream.isConnected) {
+if (swapStream.status == WebSocketStatus.connected) {
   print('Connected');
 }
 ```

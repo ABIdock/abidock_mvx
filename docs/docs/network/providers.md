@@ -120,6 +120,42 @@ final tx = await provider.getTransaction(hash);
 final status = await provider.getTransactionStatus(hash);
 ```
 
+`tx.smartContractResults` is a typed `List<SmartContractResult>?`. Each entry
+eagerly decodes its `@<returnCode>@<returnData>...` payload — pattern-match on
+`returnCode.isSuccess` / `returnData` rather than re-parsing hex by hand.
+
+### Token Metadata
+
+```dart
+// API provider only — Gateway throws UnsupportedError.
+final api = ApiNetworkProvider.mainnet();
+
+final usdc = await api.getDefinitionOfFungibleToken('USDC-c76f1f');
+print('Ticker: ${usdc.ticker}  decimals: ${usdc.decimals}');
+
+final collection = await api.getDefinitionOfTokenCollection('APES-abcdef');
+print('Type: ${collection.type}  owner: ${collection.owner}');
+
+final nft = await api.getNonFungibleToken('APES-abcdef', 42);
+print('Owner: ${nft.owner}  uris: ${nft.uris.length}');
+```
+
+### Block Queries
+
+```dart
+// Both providers.
+final block = await provider.getBlock(someBlockHash);
+final latestShard1 = await provider.getLatestBlock(shard: 1);
+print('Shard ${block.shard} · nonce ${block.nonce} · ${block.numTxs} txs');
+
+// Gateway-only: hyperblocks (cross-shard finalized blocks).
+final gateway = GatewayNetworkProvider.mainnet();
+final hb = await gateway.getHyperblock(12345);
+for (final tx in hb.transactionHashes) {
+  // ...
+}
+```
+
 ### Network Operations
 
 ```dart

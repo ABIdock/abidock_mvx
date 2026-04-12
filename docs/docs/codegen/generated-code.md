@@ -328,9 +328,12 @@ enum State {
   factory State.fromAbi(TypedValue value) {
     final nativeValue = value.nativeValue;
 
-    // Handle int discriminant
+    // Handle int discriminant (supports non-sequential discriminants)
     if (nativeValue is int) {
-      return State.values[nativeValue];
+      final discriminants = <int>[0, 1, 2];
+      final idx = discriminants.indexOf(nativeValue);
+      if (idx < 0) throw ArgumentError('Unknown State discriminant: $nativeValue');
+      return State.values[idx];
     }
 
     // Handle String variant name (from event parsing)
@@ -381,9 +384,12 @@ enum PaymentStatus {
   factory PaymentStatus.fromAbi(TypedValue value) {
     final nativeValue = value.nativeValue;
 
-    // Handle int discriminant
+    // Handle int discriminant (supports non-sequential discriminants)
     if (nativeValue is int) {
-      return PaymentStatus.values[nativeValue];
+      final discriminants = <int>[0, 1, 2, 3, 4];
+      final idx = discriminants.indexOf(nativeValue);
+      if (idx < 0) throw ArgumentError('Unknown PaymentStatus discriminant: $nativeValue');
+      return PaymentStatus.values[idx];
     }
 
     // Handle String variant name

@@ -37,6 +37,7 @@ final class AbiEndpoint {
     this.labels = const <String>[],
     this.allowMultipleVarArgs = false,
     this.documentation,
+    this.mutability,
   });
 
   /// Creates endpoint from JSON-like map.
@@ -136,6 +137,7 @@ final class AbiEndpoint {
       labels: labels,
       allowMultipleVarArgs: allowMultipleVarArgs,
       documentation: docs,
+      mutability: mutability.isEmpty ? null : mutability,
     );
   }
 
@@ -227,6 +229,18 @@ final class AbiEndpoint {
 
   /// Documentation.
   final String? documentation;
+
+  /// Raw mutability string from ABI ('mutable', 'readonly', or 'pure').
+  ///
+  /// Distinguishes `pure` (no state reads) from `readonly` (may read state).
+  /// Null when endpoint was not constructed from ABI JSON.
+  final String? mutability;
+
+  /// Whether endpoint is declared as pure (no state reads).
+  bool get isPure => mutability == 'pure';
+
+  /// Whether endpoint is declared as readonly (may read state, no writes).
+  bool get isReadonly => mutability == 'readonly';
 
   /// Whether this endpoint is payable.
   bool get isPayable => payableInTokens.isNotEmpty;

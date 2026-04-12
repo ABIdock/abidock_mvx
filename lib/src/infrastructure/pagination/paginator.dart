@@ -86,6 +86,9 @@ class Paginator<T> {
   /// Whether fetch is in progress.
   bool _isFetching = false;
 
+  /// Active fetch future for deduplication.
+  Future<PagedResult<T>>? _activeFetch;
+
   /// Gets current page (if any fetched).
   PagedResult<T>? get currentPage => _currentPage;
 
@@ -101,11 +104,20 @@ class Paginator<T> {
   }
 
   /// Fetches a page with the given parameters.
-  Future<PagedResult<T>> _fetch(PaginationParams params) async {
-    if (_isFetching) {
-      throw StateError('Fetch already in progress');
+  ///
+  /// If a fetch is already in progress, returns the existing future
+  /// instead of starting a duplicate request.
+  Future<PagedResult<T>> _fetch(PaginationParams params) {
+    if (_isFetching && _activeFetch != null) {
+      return _activeFetch!;
     }
 
+    _activeFetch = _doFetch(params);
+    return _activeFetch!;
+  }
+
+  /// Performs the actual page fetch with caching and prefetch logic.
+  Future<PagedResult<T>> _doFetch(PaginationParams params) async {
     _isFetching = true;
 
     try {
@@ -139,6 +151,7 @@ class Paginator<T> {
       return result;
     } finally {
       _isFetching = false;
+      _activeFetch = null;
     }
   }
 

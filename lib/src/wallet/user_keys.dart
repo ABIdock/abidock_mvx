@@ -266,7 +266,7 @@ class UserPublicKey {
   String get hex => convert.hex.encode(_buffer);
 
   Address toAddress({String? hrp}) {
-    return Address(_buffer);
+    return Address(_buffer, hrp: hrp ?? 'erd');
   }
 
   /// Gets raw bytes of public key (defensive copy).

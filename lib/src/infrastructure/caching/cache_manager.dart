@@ -117,6 +117,9 @@ class CacheManager {
   /// Per-endpoint cache configs.
   final Map<String, CacheConfig> endpointConfigs;
 
+  /// Maximum number of cache instances to prevent unbounded growth.
+  static const int _maxCacheInstances = 100;
+
   /// Caches by endpoint pattern.
   final Map<String, LRUCache<String, dynamic>> _caches =
       <String, LRUCache<String, dynamic>>{};
@@ -137,10 +140,18 @@ class CacheManager {
   }
 
   /// Gets cache instance for endpoint.
+  ///
+  /// Evicts the oldest cache instance when the limit is exceeded.
   LRUCache<String, dynamic> _getCache(String endpoint) {
     final String pattern = _extractPattern(endpoint);
 
     if (!_caches.containsKey(pattern)) {
+      if (_caches.length >= _maxCacheInstances) {
+        final String oldest = _caches.keys.first;
+        _caches[oldest]!.clear();
+        _caches.remove(oldest);
+      }
+
       final CacheConfig config = _getConfig(pattern);
       _caches[pattern] = LRUCache(
         maxSize: config.maxSize,

@@ -349,6 +349,7 @@ void main() async {
 | `initialDelay` | 1s | Delay before first retry |
 | `maxDelay` | 30s | Maximum delay cap |
 | `backoffMultiplier` | 2.0 | Exponential backoff factor |
+| `jitterFactor` | 0.1 | Random jitter factor (0.0 - 1.0) to prevent thundering herd |
 | `timeout` | 30s | Timeout per attempt |
 
 ## Combining Utilities

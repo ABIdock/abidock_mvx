@@ -3,8 +3,8 @@
 import 'dart:typed_data';
 
 import '../../../abi/abi.dart';
-import '../../../utils/helpers.dart';
 import '../../address.dart';
+import '../smart_contract_result.dart';
 import '../transaction_event.dart';
 import '../transaction_on_network.dart';
 
@@ -267,24 +267,16 @@ class SmartContractOutcomeParser {
   _findDirectSmartContractCallOutcomeWithinSmartContractResults(
     TransactionOnNetwork transaction,
   ) {
-    if (transaction.smartContractResults == null) return null;
+    final List<SmartContractResult>? results = transaction.smartContractResults;
+    if (results == null) return null;
 
-    final List<Map<String, dynamic>> eligibleResults = <Map<String, dynamic>>[];
-    final ArgSerializer argSerializer = ArgSerializer();
-
-    for (final Map<String, dynamic> result
-        in transaction.smartContractResults!) {
-      final String data = optionalAs<String>(result['data'], 'data') ?? '';
-      if (data.startsWith('@')) {
-        final List<Uint8List> buffers = argSerializer.stringToBuffers(data);
-        if (buffers.length > 1) {
-          final String returnCode = String.fromCharCodes(buffers[1]);
-          if (returnCode == 'ok' || returnCode.isEmpty) {
-            eligibleResults.add(result);
-          }
-        }
-      }
-    }
+    final List<SmartContractResult> eligibleResults = <SmartContractResult>[
+      for (final SmartContractResult scr in results)
+        if (scr.returnCode.isSuccess &&
+            (scr.returnData.isNotEmpty ||
+                (scr.raw['data'] as String?)?.startsWith('@') == true))
+          scr,
+    ];
 
     if (eligibleResults.isEmpty) return null;
 
@@ -294,32 +286,12 @@ class SmartContractOutcomeParser {
       );
     }
 
-    final Map<String, dynamic> result = eligibleResults.first;
-    final String data = optionalAs<String>(result['data'], 'data') ?? '';
-    final List<Uint8List> buffers = argSerializer.stringToBuffers(data);
-
-    if (buffers.isEmpty) {
-      return const _SmartContractCallOutcome(
-        returnCode: '',
-        returnMessage: '',
-        returnDataParts: <Uint8List>[],
-      );
-    }
-
-    final String returnCode = buffers.length > 1
-        ? String.fromCharCodes(buffers[1])
-        : '';
-    final List<Uint8List> returnDataParts = buffers.length > 2
-        ? buffers.skip(2).cast<Uint8List>().toList()
-        : <Uint8List>[];
-    final String returnMessage =
-        optionalAs<String>(result['returnMessage'], 'returnMessage') ??
-        returnCode;
-
+    final SmartContractResult result = eligibleResults.first;
+    final String returnCode = result.returnCode.code;
     return _SmartContractCallOutcome(
       returnCode: returnCode,
-      returnMessage: returnMessage,
-      returnDataParts: returnDataParts,
+      returnMessage: result.errorMessage ?? returnCode,
+      returnDataParts: List<Uint8List>.of(result.returnData),
     );
   }
 
@@ -333,12 +305,6 @@ class SmartContractOutcomeParser {
     eligibleEvents.addAll(transaction.logs!.findEvents('signalError'));
 
     if (eligibleEvents.isEmpty) return null;
-
-    if (eligibleEvents.length > 1) {
-      throw SmartContractParseException(
-        'More than one "signalError" event found for transaction: ${transaction.txHash}',
-      );
-    }
 
     final TransactionEvent event = eligibleEvents.first;
     final ArgSerializer argSerializer = ArgSerializer();
@@ -371,13 +337,7 @@ class SmartContractOutcomeParser {
 
     if (eligibleEvents.isEmpty) return null;
 
-    if (eligibleEvents.length > 1) {
-      throw SmartContractParseException(
-        'More than one "writeLog" event found for transaction: ${transaction.txHash}',
-      );
-    }
-
-    final TransactionEvent event = eligibleEvents.first;
+    final TransactionEvent event = eligibleEvents.last;
     final ArgSerializer argSerializer = ArgSerializer();
     final String data = event.dataAsString;
     final List<Uint8List> buffers = argSerializer.stringToBuffers(data);

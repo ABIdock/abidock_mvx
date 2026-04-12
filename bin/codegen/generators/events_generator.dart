@@ -111,13 +111,17 @@ final class EventsGenerator extends GeneratorBase {
     );
     buffer.writeln('    String? startFrom,');
     buffer.writeln('  }) {');
+    final eventStructName = event.identifier.endsWith('_event')
+        ? event.identifier
+        : '${event.identifier}_event';
+
     buffer.writeln('    return controller.streamEvents(');
     buffer.writeln('      eventIdentifier: \'${event.identifier}\',');
     buffer.writeln('      pollingInterval: pollingInterval,');
     buffer.writeln('      startFrom: startFrom,');
     buffer.writeln('    ).map((parsedEvent) {');
     buffer.writeln(
-      '      final eventStruct = parsedEvent.getValueByName(\'${event.identifier}_event\');',
+      '      final eventStruct = parsedEvent.getValueByName(\'$eventStructName\');',
     );
     buffer.writeln('      if (eventStruct == null) {');
     buffer.writeln(
@@ -391,7 +395,7 @@ final class EventsGenerator extends GeneratorBase {
     }
 
     buffer.writeln('          default:');
-    buffer.writeln('            return r;');
+    buffer.writeln('            return null;');
     buffer.writeln('        }');
     buffer.writeln('      })');
     buffer.writeln('      .where((event) => event != null)');
@@ -498,6 +502,9 @@ final class EventsGenerator extends GeneratorBase {
     for (final event in events) {
       final eventName = nameSanitizer.toCamelCase(event.identifier);
       final eventClass = _normalizeEventClassName(event.identifier);
+      final pollingStructName = event.identifier.endsWith('_event')
+          ? event.identifier
+          : '${event.identifier}_event';
 
       buffer.writeln('  /// Stream of ${event.identifier} events.');
       buffer.writeln('  Stream<$eventClass> get $eventName => _baseStream');
@@ -506,7 +513,7 @@ final class EventsGenerator extends GeneratorBase {
       );
       buffer.writeln('      .map((parsedEvent) {');
       buffer.writeln(
-        '        final eventStruct = parsedEvent.getValueByName(\'${event.identifier}_event\');',
+        '        final eventStruct = parsedEvent.getValueByName(\'$pollingStructName\');',
       );
       buffer.writeln('        if (eventStruct == null) {');
       buffer.writeln(
@@ -544,9 +551,12 @@ final class EventsGenerator extends GeneratorBase {
 
     for (final event in events) {
       final eventClass = _normalizeEventClassName(event.identifier);
+      final pollingStructName = event.identifier.endsWith('_event')
+          ? event.identifier
+          : '${event.identifier}_event';
       buffer.writeln('        case \'${event.identifier}\':');
       buffer.writeln(
-        '          final struct = parsedEvent.getValueByName(\'${event.identifier}_event\');',
+        '          final struct = parsedEvent.getValueByName(\'$pollingStructName\');',
       );
       buffer.writeln(
         '          return struct != null ? $eventClass.fromAbi(struct) : null;',

@@ -216,7 +216,9 @@ class NumericalBinaryCodec with ValidationMixin {
       final Uint8List buffer = BinaryCodecUtils.bigIntToBuffer(value);
 
       if (buffer.isNotEmpty && (buffer[0] & 0x80) != 0) {
-        return Uint8List.fromList(<int>[0x00, ...buffer]);
+        final Uint8List result = Uint8List(buffer.length + 1);
+        result.setRange(1, result.length, buffer);
+        return result;
       }
 
       return buffer;
@@ -226,7 +228,7 @@ class NumericalBinaryCodec with ValidationMixin {
     Uint8List buffer = BinaryCodecUtils.bigIntToBuffer(valuePlusOne.abs());
 
     if (buffer.isEmpty) {
-      buffer = Uint8List.fromList(<int>[0x00]);
+      buffer = Uint8List(1);
     }
 
     for (int i = 0; i < buffer.length; i++) {
@@ -234,7 +236,10 @@ class NumericalBinaryCodec with ValidationMixin {
     }
 
     if (buffer.isNotEmpty && (buffer[0] & 0x80) == 0) {
-      return Uint8List.fromList(<int>[0xff, ...buffer]);
+      final Uint8List result = Uint8List(buffer.length + 1);
+      result[0] = 0xff;
+      result.setRange(1, result.length, buffer);
+      return result;
     }
 
     return buffer;

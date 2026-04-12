@@ -221,6 +221,7 @@ final class SmartContractCallFactory {
     List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
     required GasLimit gasLimit,
     Balance? value,
+    Address? guardian,
   }) {
     return _buildTransaction(
       sender: sender,
@@ -230,6 +231,7 @@ final class SmartContractCallFactory {
       tokenTransfers: tokenTransfers,
       gasLimit: gasLimit,
       value: value,
+      guardian: guardian,
     );
   }
 
@@ -242,6 +244,7 @@ final class SmartContractCallFactory {
     required List<TokenTransferValue> tokenTransfers,
     required GasLimit gasLimit,
     Balance? value,
+    Address? guardian,
   }) {
     final SmartContractFunction function = SmartContractFunction.validated(
       endpointName,
@@ -340,8 +343,9 @@ final class SmartContractCallFactory {
       gasLimit: gasLimit,
       gasPrice: _networkConfig.minGasPrice,
       chainId: _networkConfig.chainId,
-      version: const TransactionVersion(1),
+      version: TransactionVersion(guardian != null ? 2 : 1),
       value: value ?? Balance.zero(),
+      guardian: guardian,
     );
   }
 

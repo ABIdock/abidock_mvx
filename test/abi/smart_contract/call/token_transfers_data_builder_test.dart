@@ -269,7 +269,7 @@ void main() {
       test('encodes fungible tokens with nonce zero', () {
         final transfers = [
           TokenTransferValue.fromPrimitives(
-            tokenIdentifier: 'FUNGIBLE-abc',
+            tokenIdentifier: 'FUNGIBLE-abcdef',
             amount: BigInt.from(1000),
           ),
         ];
@@ -376,11 +376,11 @@ void main() {
     test('encoded multi-transfer parts are valid hex strings', () {
       final transfers = [
         TokenTransferValue.fromPrimitives(
-          tokenIdentifier: 'TOKEN1-abc',
+          tokenIdentifier: 'TOKEN1-abc123',
           amount: BigInt.from(100),
         ),
         TokenTransferValue.fromPrimitives(
-          tokenIdentifier: 'TOKEN2-def',
+          tokenIdentifier: 'TOKEN2-def456',
           amount: BigInt.from(200),
         ),
       ];
@@ -405,7 +405,7 @@ void main() {
     });
     test('handles very long token identifier', () {
       final transfer = TokenTransferValue.fromPrimitives(
-        tokenIdentifier: 'VERYLONGTOKENNAME-a1b2c3d4e5f6',
+        tokenIdentifier: 'VERYLONGTOKENNAME-a1b2c3',
         amount: BigInt.from(100),
       );
       final parts = builder.buildDataPartsForESDTTransfer(transfer);
@@ -417,7 +417,7 @@ void main() {
         'erd1spyavw0956vq68xj8y4tenjpq2wd5a9p2c6j8gsz7ztyrnpxrruqzu66jx',
       );
       final transfer = TokenTransferValue.fromPrimitives(
-        tokenIdentifier: 'NFT-abc',
+        tokenIdentifier: 'NFT-abc123',
         amount: BigInt.one,
         nonce: BigInt.from(1),
       );
@@ -430,7 +430,7 @@ void main() {
     });
     test('handles zero amount for NFT (valid)', () {
       final transfer = TokenTransferValue.fromPrimitives(
-        tokenIdentifier: 'NFT-abc',
+        tokenIdentifier: 'NFT-abc123',
         amount: BigInt.zero,
         nonce: BigInt.from(1),
       );

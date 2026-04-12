@@ -2,6 +2,16 @@
 
 All notable changes to `abidock_mvx` are documented here. We follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and the structure recommended by [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.0.1] – 2026-04-12
+
+### Fixed
+- `SmartContractResult.fromJson` no longer throws `FormatException` when a network response returns a numeric `value` field (Gateway and some API shapes emit `value: 0` as `int`).
+- Generator `models_generator.dart` now emits the enum-discriminant guard as a braced block so regenerated code stays analyzer-clean under `curly_braces_in_flow_control_structures`.
+- Applied the same block-style fix to the committed generated output under `example/cookbook/generated/`.
+
+### Changed
+- Codebase-wide `dart format` sweep to satisfy the `dart format --set-exit-if-changed` CI gate.
+
 ## [1.0.0] – 2026-04-12
 
 ### Fixed
@@ -107,6 +117,7 @@ All notable changes to `abidock_mvx` are documented here. We follow [Semantic Ve
 - Cookbook examples and wallet walkthroughs demonstrating real integrations.
 - 900+ automated tests spanning core types, infrastructure, serializers, and integration scenarios.
 
+[1.0.1]: https://github.com/ABIdock/abidock_mvx/releases/tag/v1.0.1
 [1.0.0]: https://github.com/ABIdock/abidock_mvx/releases/tag/v1.0.0
 [1.0.0-beta.2]: https://github.com/ABIdock/abidock_mvx/releases/tag/v1.0.0-beta.2
 [1.0.0-beta.1]: https://github.com/ABIdock/abidock_mvx/releases/tag/v1.0.0-beta.1

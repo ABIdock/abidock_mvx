@@ -29,7 +29,7 @@ Future<(BigInt, BigInt, BigInt)> getReservesAndTotalSupply(
       return (
         infer<BigInt>(result[0]),
         infer<BigInt>(result[1]),
-        infer<BigInt>(result[2])
+        infer<BigInt>(result[2]),
       );
     },
   );

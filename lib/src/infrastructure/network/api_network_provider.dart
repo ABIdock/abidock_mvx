@@ -1,4 +1,4 @@
-﻿import 'package:dio/dio.dart';
+import 'package:dio/dio.dart';
 
 import '../../core/account/account_on_network.dart';
 import '../../core/address.dart';
@@ -172,15 +172,13 @@ class ApiNetworkProvider extends BaseNetworkProvider {
   String blockByHashEndpoint(String hash) => 'blocks/$hash';
 
   @override
-  String latestBlockEndpoint(int shard) =>
-      'blocks?shard=$shard&size=1';
+  String latestBlockEndpoint(int shard) => 'blocks?shard=$shard&size=1';
 
   @override
-  String hyperblockByNonceEndpoint(int nonce) =>
-      throw UnsupportedError(
-        'Hyperblocks are not exposed by the API provider. '
-        'Use GatewayNetworkProvider.getHyperblock instead.',
-      );
+  String hyperblockByNonceEndpoint(int nonce) => throw UnsupportedError(
+    'Hyperblocks are not exposed by the API provider. '
+    'Use GatewayNetworkProvider.getHyperblock instead.',
+  );
 
   @override
   NetworkConfig parseNetworkConfig(Map<String, dynamic> response) {

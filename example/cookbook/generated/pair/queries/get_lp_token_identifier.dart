@@ -14,9 +14,7 @@ import 'package:abidock_mvx/abidock_mvx.dart';
 /// #### Throws:
 /// - [NetworkException] if network request fails
 /// - [ABIException] if ABI decoding fails
-Future<String> getLpTokenIdentifier(
-  SmartContractController controller,
-) async {
+Future<String> getLpTokenIdentifier(SmartContractController controller) async {
   return executeQuery(
     endpointName: 'getLpTokenIdentifier',
     action: () async {

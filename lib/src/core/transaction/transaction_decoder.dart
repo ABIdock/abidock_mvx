@@ -220,10 +220,7 @@ class TransactionDecoder {
     return ContractCall(transaction: transaction, call: call);
   }
 
-  DecodedTransaction _decodeEsdtTransfer(
-    Transaction tx,
-    List<String> parts,
-  ) {
+  DecodedTransaction _decodeEsdtTransfer(Transaction tx, List<String> parts) {
     // ESDTTransfer@<tokenIdentifierHex>@<amountHex>[@<function>@<arg>...]
     if (parts.length < 3) {
       return UnknownTransaction(
@@ -250,15 +247,13 @@ class TransactionDecoder {
     );
   }
 
-  DecodedTransaction _decodeNftTransfer(
-    Transaction tx,
-    List<String> parts,
-  ) {
+  DecodedTransaction _decodeNftTransfer(Transaction tx, List<String> parts) {
     // ESDTNFTTransfer@<collectionHex>@<nonceHex>@<amountHex>@<destinationHex>[@<function>@<arg>...]
     if (parts.length < 5) {
       return UnknownTransaction(
         transaction: tx,
-        reason: 'ESDTNFTTransfer expects collection, nonce, amount, destination',
+        reason:
+            'ESDTNFTTransfer expects collection, nonce, amount, destination',
       );
     }
     final String? collection = _hexToString(parts[1]);
@@ -284,10 +279,7 @@ class TransactionDecoder {
     );
   }
 
-  DecodedTransaction _decodeMultiTransfer(
-    Transaction tx,
-    List<String> parts,
-  ) {
+  DecodedTransaction _decodeMultiTransfer(Transaction tx, List<String> parts) {
     // MultiESDTNFTTransfer@<destinationHex>@<countHex>@(<tokenHex>@<nonceHex>@<amountHex>)+[@<function>@<arg>...]
     if (parts.length < 3) {
       return UnknownTransaction(
@@ -326,11 +318,7 @@ class TransactionDecoder {
         );
       }
       items.add(
-        MultiTransferItem(
-          tokenIdentifier: token,
-          nonce: nonce,
-          amount: amount,
-        ),
+        MultiTransferItem(tokenIdentifier: token, nonce: nonce, amount: amount),
       );
     }
 

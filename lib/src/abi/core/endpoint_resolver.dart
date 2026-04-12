@@ -103,7 +103,10 @@ class EndpointResolver {
         return abi.endpoints.where((AbiEndpoint e) => e.isPayable).toList();
       case EndpointType.readonly:
         return abi.endpoints
-            .where((AbiEndpoint e) => e.isReadonly || e.mutability == null && e.isView)
+            .where(
+              (AbiEndpoint e) =>
+                  e.isReadonly || e.mutability == null && e.isView,
+            )
             .toList();
       case EndpointType.pure:
         return abi.endpoints.where((AbiEndpoint e) => e.isPure).toList();

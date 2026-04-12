@@ -95,7 +95,10 @@ class SmartContractResult {
       returnCode: decoded.returnCode,
       returnData: decoded.returnData,
       previousHash: optionalAs<String>(json['prevTxHash'], 'prevTxHash'),
-      originalHash: optionalAs<String>(json['originalTxHash'], 'originalTxHash'),
+      originalHash: optionalAs<String>(
+        json['originalTxHash'],
+        'originalTxHash',
+      ),
       gasLimit: optionalInt(json['gasLimit'], 'gasLimit'),
       gasPrice: optionalInt(json['gasPrice'], 'gasPrice'),
       callType: optionalInt(json['callType'], 'callType') ?? 0,
@@ -283,4 +286,3 @@ Uint8List _hexToBytes(String hex) {
   }
   return out;
 }
-

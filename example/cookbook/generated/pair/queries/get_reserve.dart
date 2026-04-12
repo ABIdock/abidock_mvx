@@ -28,9 +28,7 @@ Future<BigInt> getReserve(
     action: () async {
       final result = await controller.query(
         endpointName: 'getReserve',
-        arguments: [
-          tokenIdValue,
-        ],
+        arguments: [tokenIdValue],
       );
 
       return infer<BigInt>(result[0]);

@@ -28,9 +28,7 @@ Future<int> getPermissions(
     action: () async {
       final result = await controller.query(
         endpointName: 'getPermissions',
-        arguments: [
-          addressValue,
-        ],
+        arguments: [addressValue],
       );
 
       return infer<int>(result[0]);

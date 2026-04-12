@@ -160,9 +160,8 @@ void main() {
       );
       final String destHex = _hex(dest.bytes);
       // Claims 3 legs but only provides 1.
-      final String payload = 'MultiESDTNFTTransfer@$destHex@03@${_hex(
-        utf8.encode('X-000001'),
-      )}@00@01';
+      final String payload =
+          'MultiESDTNFTTransfer@$destHex@03@${_hex(utf8.encode('X-000001'))}@00@01';
       final tx = _tx(data: Uint8List.fromList(utf8.encode(payload)));
 
       final result = decoder.decode(tx);

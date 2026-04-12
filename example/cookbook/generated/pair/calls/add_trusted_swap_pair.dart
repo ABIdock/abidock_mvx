@@ -20,14 +20,12 @@ Future<Transaction> addTrustedSwapPair(
   Nonce nonce,
   String pairAddress,
   String firstToken,
-  String secondToken,
-  {
-    required GasLimit gasLimit,
-    Address? relayer,
-    Address? guardian,
-    Balance? value,
-  }
-) async {
+  String secondToken, {
+  required GasLimit gasLimit,
+  Address? relayer,
+  Address? guardian,
+  Balance? value,
+}) async {
   return controller.call(
     account: sender,
     nonce: nonce,
@@ -71,12 +69,10 @@ Transaction addTrustedSwapPairUnsigned(
   Nonce nonce,
   String pairAddress,
   String firstToken,
-  String secondToken,
-  {
-    required GasLimit gasLimit,
-    Balance? value,
-  }
-) {
+  String secondToken, {
+  required GasLimit gasLimit,
+  Balance? value,
+}) {
   return factory.createCall(
     sender: sender,
     nonce: nonce,

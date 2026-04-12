@@ -231,11 +231,17 @@ abstract class BaseNetworkProvider implements NetworkProvider {
 
   /// Parses a fungible-token definition payload.
   @protected
-  TokenOnNetwork parseFungibleTokenDefinition(dynamic response, String identifier);
+  TokenOnNetwork parseFungibleTokenDefinition(
+    dynamic response,
+    String identifier,
+  );
 
   /// Parses a collection definition payload.
   @protected
-  TokenOnNetwork parseTokenCollectionDefinition(dynamic response, String collection);
+  TokenOnNetwork parseTokenCollectionDefinition(
+    dynamic response,
+    String collection,
+  );
 
   /// Parses a single NFT instance payload.
   @protected
@@ -747,10 +753,7 @@ abstract class BaseNetworkProvider implements NetworkProvider {
 
   @override
   Future<BlockOnNetwork> getBlock(String hash) async {
-    logger?.debug(
-      'Fetching block',
-      context: <String, dynamic>{'hash': hash},
-    );
+    logger?.debug('Fetching block', context: <String, dynamic>{'hash': hash});
 
     final response = await executeWithCircuitBreaker(
       () => doGetGeneric(blockByHashEndpoint(hash)),
@@ -776,7 +779,11 @@ abstract class BaseNetworkProvider implements NetworkProvider {
   @override
   Future<HyperblockOnNetwork> getHyperblock(int nonce) async {
     if (nonce < 0) {
-      throw ArgumentError.value(nonce, 'nonce', 'Hyperblock nonce must be >= 0');
+      throw ArgumentError.value(
+        nonce,
+        'nonce',
+        'Hyperblock nonce must be >= 0',
+      );
     }
 
     logger?.debug(

@@ -29,16 +29,12 @@ Future<Transaction> esdt(
   Nonce nonce,
   Address receiver,
   String tokenId,
-  BigInt amount,
-  {
-    Address? relayer,
-    Address? guardian,
-    GasLimit? gasLimit,
-  }
-) async {
-  final transfersCtrl = TransfersController(
-    chainId: provider.chainId,
-  );
+  BigInt amount, {
+  Address? relayer,
+  Address? guardian,
+  GasLimit? gasLimit,
+}) async {
+  final transfersCtrl = TransfersController(chainId: provider.chainId);
 
   final tx = await transfersCtrl.createTransactionForTokenTransfer(
     sender,
@@ -46,15 +42,15 @@ Future<Transaction> esdt(
     TokenTransferInput(
       receiver: receiver,
       transfers: [
-        TokenTransfer.fungible(
-          tokenIdentifier: tokenId,
-          amount: amount,
-        ),
+        TokenTransfer.fungible(tokenIdentifier: tokenId, amount: amount),
       ],
     ),
     baseOptions: gasLimit != null || relayer != null || guardian != null
-        ? BaseControllerInput(gasLimit: gasLimit, relayer: relayer, guardian: guardian
-        )
+        ? BaseControllerInput(
+            gasLimit: gasLimit,
+            relayer: relayer,
+            guardian: guardian,
+          )
         : const BaseControllerInput(),
   );
 

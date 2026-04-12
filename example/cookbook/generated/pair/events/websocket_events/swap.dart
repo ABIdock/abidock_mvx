@@ -46,16 +46,15 @@ final class SwapWebSocketStream {
 
   /// Stream of typed SwapEvent events filtered server-side.
   /// Converts WebSocket payloads into strongly typed objects.
-  Stream<SwapEvent> get events =>
-      EventConverter.filterByIdentifier<SwapEvent>(
-        _stream.events,
-        'swap',
-        (parsed) => EventConverter.convertEvent<SwapEvent>(
-          parsed,
-          SwapEvent.fromAbi,
-          SwapEvent.type,
-        ),
-      );
+  Stream<SwapEvent> get events => EventConverter.filterByIdentifier<SwapEvent>(
+    _stream.events,
+    'swap',
+    (parsed) => EventConverter.convertEvent<SwapEvent>(
+      parsed,
+      SwapEvent.fromAbi,
+      SwapEvent.type,
+    ),
+  );
 
   Stream<WebSocketStatusChange> get statusChanges => _stream.statusChanges;
 

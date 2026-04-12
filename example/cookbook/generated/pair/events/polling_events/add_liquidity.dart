@@ -25,16 +25,18 @@ final class AddLiquidityPollingStream {
     Duration pollingInterval = const Duration(seconds: 10),
     String? startFrom,
   }) {
-    return controller.streamEvents(
-      eventIdentifier: 'add_liquidity',
-      pollingInterval: pollingInterval,
-      startFrom: startFrom,
-    ).map((parsedEvent) {
-      final eventStruct = parsedEvent.getValueByName('add_liquidity_event');
-      if (eventStruct == null) {
-        throw StateError('Event struct not found in parsed event');
-      }
-      return AddLiquidityEvent.fromAbi(eventStruct);
-    });
+    return controller
+        .streamEvents(
+          eventIdentifier: 'add_liquidity',
+          pollingInterval: pollingInterval,
+          startFrom: startFrom,
+        )
+        .map((parsedEvent) {
+          final eventStruct = parsedEvent.getValueByName('add_liquidity_event');
+          if (eventStruct == null) {
+            throw StateError('Event struct not found in parsed event');
+          }
+          return AddLiquidityEvent.fromAbi(eventStruct);
+        });
   }
 }

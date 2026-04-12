@@ -244,13 +244,17 @@ class TransactionOnNetwork {
         data['receipt'],
         'receipt',
       ),
-      smartContractResults: (optionalAs<List<dynamic>>(
-        data['smartContractResults'],
-        'smartContractResults',
-      ))?.map((dynamic e) => SmartContractResult.fromJson(
-          requireAs<Map<String, dynamic>>(e, 'smartContractResults[]'),
-        ))
-          .toList(),
+      smartContractResults:
+          (optionalAs<List<dynamic>>(
+                data['smartContractResults'],
+                'smartContractResults',
+              ))
+              ?.map(
+                (dynamic e) => SmartContractResult.fromJson(
+                  requireAs<Map<String, dynamic>>(e, 'smartContractResults[]'),
+                ),
+              )
+              .toList(),
       logs: logs,
       gasUsed: (data['gasUsed'] as num?)?.toInt(),
       fee: optionalAs<String>(data['fee'], 'fee'),

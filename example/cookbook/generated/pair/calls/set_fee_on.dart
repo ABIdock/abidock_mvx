@@ -20,14 +20,12 @@ Future<Transaction> setFeeOn(
   Nonce nonce,
   bool enabled,
   String feeToAddress,
-  String feeToken,
-  {
-    required GasLimit gasLimit,
-    Address? relayer,
-    Address? guardian,
-    Balance? value,
-  }
-) async {
+  String feeToken, {
+  required GasLimit gasLimit,
+  Address? relayer,
+  Address? guardian,
+  Balance? value,
+}) async {
   return controller.call(
     account: sender,
     nonce: nonce,
@@ -71,12 +69,10 @@ Transaction setFeeOnUnsigned(
   Nonce nonce,
   bool enabled,
   String feeToAddress,
-  String feeToken,
-  {
-    required GasLimit gasLimit,
-    Balance? value,
-  }
-) {
+  String feeToken, {
+  required GasLimit gasLimit,
+  Balance? value,
+}) {
   return factory.createCall(
     sender: sender,
     nonce: nonce,

@@ -18,14 +18,12 @@ Future<Transaction> updateAndGetSafePrice(
   SmartContractController controller,
   IAccount sender,
   Nonce nonce,
-  EsdtTokenPayment input,
-  {
-    required GasLimit gasLimit,
-    Address? relayer,
-    Address? guardian,
-    Balance? value,
-  }
-) async {
+  EsdtTokenPayment input, {
+  required GasLimit gasLimit,
+  Address? relayer,
+  Address? guardian,
+  Balance? value,
+}) async {
   return controller.call(
     account: sender,
     nonce: nonce,
@@ -65,12 +63,10 @@ Transaction updateAndGetSafePriceUnsigned(
   SmartContractCallFactory factory,
   Address sender,
   Nonce nonce,
-  EsdtTokenPayment input,
-  {
-    required GasLimit gasLimit,
-    Balance? value,
-  }
-) {
+  EsdtTokenPayment input, {
+  required GasLimit gasLimit,
+  Balance? value,
+}) {
   return factory.createCall(
     sender: sender,
     nonce: nonce,

@@ -9,20 +9,30 @@ class EsdtTokenPayment {
     required this.tokenIdentifier,
     required this.tokenNonce,
     required this.amount,
-  }
-);
+  });
 
   final String tokenIdentifier;
   final BigInt tokenNonce;
   final BigInt amount;
 
-  static final type = StructType(name: 'EsdtTokenPayment', fieldDefinitions: [FieldDefinition(name: 'token_identifier', type: TokenIdentifierType.type), FieldDefinition(name: 'token_nonce', type: U64Type.type), FieldDefinition(name: 'amount', type: BigUIntType.type)]);
+  static final type = StructType(
+    name: 'EsdtTokenPayment',
+    fieldDefinitions: [
+      FieldDefinition(name: 'token_identifier', type: TokenIdentifierType.type),
+      FieldDefinition(name: 'token_nonce', type: U64Type.type),
+      FieldDefinition(name: 'amount', type: BigUIntType.type),
+    ],
+  );
 
   factory EsdtTokenPayment.fromAbi(TypedValue value) {
     final struct = value as StructValue;
     return EsdtTokenPayment(
-      tokenIdentifier: infer<String>(struct.getFieldValue('token_identifier').nativeValue),
-      tokenNonce: infer<BigInt>(struct.getFieldValue('token_nonce').nativeValue),
+      tokenIdentifier: infer<String>(
+        struct.getFieldValue('token_identifier').nativeValue,
+      ),
+      tokenNonce: infer<BigInt>(
+        struct.getFieldValue('token_nonce').nativeValue,
+      ),
       amount: infer<BigInt>(struct.getFieldValue('amount').nativeValue),
     );
   }

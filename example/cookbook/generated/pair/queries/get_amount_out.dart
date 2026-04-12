@@ -31,10 +31,7 @@ Future<BigInt> getAmountOut(
     action: () async {
       final result = await controller.query(
         endpointName: 'getAmountOut',
-        arguments: [
-          tokenInValue,
-          amountInValue,
-        ],
+        arguments: [tokenInValue, amountInValue],
       );
 
       return infer<BigInt>(result[0]);

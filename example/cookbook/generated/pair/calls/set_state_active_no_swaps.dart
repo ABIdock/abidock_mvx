@@ -12,14 +12,12 @@ import 'package:abidock_mvx/abidock_mvx.dart';
 Future<Transaction> setStateActiveNoSwaps(
   SmartContractController controller,
   IAccount sender,
-  Nonce nonce,
-  {
-    required GasLimit gasLimit,
-    Address? relayer,
-    Address? guardian,
-    Balance? value,
-  }
-) async {
+  Nonce nonce, {
+  required GasLimit gasLimit,
+  Address? relayer,
+  Address? guardian,
+  Balance? value,
+}) async {
   return controller.call(
     account: sender,
     nonce: nonce,
@@ -54,12 +52,10 @@ Future<Transaction> setStateActiveNoSwaps(
 Transaction setStateActiveNoSwapsUnsigned(
   SmartContractCallFactory factory,
   Address sender,
-  Nonce nonce,
-  {
-    required GasLimit gasLimit,
-    Balance? value,
-  }
-) {
+  Nonce nonce, {
+  required GasLimit gasLimit,
+  Balance? value,
+}) {
   return factory.createCall(
     sender: sender,
     nonce: nonce,

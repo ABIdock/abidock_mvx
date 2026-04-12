@@ -16,14 +16,12 @@ Future<Transaction> setLockingDeadlineEpoch(
   SmartContractController controller,
   IAccount sender,
   Nonce nonce,
-  BigInt newDeadline,
-  {
-    required GasLimit gasLimit,
-    Address? relayer,
-    Address? guardian,
-    Balance? value,
-  }
-) async {
+  BigInt newDeadline, {
+  required GasLimit gasLimit,
+  Address? relayer,
+  Address? guardian,
+  Balance? value,
+}) async {
   return controller.call(
     account: sender,
     nonce: nonce,
@@ -63,12 +61,10 @@ Transaction setLockingDeadlineEpochUnsigned(
   SmartContractCallFactory factory,
   Address sender,
   Nonce nonce,
-  BigInt newDeadline,
-  {
-    required GasLimit gasLimit,
-    Balance? value,
-  }
-) {
+  BigInt newDeadline, {
+  required GasLimit gasLimit,
+  Balance? value,
+}) {
   return factory.createCall(
     sender: sender,
     nonce: nonce,

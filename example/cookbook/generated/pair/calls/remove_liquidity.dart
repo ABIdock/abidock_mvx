@@ -21,15 +21,13 @@ Future<Transaction> removeLiquidity(
   IAccount sender,
   Nonce nonce,
   BigInt firstTokenAmountMin,
-  BigInt secondTokenAmountMin,
-  {
-    List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
-    required GasLimit gasLimit,
-    Address? relayer,
-    Address? guardian,
-    Balance? value,
-  }
-) async {
+  BigInt secondTokenAmountMin, {
+  List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
+  required GasLimit gasLimit,
+  Address? relayer,
+  Address? guardian,
+  Balance? value,
+}) async {
   return controller.call(
     account: sender,
     nonce: nonce,
@@ -72,13 +70,11 @@ Transaction removeLiquidityUnsigned(
   Address sender,
   Nonce nonce,
   BigInt firstTokenAmountMin,
-  BigInt secondTokenAmountMin,
-  {
-    List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
-    required GasLimit gasLimit,
-    Balance? value,
-  }
-) {
+  BigInt secondTokenAmountMin, {
+  List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
+  required GasLimit gasLimit,
+  Balance? value,
+}) {
   return factory.createCall(
     sender: sender,
     nonce: nonce,

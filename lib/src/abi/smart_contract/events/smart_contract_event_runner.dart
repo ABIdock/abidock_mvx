@@ -481,7 +481,10 @@ final class SmartContractEventRunner {
       },
     );
 
-    final EventDeduplicator seenTxHashes = EventDeduplicator(maxSize: 10000, ttl: const Duration(minutes: 10));
+    final EventDeduplicator seenTxHashes = EventDeduplicator(
+      maxSize: 10000,
+      ttl: const Duration(minutes: 10),
+    );
     String? lastTxHash = startFrom;
     int totalEventsEmitted = 0;
 
@@ -637,7 +640,10 @@ final class SmartContractEventRunner {
       },
     );
 
-    final EventDeduplicator seenTxHashes = EventDeduplicator(maxSize: 10000, ttl: const Duration(minutes: 10));
+    final EventDeduplicator seenTxHashes = EventDeduplicator(
+      maxSize: 10000,
+      ttl: const Duration(minutes: 10),
+    );
     String? lastTxHash = startFrom;
     int totalEventsEmitted = 0;
 

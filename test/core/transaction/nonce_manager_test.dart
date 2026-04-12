@@ -44,55 +44,61 @@ void main() {
   });
 
   group('NonceManager', () {
-    test('seeds from the network on first call and increments locally',
-        () async {
-      provider.nextNonce = const Nonce(42);
+    test(
+      'seeds from the network on first call and increments locally',
+      () async {
+        provider.nextNonce = const Nonce(42);
 
-      final Nonce first = await manager.next();
-      final Nonce second = await manager.next();
-      final Nonce third = await manager.next();
+        final Nonce first = await manager.next();
+        final Nonce second = await manager.next();
+        final Nonce third = await manager.next();
 
-      expect(first.value, 42);
-      expect(second.value, 43);
-      expect(third.value, 44);
-      // Only a single bootstrap fetch — subsequent `next()` stays local.
-      expect(provider.callCount, 1);
-      expect(manager.peek, 45);
-    });
+        expect(first.value, 42);
+        expect(second.value, 43);
+        expect(third.value, 44);
+        // Only a single bootstrap fetch — subsequent `next()` stays local.
+        expect(provider.callCount, 1);
+        expect(manager.peek, 45);
+      },
+    );
 
-    test('release rewinds the counter when the last-reserved nonce is freed',
-        () async {
-      provider.nextNonce = const Nonce(10);
+    test(
+      'release rewinds the counter when the last-reserved nonce is freed',
+      () async {
+        provider.nextNonce = const Nonce(10);
 
-      final Nonce a = await manager.next(); // 10
-      final Nonce b = await manager.next(); // 11
-      manager.release(b);
+        final Nonce a = await manager.next(); // 10
+        final Nonce b = await manager.next(); // 11
+        manager.release(b);
 
-      final Nonce reused = await manager.next();
-      expect(reused.value, 11);
-      expect(a.value, 10);
-    });
+        final Nonce reused = await manager.next();
+        expect(reused.value, 11);
+        expect(a.value, 10);
+      },
+    );
 
-    test('release queues for reuse when a non-trailing nonce is freed',
-        () async {
-      provider.nextNonce = const Nonce(0);
+    test(
+      'release queues for reuse when a non-trailing nonce is freed',
+      () async {
+        provider.nextNonce = const Nonce(0);
 
-      final Nonce a = await manager.next(); // 0
-      final Nonce b = await manager.next(); // 1
-      final Nonce c = await manager.next(); // 2
-      // Free the middle one.
-      manager.release(b);
-      expect(a.value, 0);
-      expect(c.value, 2);
+        final Nonce a = await manager.next(); // 0
+        final Nonce b = await manager.next(); // 1
+        final Nonce c = await manager.next(); // 2
+        // Free the middle one.
+        manager.release(b);
+        expect(a.value, 0);
+        expect(c.value, 2);
 
-      // Next call should hand out the freed middle nonce first.
-      final Nonce reused = await manager.next();
-      expect(reused.value, 1);
+        // Next call should hand out the freed middle nonce first.
+        final Nonce reused = await manager.next();
+        expect(reused.value, 1);
 
-      // Then keep advancing the counter.
-      final Nonce follow = await manager.next();
-      expect(follow.value, 3);
-    });
+        // Then keep advancing the counter.
+        final Nonce follow = await manager.next();
+        expect(follow.value, 3);
+      },
+    );
 
     test('resync never moves the counter backwards', () async {
       provider.nextNonce = const Nonce(100);

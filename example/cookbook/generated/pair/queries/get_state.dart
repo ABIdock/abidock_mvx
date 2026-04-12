@@ -16,15 +16,11 @@ import '../models/state.dart';
 /// #### Throws:
 /// - [NetworkException] if network request fails
 /// - [ABIException] if ABI decoding fails
-Future<State> getState(
-  SmartContractController controller,
-) async {
+Future<State> getState(SmartContractController controller) async {
   return executeQuery(
     endpointName: 'getState',
     action: () async {
-      final result = await controller.query(
-        endpointName: 'getState',
-      );
+      final result = await controller.query(endpointName: 'getState');
 
       return infer<State>(result[0]);
     },

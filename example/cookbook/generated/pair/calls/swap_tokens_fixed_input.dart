@@ -21,15 +21,13 @@ Future<Transaction> swapTokensFixedInput(
   IAccount sender,
   Nonce nonce,
   String tokenOut,
-  BigInt amountOutMin,
-  {
-    List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
-    required GasLimit gasLimit,
-    Address? relayer,
-    Address? guardian,
-    Balance? value,
-  }
-) async {
+  BigInt amountOutMin, {
+  List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
+  required GasLimit gasLimit,
+  Address? relayer,
+  Address? guardian,
+  Balance? value,
+}) async {
   return controller.call(
     account: sender,
     nonce: nonce,
@@ -72,13 +70,11 @@ Transaction swapTokensFixedInputUnsigned(
   Address sender,
   Nonce nonce,
   String tokenOut,
-  BigInt amountOutMin,
-  {
-    List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
-    required GasLimit gasLimit,
-    Balance? value,
-  }
-) {
+  BigInt amountOutMin, {
+  List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
+  required GasLimit gasLimit,
+  Balance? value,
+}) {
   return factory.createCall(
     sender: sender,
     nonce: nonce,

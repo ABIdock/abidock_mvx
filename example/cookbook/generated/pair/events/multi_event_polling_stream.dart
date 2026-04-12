@@ -18,10 +18,9 @@ final class MultiEventPollingStream {
     Duration pollingInterval = const Duration(seconds: 10),
     String? startFrom,
   }) {
-    _baseStream = controller.streamAllEvents(
-      pollingInterval: pollingInterval,
-      startFrom: startFrom,
-    ).asBroadcastStream();
+    _baseStream = controller
+        .streamAllEvents(pollingInterval: pollingInterval, startFrom: startFrom)
+        .asBroadcastStream();
   }
 
   final SmartContractController controller;
@@ -40,9 +39,13 @@ final class MultiEventPollingStream {
 
   /// Stream of swap_no_fee_and_forward events.
   Stream<SwapNoFeeAndForwardEvent> get swapNoFeeAndForward => _baseStream
-      .where((event) => event.definition.identifier == 'swap_no_fee_and_forward')
+      .where(
+        (event) => event.definition.identifier == 'swap_no_fee_and_forward',
+      )
       .map((parsedEvent) {
-        final eventStruct = parsedEvent.getValueByName('swap_no_fee_and_forward_event');
+        final eventStruct = parsedEvent.getValueByName(
+          'swap_no_fee_and_forward_event',
+        );
         if (eventStruct == null) {
           throw StateError('Event struct not found in parsed event');
         }
@@ -64,7 +67,9 @@ final class MultiEventPollingStream {
   Stream<RemoveLiquidityEvent> get removeLiquidity => _baseStream
       .where((event) => event.definition.identifier == 'remove_liquidity')
       .map((parsedEvent) {
-        final eventStruct = parsedEvent.getValueByName('remove_liquidity_event');
+        final eventStruct = parsedEvent.getValueByName(
+          'remove_liquidity_event',
+        );
         if (eventStruct == null) {
           throw StateError('Event struct not found in parsed event');
         }
@@ -88,25 +93,36 @@ final class MultiEventPollingStream {
   /// });
   /// ```
   Stream<dynamic> get all {
-    return _baseStream.asyncMap((parsedEvent) async {
-      final identifier = parsedEvent.definition.identifier;
-      switch (identifier) {
-        case 'swap':
-          final struct = parsedEvent.getValueByName('swap_event');
-          return struct != null ? SwapEvent.fromAbi(struct) : null;
-        case 'swap_no_fee_and_forward':
-          final struct = parsedEvent.getValueByName('swap_no_fee_and_forward_event');
-          return struct != null ? SwapNoFeeAndForwardEvent.fromAbi(struct) : null;
-        case 'add_liquidity':
-          final struct = parsedEvent.getValueByName('add_liquidity_event');
-          return struct != null ? AddLiquidityEvent.fromAbi(struct) : null;
-        case 'remove_liquidity':
-          final struct = parsedEvent.getValueByName('remove_liquidity_event');
-          return struct != null ? RemoveLiquidityEvent.fromAbi(struct) : null;
-        default:
-          return null;
-      }
-    }).where((event) => event != null).cast<dynamic>();
+    return _baseStream
+        .asyncMap((parsedEvent) async {
+          final identifier = parsedEvent.definition.identifier;
+          switch (identifier) {
+            case 'swap':
+              final struct = parsedEvent.getValueByName('swap_event');
+              return struct != null ? SwapEvent.fromAbi(struct) : null;
+            case 'swap_no_fee_and_forward':
+              final struct = parsedEvent.getValueByName(
+                'swap_no_fee_and_forward_event',
+              );
+              return struct != null
+                  ? SwapNoFeeAndForwardEvent.fromAbi(struct)
+                  : null;
+            case 'add_liquidity':
+              final struct = parsedEvent.getValueByName('add_liquidity_event');
+              return struct != null ? AddLiquidityEvent.fromAbi(struct) : null;
+            case 'remove_liquidity':
+              final struct = parsedEvent.getValueByName(
+                'remove_liquidity_event',
+              );
+              return struct != null
+                  ? RemoveLiquidityEvent.fromAbi(struct)
+                  : null;
+            default:
+              return null;
+          }
+        })
+        .where((event) => event != null)
+        .cast<dynamic>();
   }
 
   /// Stream filtered to only specified event types.

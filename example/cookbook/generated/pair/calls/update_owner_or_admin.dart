@@ -19,14 +19,12 @@ Future<Transaction> updateOwnerOrAdmin(
   SmartContractController controller,
   IAccount sender,
   Nonce nonce,
-  String previousOwner,
-  {
-    required GasLimit gasLimit,
-    Address? relayer,
-    Address? guardian,
-    Balance? value,
-  }
-) async {
+  String previousOwner, {
+  required GasLimit gasLimit,
+  Address? relayer,
+  Address? guardian,
+  Balance? value,
+}) async {
   return controller.call(
     account: sender,
     nonce: nonce,
@@ -66,12 +64,10 @@ Transaction updateOwnerOrAdminUnsigned(
   SmartContractCallFactory factory,
   Address sender,
   Nonce nonce,
-  String previousOwner,
-  {
-    required GasLimit gasLimit,
-    Balance? value,
-  }
-) {
+  String previousOwner, {
+  required GasLimit gasLimit,
+  Balance? value,
+}) {
   return factory.createCall(
     sender: sender,
     nonce: nonce,

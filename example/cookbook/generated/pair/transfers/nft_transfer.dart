@@ -31,16 +31,12 @@ Future<Transaction> nft(
   Address receiver,
   String tokenId,
   int tokenNonce,
-  BigInt amount,
-  {
-    Address? relayer,
-    Address? guardian,
-    GasLimit? gasLimit,
-  }
-) async {
-  final transfersCtrl = TransfersController(
-    chainId: provider.chainId,
-  );
+  BigInt amount, {
+  Address? relayer,
+  Address? guardian,
+  GasLimit? gasLimit,
+}) async {
+  final transfersCtrl = TransfersController(chainId: provider.chainId);
 
   final tx = await transfersCtrl.createTransactionForTokenTransfer(
     sender,
@@ -56,8 +52,11 @@ Future<Transaction> nft(
       ],
     ),
     baseOptions: gasLimit != null || relayer != null || guardian != null
-        ? BaseControllerInput(gasLimit: gasLimit, relayer: relayer, guardian: guardian
-        )
+        ? BaseControllerInput(
+            gasLimit: gasLimit,
+            relayer: relayer,
+            guardian: guardian,
+          )
         : const BaseControllerInput(),
   );
 

@@ -31,10 +31,7 @@ Future<BigInt> getEquivalent(
     action: () async {
       final result = await controller.query(
         endpointName: 'getEquivalent',
-        arguments: [
-          tokenInValue,
-          amountInValue,
-        ],
+        arguments: [tokenInValue, amountInValue],
       );
 
       return infer<BigInt>(result[0]);

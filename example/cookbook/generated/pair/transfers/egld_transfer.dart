@@ -11,29 +11,24 @@ Future<Transaction> egld(
   IAccount sender,
   Nonce nonce,
   Address receiver,
-  Balance amount,
-  {
-    Address? relayer,
-    Address? guardian,
-    Uint8List? data,
-    GasLimit? gasLimit,
-  }
-) async {
-  final transfersCtrl = TransfersController(
-    chainId: provider.chainId,
-  );
+  Balance amount, {
+  Address? relayer,
+  Address? guardian,
+  Uint8List? data,
+  GasLimit? gasLimit,
+}) async {
+  final transfersCtrl = TransfersController(chainId: provider.chainId);
 
   final tx = await transfersCtrl.createTransactionForNativeTransfer(
     sender,
     nonce,
-    NativeTransferInput(
-      receiver: receiver,
-      amount: amount,
-      data: data,
-    ),
+    NativeTransferInput(receiver: receiver, amount: amount, data: data),
     baseOptions: gasLimit != null || relayer != null || guardian != null
-        ? BaseControllerInput(gasLimit: gasLimit, relayer: relayer, guardian: guardian
-        )
+        ? BaseControllerInput(
+            gasLimit: gasLimit,
+            relayer: relayer,
+            guardian: guardian,
+          )
         : const BaseControllerInput(),
   );
 

@@ -23,14 +23,12 @@ Future<Transaction> setupFeesCollector(
   IAccount sender,
   Nonce nonce,
   String feesCollectorAddress,
-  BigInt feesCollectorCutPercentage,
-  {
-    required GasLimit gasLimit,
-    Address? relayer,
-    Address? guardian,
-    Balance? value,
-  }
-) async {
+  BigInt feesCollectorCutPercentage, {
+  required GasLimit gasLimit,
+  Address? relayer,
+  Address? guardian,
+  Balance? value,
+}) async {
   return controller.call(
     account: sender,
     nonce: nonce,
@@ -72,12 +70,10 @@ Transaction setupFeesCollectorUnsigned(
   Address sender,
   Nonce nonce,
   String feesCollectorAddress,
-  BigInt feesCollectorCutPercentage,
-  {
-    required GasLimit gasLimit,
-    Balance? value,
-  }
-) {
+  BigInt feesCollectorCutPercentage, {
+  required GasLimit gasLimit,
+  Balance? value,
+}) {
   return factory.createCall(
     sender: sender,
     nonce: nonce,

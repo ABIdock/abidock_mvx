@@ -16,14 +16,12 @@ Future<Transaction> updateAndGetTokensForGivenPositionWithSafePrice(
   SmartContractController controller,
   IAccount sender,
   Nonce nonce,
-  BigInt liquidity,
-  {
-    required GasLimit gasLimit,
-    Address? relayer,
-    Address? guardian,
-    Balance? value,
-  }
-) async {
+  BigInt liquidity, {
+  required GasLimit gasLimit,
+  Address? relayer,
+  Address? guardian,
+  Balance? value,
+}) async {
   return controller.call(
     account: sender,
     nonce: nonce,
@@ -63,12 +61,10 @@ Transaction updateAndGetTokensForGivenPositionWithSafePriceUnsigned(
   SmartContractCallFactory factory,
   Address sender,
   Nonce nonce,
-  BigInt liquidity,
-  {
-    required GasLimit gasLimit,
-    Balance? value,
-  }
-) {
+  BigInt liquidity, {
+  required GasLimit gasLimit,
+  Balance? value,
+}) {
   return factory.createCall(
     sender: sender,
     nonce: nonce,

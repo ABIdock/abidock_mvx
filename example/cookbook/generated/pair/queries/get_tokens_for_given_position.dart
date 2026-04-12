@@ -31,14 +31,12 @@ Future<(EsdtTokenPayment, EsdtTokenPayment)> getTokensForGivenPosition(
     action: () async {
       final result = await controller.query(
         endpointName: 'getTokensForGivenPosition',
-        arguments: [
-          liquidityValue,
-        ],
+        arguments: [liquidityValue],
       );
 
       return (
         infer<EsdtTokenPayment>(result[0]),
-        infer<EsdtTokenPayment>(result[1])
+        infer<EsdtTokenPayment>(result[1]),
       );
     },
   );

@@ -16,14 +16,12 @@ Future<Transaction> setUnlockEpoch(
   SmartContractController controller,
   IAccount sender,
   Nonce nonce,
-  BigInt newEpoch,
-  {
-    required GasLimit gasLimit,
-    Address? relayer,
-    Address? guardian,
-    Balance? value,
-  }
-) async {
+  BigInt newEpoch, {
+  required GasLimit gasLimit,
+  Address? relayer,
+  Address? guardian,
+  Balance? value,
+}) async {
   return controller.call(
     account: sender,
     nonce: nonce,
@@ -63,12 +61,10 @@ Transaction setUnlockEpochUnsigned(
   SmartContractCallFactory factory,
   Address sender,
   Nonce nonce,
-  BigInt newEpoch,
-  {
-    required GasLimit gasLimit,
-    Balance? value,
-  }
-) {
+  BigInt newEpoch, {
+  required GasLimit gasLimit,
+  Balance? value,
+}) {
   return factory.createCall(
     sender: sender,
     nonce: nonce,

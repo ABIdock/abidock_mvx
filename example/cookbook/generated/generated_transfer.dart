@@ -17,10 +17,7 @@ void main() async {
   final tx = await controller.createTransactionForNativeTransfer(
     alice,
     currentNonce,
-    NativeTransferInput(
-      receiver: bobAddress,
-      amount: Balance.fromEgld(0.1),
-    ),
+    NativeTransferInput(receiver: bobAddress, amount: Balance.fromEgld(0.1)),
   );
 
   final txHash = await provider.sendTransaction(tx);

@@ -20,9 +20,7 @@ Future<List<(String, String)>> getFeeDestinations(
   return executeQuery(
     endpointName: 'getFeeDestinations',
     action: () async {
-      final result = await controller.query(
-        endpointName: 'getFeeDestinations',
-      );
+      final result = await controller.query(endpointName: 'getFeeDestinations');
 
       if (result.isEmpty) {
         return <(String, String)>[];

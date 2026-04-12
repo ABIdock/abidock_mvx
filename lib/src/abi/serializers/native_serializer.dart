@@ -116,11 +116,13 @@ class NativeSerializer {
           final VariadicType varType = parameter.type as VariadicType;
           final List<TypedValue> variadicItems = <TypedValue>[];
           for (int j = i; j < args.length; j++) {
-            variadicItems.add(_convertToTypedValue(
-              args[j],
-              varType.itemType,
-              'Variadic parameter ${parameter.name} at index $j',
-            ));
+            variadicItems.add(
+              _convertToTypedValue(
+                args[j],
+                varType.itemType,
+                'Variadic parameter ${parameter.name} at index $j',
+              ),
+            );
           }
           values.add(VariadicValue(variadicItems, itemType: varType.itemType));
         } else {
@@ -151,7 +153,8 @@ class NativeSerializer {
       endpoint.input,
     );
 
-    if (!(cardinality.min <= args.length && (cardinality.max == -1 || args.length <= cardinality.max))) {
+    if (!(cardinality.min <= args.length &&
+        (cardinality.max == -1 || args.length <= cardinality.max))) {
       throw AbiNativeSerializationException(
         'Wrong number of arguments for endpoint ${endpoint.name}: '
         'expected between ${cardinality.min} and ${cardinality.max} arguments, '

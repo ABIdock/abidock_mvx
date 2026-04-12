@@ -16,14 +16,12 @@ Future<Transaction> setLockingScAddress(
   SmartContractController controller,
   IAccount sender,
   Nonce nonce,
-  String newAddress,
-  {
-    required GasLimit gasLimit,
-    Address? relayer,
-    Address? guardian,
-    Balance? value,
-  }
-) async {
+  String newAddress, {
+  required GasLimit gasLimit,
+  Address? relayer,
+  Address? guardian,
+  Balance? value,
+}) async {
   return controller.call(
     account: sender,
     nonce: nonce,
@@ -63,12 +61,10 @@ Transaction setLockingScAddressUnsigned(
   SmartContractCallFactory factory,
   Address sender,
   Nonce nonce,
-  String newAddress,
-  {
-    required GasLimit gasLimit,
-    Balance? value,
-  }
-) {
+  String newAddress, {
+  required GasLimit gasLimit,
+  Balance? value,
+}) {
   return factory.createCall(
     sender: sender,
     nonce: nonce,

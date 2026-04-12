@@ -248,7 +248,8 @@ class TransactionWatcher {
         }
         final Duration backoff = Duration(
           milliseconds:
-              options.pollingInterval.inMilliseconds * (1 << (consecutiveErrors - 1)),
+              options.pollingInterval.inMilliseconds *
+              (1 << (consecutiveErrors - 1)),
         );
         await Future<void>.delayed(backoff);
         continue;

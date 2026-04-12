@@ -1,4 +1,4 @@
-﻿import 'package:dio/dio.dart';
+import 'package:dio/dio.dart';
 
 import '../../core/account/account_on_network.dart';
 import '../../core/address.dart';
@@ -233,7 +233,8 @@ class GatewayNetworkProvider extends BaseNetworkProvider {
     int txCount,
   ) {
     if (response is Map<String, dynamic>) {
-      final int numSent = optionalAs<int>(response['numOfSentTxs'], 'numOfSentTxs') ?? 0;
+      final int numSent =
+          optionalAs<int>(response['numOfSentTxs'], 'numOfSentTxs') ?? 0;
       final Map<String, dynamic> txHashesMap =
           optionalAs<Map<String, dynamic>>(
             response['txsHashes'],

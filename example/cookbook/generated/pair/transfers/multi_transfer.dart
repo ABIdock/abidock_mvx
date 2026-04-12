@@ -38,27 +38,23 @@ Future<Transaction> multi(
   IAccount sender,
   Nonce nonce,
   Address receiver,
-  List<TokenTransfer> transfers,
-  {
-    Address? relayer,
-    Address? guardian,
-    GasLimit? gasLimit,
-  }
-) async {
-  final transfersCtrl = TransfersController(
-    chainId: provider.chainId,
-  );
+  List<TokenTransfer> transfers, {
+  Address? relayer,
+  Address? guardian,
+  GasLimit? gasLimit,
+}) async {
+  final transfersCtrl = TransfersController(chainId: provider.chainId);
 
   final tx = await transfersCtrl.createTransactionForMultiTokenTransfer(
     sender,
     nonce,
-    TokenTransferInput(
-      receiver: receiver,
-      transfers: transfers,
-    ),
+    TokenTransferInput(receiver: receiver, transfers: transfers),
     baseOptions: gasLimit != null || relayer != null || guardian != null
-        ? BaseControllerInput(gasLimit: gasLimit, relayer: relayer, guardian: guardian
-        )
+        ? BaseControllerInput(
+            gasLimit: gasLimit,
+            relayer: relayer,
+            guardian: guardian,
+          )
         : const BaseControllerInput(),
   );
 

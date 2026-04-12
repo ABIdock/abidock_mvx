@@ -22,10 +22,14 @@ final class MultiEventWebSocketStream {
     Duration connectionTimeout = const Duration(seconds: 5),
     Duration pingInterval = const Duration(seconds: 10),
   }) : _controller = controller {
-
     _config = WebSocketEventStreamConfig.byIdentifiers(
       websocketUrl: websocketUrl,
-      identifiers: ['swap', 'swap_no_fee_and_forward', 'add_liquidity', 'remove_liquidity'],
+      identifiers: [
+        'swap',
+        'swap_no_fee_and_forward',
+        'add_liquidity',
+        'remove_liquidity',
+      ],
       contractAddress: _controller.contractAddress,
       abi: _controller.abi,
       headers: headers,
@@ -44,16 +48,15 @@ final class MultiEventWebSocketStream {
   late final WebSocketEventStream _stream;
 
   /// Stream of swap events.
-  Stream<SwapEvent> get swap =>
-      EventConverter.filterByIdentifier<SwapEvent>(
-        _stream.events,
-        'swap',
-        (parsed) => EventConverter.convertEvent<SwapEvent>(
-          parsed,
-          SwapEvent.fromAbi,
-          SwapEvent.type,
-        ),
-      );
+  Stream<SwapEvent> get swap => EventConverter.filterByIdentifier<SwapEvent>(
+    _stream.events,
+    'swap',
+    (parsed) => EventConverter.convertEvent<SwapEvent>(
+      parsed,
+      SwapEvent.fromAbi,
+      SwapEvent.type,
+    ),
+  );
 
   /// Stream of swap_no_fee_and_forward events.
   Stream<SwapNoFeeAndForwardEvent> get swapNoFeeAndForward =>
@@ -99,10 +102,9 @@ final class MultiEventWebSocketStream {
   ///   if (event is SwapEvent) { ... }
   /// });
   /// ```
-  Stream<dynamic> get all =>
-      _stream.events
-          .where((r) => r.parsedEvent != null)
-          .map((r) {
+  Stream<dynamic> get all => _stream.events
+      .where((r) => r.parsedEvent != null)
+      .map((r) {
         final identifier = r.parsedEvent!.definition.identifier;
         switch (identifier) {
           case 'swap':

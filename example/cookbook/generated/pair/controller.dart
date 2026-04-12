@@ -13,15 +13,18 @@ import 'calls/add_to_pause_whitelist.dart' as add_to_pause_whitelist_call;
 import 'calls/add_trusted_swap_pair.dart' as add_trusted_swap_pair_call;
 import 'calls/pause.dart' as pause_call;
 import 'calls/remove_admin.dart' as remove_admin_call;
-import 'calls/remove_from_pause_whitelist.dart' as remove_from_pause_whitelist_call;
+import 'calls/remove_from_pause_whitelist.dart'
+    as remove_from_pause_whitelist_call;
 import 'calls/remove_liquidity.dart' as remove_liquidity_call;
-import 'calls/remove_liquidity_and_buy_back_and_burn_token.dart' as remove_liquidity_and_buy_back_and_burn_token_call;
+import 'calls/remove_liquidity_and_buy_back_and_burn_token.dart'
+    as remove_liquidity_and_buy_back_and_burn_token_call;
 import 'calls/remove_trusted_swap_pair.dart' as remove_trusted_swap_pair_call;
 import 'calls/remove_whitelist.dart' as remove_whitelist_call;
 import 'calls/resume.dart' as resume_call;
 import 'calls/set_fee_on.dart' as set_fee_on_call;
 import 'calls/set_fee_percents.dart' as set_fee_percents_call;
-import 'calls/set_locking_deadline_epoch.dart' as set_locking_deadline_epoch_call;
+import 'calls/set_locking_deadline_epoch.dart'
+    as set_locking_deadline_epoch_call;
 import 'calls/set_locking_sc_address.dart' as set_locking_sc_address_call;
 import 'calls/set_lp_token_identifier.dart' as set_lp_token_identifier_call;
 import 'calls/set_state_active_no_swaps.dart' as set_state_active_no_swaps_call;
@@ -31,19 +34,27 @@ import 'calls/swap_no_fee_and_forward.dart' as swap_no_fee_and_forward_call;
 import 'calls/swap_tokens_fixed_input.dart' as swap_tokens_fixed_input_call;
 import 'calls/swap_tokens_fixed_output.dart' as swap_tokens_fixed_output_call;
 import 'calls/update_and_get_safe_price.dart' as update_and_get_safe_price_call;
-import 'calls/update_and_get_tokens_for_given_position_with_safe_price.dart' as update_and_get_tokens_for_given_position_with_safe_price_call;
+import 'calls/update_and_get_tokens_for_given_position_with_safe_price.dart'
+    as update_and_get_tokens_for_given_position_with_safe_price_call;
 import 'calls/update_owner_or_admin.dart' as update_owner_or_admin_call;
 import 'calls/whitelist.dart' as whitelist_call;
 import 'events/multi_event_polling_stream.dart' as multi_event_polling_stream;
-import 'events/multi_event_websocket_stream.dart' as multi_event_websocket_stream;
-import 'events/polling_events/add_liquidity.dart' as add_liquidity_polling_stream;
-import 'events/polling_events/remove_liquidity.dart' as remove_liquidity_polling_stream;
+import 'events/multi_event_websocket_stream.dart'
+    as multi_event_websocket_stream;
+import 'events/polling_events/add_liquidity.dart'
+    as add_liquidity_polling_stream;
+import 'events/polling_events/remove_liquidity.dart'
+    as remove_liquidity_polling_stream;
 import 'events/polling_events/swap.dart' as swap_polling_stream;
-import 'events/polling_events/swap_no_fee_and_forward.dart' as swap_no_fee_and_forward_polling_stream;
-import 'events/websocket_events/add_liquidity.dart' as add_liquidity_websocket_stream;
-import 'events/websocket_events/remove_liquidity.dart' as remove_liquidity_websocket_stream;
+import 'events/polling_events/swap_no_fee_and_forward.dart'
+    as swap_no_fee_and_forward_polling_stream;
+import 'events/websocket_events/add_liquidity.dart'
+    as add_liquidity_websocket_stream;
+import 'events/websocket_events/remove_liquidity.dart'
+    as remove_liquidity_websocket_stream;
 import 'events/websocket_events/swap.dart' as swap_websocket_stream;
-import 'events/websocket_events/swap_no_fee_and_forward.dart' as swap_no_fee_and_forward_websocket_stream;
+import 'events/websocket_events/swap_no_fee_and_forward.dart'
+    as swap_no_fee_and_forward_websocket_stream;
 import 'models/esdt_token_payment.dart';
 import 'models/state.dart';
 import 'models/token_pair.dart';
@@ -52,27 +63,36 @@ import 'queries/get_amount_out.dart' as get_amount_out_query;
 import 'queries/get_equivalent.dart' as get_equivalent_query;
 import 'queries/get_fee_destinations.dart' as get_fee_destinations_query;
 import 'queries/get_fee_state.dart' as get_fee_state_query;
-import 'queries/get_fees_collector_address.dart' as get_fees_collector_address_query;
-import 'queries/get_fees_collector_cut_percentage.dart' as get_fees_collector_cut_percentage_query;
+import 'queries/get_fees_collector_address.dart'
+    as get_fees_collector_address_query;
+import 'queries/get_fees_collector_cut_percentage.dart'
+    as get_fees_collector_cut_percentage_query;
 import 'queries/get_first_token_id.dart' as get_first_token_id_query;
-import 'queries/get_initial_liquidty_adder.dart' as get_initial_liquidty_adder_query;
-import 'queries/get_locking_deadline_epoch.dart' as get_locking_deadline_epoch_query;
+import 'queries/get_initial_liquidty_adder.dart'
+    as get_initial_liquidty_adder_query;
+import 'queries/get_locking_deadline_epoch.dart'
+    as get_locking_deadline_epoch_query;
 import 'queries/get_locking_sc_address.dart' as get_locking_sc_address_query;
 import 'queries/get_lp_token_identifier.dart' as get_lp_token_identifier_query;
 import 'queries/get_permissions.dart' as get_permissions_query;
 import 'queries/get_reserve.dart' as get_reserve_query;
-import 'queries/get_reserves_and_total_supply.dart' as get_reserves_and_total_supply_query;
-import 'queries/get_router_managed_address.dart' as get_router_managed_address_query;
-import 'queries/get_safe_price_current_index.dart' as get_safe_price_current_index_query;
+import 'queries/get_reserves_and_total_supply.dart'
+    as get_reserves_and_total_supply_query;
+import 'queries/get_router_managed_address.dart'
+    as get_router_managed_address_query;
+import 'queries/get_safe_price_current_index.dart'
+    as get_safe_price_current_index_query;
 import 'queries/get_second_token_id.dart' as get_second_token_id_query;
 import 'queries/get_special_fee.dart' as get_special_fee_query;
 import 'queries/get_state.dart' as get_state_query;
-import 'queries/get_tokens_for_given_position.dart' as get_tokens_for_given_position_query;
+import 'queries/get_tokens_for_given_position.dart'
+    as get_tokens_for_given_position_query;
 import 'queries/get_total_fee_percent.dart' as get_total_fee_percent_query;
 import 'queries/get_total_supply.dart' as get_total_supply_query;
 import 'queries/get_trusted_swap_pairs.dart' as get_trusted_swap_pairs_query;
 import 'queries/get_unlock_epoch.dart' as get_unlock_epoch_query;
-import 'queries/get_whitelisted_managed_addresses.dart' as get_whitelisted_managed_addresses_query;
+import 'queries/get_whitelisted_managed_addresses.dart'
+    as get_whitelisted_managed_addresses_query;
 
 /// Smart contract controller.
 ///
@@ -90,17 +110,15 @@ class PairController {
   PairController({
     required dynamic contractAddress,
     required NetworkProvider networkProvider,
-  }) : 
-    _controller = SmartContractController(
-    abi: abi,
-    contractAddress: contractAddress is String
-        ? SmartContractAddress.fromBech32(contractAddress)
-        : contractAddress as Address,
-    networkProvider: networkProvider,
-  );
+  }) : _controller = SmartContractController(
+         abi: abi,
+         contractAddress: contractAddress is String
+             ? SmartContractAddress.fromBech32(contractAddress)
+             : contractAddress as Address,
+         networkProvider: networkProvider,
+       );
 
-  PairController.withController(this._controller)
-    ;
+  PairController.withController(this._controller);
 
   SmartContractController get controller => _controller;
 
@@ -116,720 +134,1108 @@ class PairController {
   );
 
   Future<(EsdtTokenPayment, EsdtTokenPayment)> getTokensForGivenPosition(
-    BigInt liquidity
-  ) => get_tokens_for_given_position_query.getTokensForGivenPosition(_controller, liquidity);
+    BigInt liquidity,
+  ) => get_tokens_for_given_position_query.getTokensForGivenPosition(
+    _controller,
+    liquidity,
+  );
 
-  Future<(BigInt, BigInt, BigInt)> getReservesAndTotalSupply() => get_reserves_and_total_supply_query.getReservesAndTotalSupply(_controller);
+  Future<(BigInt, BigInt, BigInt)> getReservesAndTotalSupply() =>
+      get_reserves_and_total_supply_query.getReservesAndTotalSupply(
+        _controller,
+      );
 
-  Future<BigInt> getAmountOut(
-    String tokenIn,
-    BigInt amountIn
-  ) => get_amount_out_query.getAmountOut(_controller, tokenIn, amountIn);
+  Future<BigInt> getAmountOut(String tokenIn, BigInt amountIn) =>
+      get_amount_out_query.getAmountOut(_controller, tokenIn, amountIn);
 
-  Future<BigInt> getAmountIn(
-    String tokenWanted,
-    BigInt amountWanted
-  ) => get_amount_in_query.getAmountIn(_controller, tokenWanted, amountWanted);
+  Future<BigInt> getAmountIn(String tokenWanted, BigInt amountWanted) =>
+      get_amount_in_query.getAmountIn(_controller, tokenWanted, amountWanted);
 
-  Future<BigInt> getEquivalent(
-    String tokenIn,
-    BigInt amountIn
-  ) => get_equivalent_query.getEquivalent(_controller, tokenIn, amountIn);
+  Future<BigInt> getEquivalent(String tokenIn, BigInt amountIn) =>
+      get_equivalent_query.getEquivalent(_controller, tokenIn, amountIn);
 
   Future<bool> getFeeState() => get_fee_state_query.getFeeState(_controller);
 
-  Future<List<(String, String)>> getFeeDestinations() => get_fee_destinations_query.getFeeDestinations(_controller);
+  Future<List<(String, String)>> getFeeDestinations() =>
+      get_fee_destinations_query.getFeeDestinations(_controller);
 
-  Future<List<(TokenPair, String)>> getTrustedSwapPairs() => get_trusted_swap_pairs_query.getTrustedSwapPairs(_controller);
+  Future<List<(TokenPair, String)>> getTrustedSwapPairs() =>
+      get_trusted_swap_pairs_query.getTrustedSwapPairs(_controller);
 
-  Future<List<String>> getWhitelistedManagedAddresses() => get_whitelisted_managed_addresses_query.getWhitelistedManagedAddresses(_controller);
+  Future<List<String>> getWhitelistedManagedAddresses() =>
+      get_whitelisted_managed_addresses_query.getWhitelistedManagedAddresses(
+        _controller,
+      );
 
-  Future<String> getFeesCollectorAddress() => get_fees_collector_address_query.getFeesCollectorAddress(_controller);
+  Future<String> getFeesCollectorAddress() =>
+      get_fees_collector_address_query.getFeesCollectorAddress(_controller);
 
-  Future<BigInt> getFeesCollectorCutPercentage() => get_fees_collector_cut_percentage_query.getFeesCollectorCutPercentage(_controller);
+  Future<BigInt> getFeesCollectorCutPercentage() =>
+      get_fees_collector_cut_percentage_query.getFeesCollectorCutPercentage(
+        _controller,
+      );
 
-  Future<String> getLpTokenIdentifier() => get_lp_token_identifier_query.getLpTokenIdentifier(_controller);
+  Future<String> getLpTokenIdentifier() =>
+      get_lp_token_identifier_query.getLpTokenIdentifier(_controller);
 
-  Future<BigInt> getTotalFeePercent() => get_total_fee_percent_query.getTotalFeePercent(_controller);
+  Future<BigInt> getTotalFeePercent() =>
+      get_total_fee_percent_query.getTotalFeePercent(_controller);
 
-  Future<BigInt> getSpecialFee() => get_special_fee_query.getSpecialFee(_controller);
+  Future<BigInt> getSpecialFee() =>
+      get_special_fee_query.getSpecialFee(_controller);
 
-  Future<String> getRouterManagedAddress() => get_router_managed_address_query.getRouterManagedAddress(_controller);
+  Future<String> getRouterManagedAddress() =>
+      get_router_managed_address_query.getRouterManagedAddress(_controller);
 
-  Future<String> getFirstTokenId() => get_first_token_id_query.getFirstTokenId(_controller);
+  Future<String> getFirstTokenId() =>
+      get_first_token_id_query.getFirstTokenId(_controller);
 
-  Future<String> getSecondTokenId() => get_second_token_id_query.getSecondTokenId(_controller);
+  Future<String> getSecondTokenId() =>
+      get_second_token_id_query.getSecondTokenId(_controller);
 
-  Future<BigInt> getTotalSupply() => get_total_supply_query.getTotalSupply(_controller);
+  Future<BigInt> getTotalSupply() =>
+      get_total_supply_query.getTotalSupply(_controller);
 
-  Future<String?> getInitialLiquidtyAdder() => get_initial_liquidty_adder_query.getInitialLiquidtyAdder(_controller);
+  Future<String?> getInitialLiquidtyAdder() =>
+      get_initial_liquidty_adder_query.getInitialLiquidtyAdder(_controller);
 
-  Future<BigInt> getReserve(
-    String tokenId
-  ) => get_reserve_query.getReserve(_controller, tokenId);
+  Future<BigInt> getReserve(String tokenId) =>
+      get_reserve_query.getReserve(_controller, tokenId);
 
-  Future<int> getSafePriceCurrentIndex() => get_safe_price_current_index_query.getSafePriceCurrentIndex(_controller);
+  Future<int> getSafePriceCurrentIndex() =>
+      get_safe_price_current_index_query.getSafePriceCurrentIndex(_controller);
 
-  Future<String> getLockingScAddress() => get_locking_sc_address_query.getLockingScAddress(_controller);
+  Future<String> getLockingScAddress() =>
+      get_locking_sc_address_query.getLockingScAddress(_controller);
 
-  Future<BigInt> getUnlockEpoch() => get_unlock_epoch_query.getUnlockEpoch(_controller);
+  Future<BigInt> getUnlockEpoch() =>
+      get_unlock_epoch_query.getUnlockEpoch(_controller);
 
-  Future<BigInt> getLockingDeadlineEpoch() => get_locking_deadline_epoch_query.getLockingDeadlineEpoch(_controller);
+  Future<BigInt> getLockingDeadlineEpoch() =>
+      get_locking_deadline_epoch_query.getLockingDeadlineEpoch(_controller);
 
-  Future<int> getPermissions(
-    String address
-  ) => get_permissions_query.getPermissions(_controller, address);
+  Future<int> getPermissions(String address) =>
+      get_permissions_query.getPermissions(_controller, address);
 
   Future<State> getState() => get_state_query.getState(_controller);
 
   Future<Transaction> addInitialLiquidity(
     IAccount sender,
-    Nonce nonce,
-    {
-      List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
-      required GasLimit gasLimit,
-      Address? relayer,
-      Address? guardian,
-      Balance? value,
-    }
-  ) => add_initial_liquidity_call.addInitialLiquidity(_controller, sender, nonce, tokenTransfers: tokenTransfers, gasLimit: gasLimit, relayer: relayer, guardian: guardian, value: value);
+    Nonce nonce, {
+    List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
+    required GasLimit gasLimit,
+    Address? relayer,
+    Address? guardian,
+    Balance? value,
+  }) => add_initial_liquidity_call.addInitialLiquidity(
+    _controller,
+    sender,
+    nonce,
+    tokenTransfers: tokenTransfers,
+    gasLimit: gasLimit,
+    relayer: relayer,
+    guardian: guardian,
+    value: value,
+  );
 
   Future<Transaction> addLiquidity(
     IAccount sender,
     Nonce nonce,
     BigInt firstTokenAmountMin,
-    BigInt secondTokenAmountMin,
-    {
-      List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
-      required GasLimit gasLimit,
-      Address? relayer,
-      Address? guardian,
-      Balance? value,
-    }
-  ) => add_liquidity_call.addLiquidity(_controller, sender, nonce, firstTokenAmountMin, secondTokenAmountMin, tokenTransfers: tokenTransfers, gasLimit: gasLimit, relayer: relayer, guardian: guardian, value: value);
+    BigInt secondTokenAmountMin, {
+    List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
+    required GasLimit gasLimit,
+    Address? relayer,
+    Address? guardian,
+    Balance? value,
+  }) => add_liquidity_call.addLiquidity(
+    _controller,
+    sender,
+    nonce,
+    firstTokenAmountMin,
+    secondTokenAmountMin,
+    tokenTransfers: tokenTransfers,
+    gasLimit: gasLimit,
+    relayer: relayer,
+    guardian: guardian,
+    value: value,
+  );
 
   Future<Transaction> removeLiquidity(
     IAccount sender,
     Nonce nonce,
     BigInt firstTokenAmountMin,
-    BigInt secondTokenAmountMin,
-    {
-      List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
-      required GasLimit gasLimit,
-      Address? relayer,
-      Address? guardian,
-      Balance? value,
-    }
-  ) => remove_liquidity_call.removeLiquidity(_controller, sender, nonce, firstTokenAmountMin, secondTokenAmountMin, tokenTransfers: tokenTransfers, gasLimit: gasLimit, relayer: relayer, guardian: guardian, value: value);
+    BigInt secondTokenAmountMin, {
+    List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
+    required GasLimit gasLimit,
+    Address? relayer,
+    Address? guardian,
+    Balance? value,
+  }) => remove_liquidity_call.removeLiquidity(
+    _controller,
+    sender,
+    nonce,
+    firstTokenAmountMin,
+    secondTokenAmountMin,
+    tokenTransfers: tokenTransfers,
+    gasLimit: gasLimit,
+    relayer: relayer,
+    guardian: guardian,
+    value: value,
+  );
 
   Future<Transaction> removeLiquidityAndBuyBackAndBurnToken(
     IAccount sender,
     Nonce nonce,
-    String tokenToBuybackAndBurn,
-    {
-      List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
-      required GasLimit gasLimit,
-      Address? relayer,
-      Address? guardian,
-      Balance? value,
-    }
-  ) => remove_liquidity_and_buy_back_and_burn_token_call.removeLiquidityAndBuyBackAndBurnToken(_controller, sender, nonce, tokenToBuybackAndBurn, tokenTransfers: tokenTransfers, gasLimit: gasLimit, relayer: relayer, guardian: guardian, value: value);
+    String tokenToBuybackAndBurn, {
+    List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
+    required GasLimit gasLimit,
+    Address? relayer,
+    Address? guardian,
+    Balance? value,
+  }) => remove_liquidity_and_buy_back_and_burn_token_call
+      .removeLiquidityAndBuyBackAndBurnToken(
+        _controller,
+        sender,
+        nonce,
+        tokenToBuybackAndBurn,
+        tokenTransfers: tokenTransfers,
+        gasLimit: gasLimit,
+        relayer: relayer,
+        guardian: guardian,
+        value: value,
+      );
 
   Future<Transaction> swapNoFeeAndForward(
     IAccount sender,
     Nonce nonce,
     String tokenOut,
-    String destinationAddress,
-    {
-      List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
-      required GasLimit gasLimit,
-      Address? relayer,
-      Address? guardian,
-      Balance? value,
-    }
-  ) => swap_no_fee_and_forward_call.swapNoFeeAndForward(_controller, sender, nonce, tokenOut, destinationAddress, tokenTransfers: tokenTransfers, gasLimit: gasLimit, relayer: relayer, guardian: guardian, value: value);
+    String destinationAddress, {
+    List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
+    required GasLimit gasLimit,
+    Address? relayer,
+    Address? guardian,
+    Balance? value,
+  }) => swap_no_fee_and_forward_call.swapNoFeeAndForward(
+    _controller,
+    sender,
+    nonce,
+    tokenOut,
+    destinationAddress,
+    tokenTransfers: tokenTransfers,
+    gasLimit: gasLimit,
+    relayer: relayer,
+    guardian: guardian,
+    value: value,
+  );
 
   Future<Transaction> swapTokensFixedInput(
     IAccount sender,
     Nonce nonce,
     String tokenOut,
-    BigInt amountOutMin,
-    {
-      List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
-      required GasLimit gasLimit,
-      Address? relayer,
-      Address? guardian,
-      Balance? value,
-    }
-  ) => swap_tokens_fixed_input_call.swapTokensFixedInput(_controller, sender, nonce, tokenOut, amountOutMin, tokenTransfers: tokenTransfers, gasLimit: gasLimit, relayer: relayer, guardian: guardian, value: value);
+    BigInt amountOutMin, {
+    List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
+    required GasLimit gasLimit,
+    Address? relayer,
+    Address? guardian,
+    Balance? value,
+  }) => swap_tokens_fixed_input_call.swapTokensFixedInput(
+    _controller,
+    sender,
+    nonce,
+    tokenOut,
+    amountOutMin,
+    tokenTransfers: tokenTransfers,
+    gasLimit: gasLimit,
+    relayer: relayer,
+    guardian: guardian,
+    value: value,
+  );
 
   Future<Transaction> swapTokensFixedOutput(
     IAccount sender,
     Nonce nonce,
     String tokenOut,
-    BigInt amountOut,
-    {
-      List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
-      required GasLimit gasLimit,
-      Address? relayer,
-      Address? guardian,
-      Balance? value,
-    }
-  ) => swap_tokens_fixed_output_call.swapTokensFixedOutput(_controller, sender, nonce, tokenOut, amountOut, tokenTransfers: tokenTransfers, gasLimit: gasLimit, relayer: relayer, guardian: guardian, value: value);
+    BigInt amountOut, {
+    List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
+    required GasLimit gasLimit,
+    Address? relayer,
+    Address? guardian,
+    Balance? value,
+  }) => swap_tokens_fixed_output_call.swapTokensFixedOutput(
+    _controller,
+    sender,
+    nonce,
+    tokenOut,
+    amountOut,
+    tokenTransfers: tokenTransfers,
+    gasLimit: gasLimit,
+    relayer: relayer,
+    guardian: guardian,
+    value: value,
+  );
 
   Future<Transaction> setLpTokenIdentifier(
     IAccount sender,
     Nonce nonce,
-    String tokenIdentifier,
-    {
-      required GasLimit gasLimit,
-      Address? relayer,
-      Address? guardian,
-      Balance? value,
-    }
-  ) => set_lp_token_identifier_call.setLpTokenIdentifier(_controller, sender, nonce, tokenIdentifier, gasLimit: gasLimit, relayer: relayer, guardian: guardian, value: value);
+    String tokenIdentifier, {
+    required GasLimit gasLimit,
+    Address? relayer,
+    Address? guardian,
+    Balance? value,
+  }) => set_lp_token_identifier_call.setLpTokenIdentifier(
+    _controller,
+    sender,
+    nonce,
+    tokenIdentifier,
+    gasLimit: gasLimit,
+    relayer: relayer,
+    guardian: guardian,
+    value: value,
+  );
 
   Future<Transaction> whitelist(
     IAccount sender,
     Nonce nonce,
-    String address,
-    {
-      required GasLimit gasLimit,
-      Address? relayer,
-      Address? guardian,
-      Balance? value,
-    }
-  ) => whitelist_call.whitelist(_controller, sender, nonce, address, gasLimit: gasLimit, relayer: relayer, guardian: guardian, value: value);
+    String address, {
+    required GasLimit gasLimit,
+    Address? relayer,
+    Address? guardian,
+    Balance? value,
+  }) => whitelist_call.whitelist(
+    _controller,
+    sender,
+    nonce,
+    address,
+    gasLimit: gasLimit,
+    relayer: relayer,
+    guardian: guardian,
+    value: value,
+  );
 
   Future<Transaction> removeWhitelist(
     IAccount sender,
     Nonce nonce,
-    String address,
-    {
-      required GasLimit gasLimit,
-      Address? relayer,
-      Address? guardian,
-      Balance? value,
-    }
-  ) => remove_whitelist_call.removeWhitelist(_controller, sender, nonce, address, gasLimit: gasLimit, relayer: relayer, guardian: guardian, value: value);
+    String address, {
+    required GasLimit gasLimit,
+    Address? relayer,
+    Address? guardian,
+    Balance? value,
+  }) => remove_whitelist_call.removeWhitelist(
+    _controller,
+    sender,
+    nonce,
+    address,
+    gasLimit: gasLimit,
+    relayer: relayer,
+    guardian: guardian,
+    value: value,
+  );
 
   Future<Transaction> addTrustedSwapPair(
     IAccount sender,
     Nonce nonce,
     String pairAddress,
     String firstToken,
-    String secondToken,
-    {
-      required GasLimit gasLimit,
-      Address? relayer,
-      Address? guardian,
-      Balance? value,
-    }
-  ) => add_trusted_swap_pair_call.addTrustedSwapPair(_controller, sender, nonce, pairAddress, firstToken, secondToken, gasLimit: gasLimit, relayer: relayer, guardian: guardian, value: value);
+    String secondToken, {
+    required GasLimit gasLimit,
+    Address? relayer,
+    Address? guardian,
+    Balance? value,
+  }) => add_trusted_swap_pair_call.addTrustedSwapPair(
+    _controller,
+    sender,
+    nonce,
+    pairAddress,
+    firstToken,
+    secondToken,
+    gasLimit: gasLimit,
+    relayer: relayer,
+    guardian: guardian,
+    value: value,
+  );
 
   Future<Transaction> removeTrustedSwapPair(
     IAccount sender,
     Nonce nonce,
     String firstToken,
-    String secondToken,
-    {
-      required GasLimit gasLimit,
-      Address? relayer,
-      Address? guardian,
-      Balance? value,
-    }
-  ) => remove_trusted_swap_pair_call.removeTrustedSwapPair(_controller, sender, nonce, firstToken, secondToken, gasLimit: gasLimit, relayer: relayer, guardian: guardian, value: value);
+    String secondToken, {
+    required GasLimit gasLimit,
+    Address? relayer,
+    Address? guardian,
+    Balance? value,
+  }) => remove_trusted_swap_pair_call.removeTrustedSwapPair(
+    _controller,
+    sender,
+    nonce,
+    firstToken,
+    secondToken,
+    gasLimit: gasLimit,
+    relayer: relayer,
+    guardian: guardian,
+    value: value,
+  );
 
   Future<Transaction> setupFeesCollector(
     IAccount sender,
     Nonce nonce,
     String feesCollectorAddress,
-    BigInt feesCollectorCutPercentage,
-    {
-      required GasLimit gasLimit,
-      Address? relayer,
-      Address? guardian,
-      Balance? value,
-    }
-  ) => setup_fees_collector_call.setupFeesCollector(_controller, sender, nonce, feesCollectorAddress, feesCollectorCutPercentage, gasLimit: gasLimit, relayer: relayer, guardian: guardian, value: value);
+    BigInt feesCollectorCutPercentage, {
+    required GasLimit gasLimit,
+    Address? relayer,
+    Address? guardian,
+    Balance? value,
+  }) => setup_fees_collector_call.setupFeesCollector(
+    _controller,
+    sender,
+    nonce,
+    feesCollectorAddress,
+    feesCollectorCutPercentage,
+    gasLimit: gasLimit,
+    relayer: relayer,
+    guardian: guardian,
+    value: value,
+  );
 
   Future<Transaction> setFeeOn(
     IAccount sender,
     Nonce nonce,
     bool enabled,
     String feeToAddress,
-    String feeToken,
-    {
-      required GasLimit gasLimit,
-      Address? relayer,
-      Address? guardian,
-      Balance? value,
-    }
-  ) => set_fee_on_call.setFeeOn(_controller, sender, nonce, enabled, feeToAddress, feeToken, gasLimit: gasLimit, relayer: relayer, guardian: guardian, value: value);
+    String feeToken, {
+    required GasLimit gasLimit,
+    Address? relayer,
+    Address? guardian,
+    Balance? value,
+  }) => set_fee_on_call.setFeeOn(
+    _controller,
+    sender,
+    nonce,
+    enabled,
+    feeToAddress,
+    feeToken,
+    gasLimit: gasLimit,
+    relayer: relayer,
+    guardian: guardian,
+    value: value,
+  );
 
   Future<Transaction> setStateActiveNoSwaps(
     IAccount sender,
-    Nonce nonce,
-    {
-      required GasLimit gasLimit,
-      Address? relayer,
-      Address? guardian,
-      Balance? value,
-    }
-  ) => set_state_active_no_swaps_call.setStateActiveNoSwaps(_controller, sender, nonce, gasLimit: gasLimit, relayer: relayer, guardian: guardian, value: value);
+    Nonce nonce, {
+    required GasLimit gasLimit,
+    Address? relayer,
+    Address? guardian,
+    Balance? value,
+  }) => set_state_active_no_swaps_call.setStateActiveNoSwaps(
+    _controller,
+    sender,
+    nonce,
+    gasLimit: gasLimit,
+    relayer: relayer,
+    guardian: guardian,
+    value: value,
+  );
 
   Future<Transaction> setFeePercents(
     IAccount sender,
     Nonce nonce,
     BigInt totalFeePercent,
-    BigInt specialFeePercent,
-    {
-      required GasLimit gasLimit,
-      Address? relayer,
-      Address? guardian,
-      Balance? value,
-    }
-  ) => set_fee_percents_call.setFeePercents(_controller, sender, nonce, totalFeePercent, specialFeePercent, gasLimit: gasLimit, relayer: relayer, guardian: guardian, value: value);
+    BigInt specialFeePercent, {
+    required GasLimit gasLimit,
+    Address? relayer,
+    Address? guardian,
+    Balance? value,
+  }) => set_fee_percents_call.setFeePercents(
+    _controller,
+    sender,
+    nonce,
+    totalFeePercent,
+    specialFeePercent,
+    gasLimit: gasLimit,
+    relayer: relayer,
+    guardian: guardian,
+    value: value,
+  );
 
   Future<Transaction> updateAndGetTokensForGivenPositionWithSafePrice(
     IAccount sender,
     Nonce nonce,
-    BigInt liquidity,
-    {
-      required GasLimit gasLimit,
-      Address? relayer,
-      Address? guardian,
-      Balance? value,
-    }
-  ) => update_and_get_tokens_for_given_position_with_safe_price_call.updateAndGetTokensForGivenPositionWithSafePrice(_controller, sender, nonce, liquidity, gasLimit: gasLimit, relayer: relayer, guardian: guardian, value: value);
+    BigInt liquidity, {
+    required GasLimit gasLimit,
+    Address? relayer,
+    Address? guardian,
+    Balance? value,
+  }) => update_and_get_tokens_for_given_position_with_safe_price_call
+      .updateAndGetTokensForGivenPositionWithSafePrice(
+        _controller,
+        sender,
+        nonce,
+        liquidity,
+        gasLimit: gasLimit,
+        relayer: relayer,
+        guardian: guardian,
+        value: value,
+      );
 
   Future<Transaction> updateAndGetSafePrice(
     IAccount sender,
     Nonce nonce,
-    EsdtTokenPayment input,
-    {
-      required GasLimit gasLimit,
-      Address? relayer,
-      Address? guardian,
-      Balance? value,
-    }
-  ) => update_and_get_safe_price_call.updateAndGetSafePrice(_controller, sender, nonce, input, gasLimit: gasLimit, relayer: relayer, guardian: guardian, value: value);
+    EsdtTokenPayment input, {
+    required GasLimit gasLimit,
+    Address? relayer,
+    Address? guardian,
+    Balance? value,
+  }) => update_and_get_safe_price_call.updateAndGetSafePrice(
+    _controller,
+    sender,
+    nonce,
+    input,
+    gasLimit: gasLimit,
+    relayer: relayer,
+    guardian: guardian,
+    value: value,
+  );
 
   Future<Transaction> setLockingDeadlineEpoch(
     IAccount sender,
     Nonce nonce,
-    BigInt newDeadline,
-    {
-      required GasLimit gasLimit,
-      Address? relayer,
-      Address? guardian,
-      Balance? value,
-    }
-  ) => set_locking_deadline_epoch_call.setLockingDeadlineEpoch(_controller, sender, nonce, newDeadline, gasLimit: gasLimit, relayer: relayer, guardian: guardian, value: value);
+    BigInt newDeadline, {
+    required GasLimit gasLimit,
+    Address? relayer,
+    Address? guardian,
+    Balance? value,
+  }) => set_locking_deadline_epoch_call.setLockingDeadlineEpoch(
+    _controller,
+    sender,
+    nonce,
+    newDeadline,
+    gasLimit: gasLimit,
+    relayer: relayer,
+    guardian: guardian,
+    value: value,
+  );
 
   Future<Transaction> setLockingScAddress(
     IAccount sender,
     Nonce nonce,
-    String newAddress,
-    {
-      required GasLimit gasLimit,
-      Address? relayer,
-      Address? guardian,
-      Balance? value,
-    }
-  ) => set_locking_sc_address_call.setLockingScAddress(_controller, sender, nonce, newAddress, gasLimit: gasLimit, relayer: relayer, guardian: guardian, value: value);
+    String newAddress, {
+    required GasLimit gasLimit,
+    Address? relayer,
+    Address? guardian,
+    Balance? value,
+  }) => set_locking_sc_address_call.setLockingScAddress(
+    _controller,
+    sender,
+    nonce,
+    newAddress,
+    gasLimit: gasLimit,
+    relayer: relayer,
+    guardian: guardian,
+    value: value,
+  );
 
   Future<Transaction> setUnlockEpoch(
     IAccount sender,
     Nonce nonce,
-    BigInt newEpoch,
-    {
-      required GasLimit gasLimit,
-      Address? relayer,
-      Address? guardian,
-      Balance? value,
-    }
-  ) => set_unlock_epoch_call.setUnlockEpoch(_controller, sender, nonce, newEpoch, gasLimit: gasLimit, relayer: relayer, guardian: guardian, value: value);
+    BigInt newEpoch, {
+    required GasLimit gasLimit,
+    Address? relayer,
+    Address? guardian,
+    Balance? value,
+  }) => set_unlock_epoch_call.setUnlockEpoch(
+    _controller,
+    sender,
+    nonce,
+    newEpoch,
+    gasLimit: gasLimit,
+    relayer: relayer,
+    guardian: guardian,
+    value: value,
+  );
 
   Future<Transaction> addAdmin(
     IAccount sender,
     Nonce nonce,
-    String address,
-    {
-      required GasLimit gasLimit,
-      Address? relayer,
-      Address? guardian,
-      Balance? value,
-    }
-  ) => add_admin_call.addAdmin(_controller, sender, nonce, address, gasLimit: gasLimit, relayer: relayer, guardian: guardian, value: value);
+    String address, {
+    required GasLimit gasLimit,
+    Address? relayer,
+    Address? guardian,
+    Balance? value,
+  }) => add_admin_call.addAdmin(
+    _controller,
+    sender,
+    nonce,
+    address,
+    gasLimit: gasLimit,
+    relayer: relayer,
+    guardian: guardian,
+    value: value,
+  );
 
   Future<Transaction> removeAdmin(
     IAccount sender,
     Nonce nonce,
-    String address,
-    {
-      required GasLimit gasLimit,
-      Address? relayer,
-      Address? guardian,
-      Balance? value,
-    }
-  ) => remove_admin_call.removeAdmin(_controller, sender, nonce, address, gasLimit: gasLimit, relayer: relayer, guardian: guardian, value: value);
+    String address, {
+    required GasLimit gasLimit,
+    Address? relayer,
+    Address? guardian,
+    Balance? value,
+  }) => remove_admin_call.removeAdmin(
+    _controller,
+    sender,
+    nonce,
+    address,
+    gasLimit: gasLimit,
+    relayer: relayer,
+    guardian: guardian,
+    value: value,
+  );
 
   Future<Transaction> updateOwnerOrAdmin(
     IAccount sender,
     Nonce nonce,
-    String previousOwner,
-    {
-      required GasLimit gasLimit,
-      Address? relayer,
-      Address? guardian,
-      Balance? value,
-    }
-  ) => update_owner_or_admin_call.updateOwnerOrAdmin(_controller, sender, nonce, previousOwner, gasLimit: gasLimit, relayer: relayer, guardian: guardian, value: value);
+    String previousOwner, {
+    required GasLimit gasLimit,
+    Address? relayer,
+    Address? guardian,
+    Balance? value,
+  }) => update_owner_or_admin_call.updateOwnerOrAdmin(
+    _controller,
+    sender,
+    nonce,
+    previousOwner,
+    gasLimit: gasLimit,
+    relayer: relayer,
+    guardian: guardian,
+    value: value,
+  );
 
   Future<Transaction> addToPauseWhitelist(
     IAccount sender,
     Nonce nonce,
-    List<String> addressList,
-    {
-      required GasLimit gasLimit,
-      Address? relayer,
-      Address? guardian,
-      Balance? value,
-    }
-  ) => add_to_pause_whitelist_call.addToPauseWhitelist(_controller, sender, nonce, addressList, gasLimit: gasLimit, relayer: relayer, guardian: guardian, value: value);
+    List<String> addressList, {
+    required GasLimit gasLimit,
+    Address? relayer,
+    Address? guardian,
+    Balance? value,
+  }) => add_to_pause_whitelist_call.addToPauseWhitelist(
+    _controller,
+    sender,
+    nonce,
+    addressList,
+    gasLimit: gasLimit,
+    relayer: relayer,
+    guardian: guardian,
+    value: value,
+  );
 
   Future<Transaction> removeFromPauseWhitelist(
     IAccount sender,
     Nonce nonce,
-    List<String> addressList,
-    {
-      required GasLimit gasLimit,
-      Address? relayer,
-      Address? guardian,
-      Balance? value,
-    }
-  ) => remove_from_pause_whitelist_call.removeFromPauseWhitelist(_controller, sender, nonce, addressList, gasLimit: gasLimit, relayer: relayer, guardian: guardian, value: value);
+    List<String> addressList, {
+    required GasLimit gasLimit,
+    Address? relayer,
+    Address? guardian,
+    Balance? value,
+  }) => remove_from_pause_whitelist_call.removeFromPauseWhitelist(
+    _controller,
+    sender,
+    nonce,
+    addressList,
+    gasLimit: gasLimit,
+    relayer: relayer,
+    guardian: guardian,
+    value: value,
+  );
 
   Future<Transaction> pause(
     IAccount sender,
-    Nonce nonce,
-    {
-      required GasLimit gasLimit,
-      Address? relayer,
-      Address? guardian,
-      Balance? value,
-    }
-  ) => pause_call.pause(_controller, sender, nonce, gasLimit: gasLimit, relayer: relayer, guardian: guardian, value: value);
+    Nonce nonce, {
+    required GasLimit gasLimit,
+    Address? relayer,
+    Address? guardian,
+    Balance? value,
+  }) => pause_call.pause(
+    _controller,
+    sender,
+    nonce,
+    gasLimit: gasLimit,
+    relayer: relayer,
+    guardian: guardian,
+    value: value,
+  );
 
   Future<Transaction> resume(
     IAccount sender,
-    Nonce nonce,
-    {
-      required GasLimit gasLimit,
-      Address? relayer,
-      Address? guardian,
-      Balance? value,
-    }
-  ) => resume_call.resume(_controller, sender, nonce, gasLimit: gasLimit, relayer: relayer, guardian: guardian, value: value);
+    Nonce nonce, {
+    required GasLimit gasLimit,
+    Address? relayer,
+    Address? guardian,
+    Balance? value,
+  }) => resume_call.resume(
+    _controller,
+    sender,
+    nonce,
+    gasLimit: gasLimit,
+    relayer: relayer,
+    guardian: guardian,
+    value: value,
+  );
 
   Transaction addInitialLiquidityUnsigned(
     Address sender,
-    Nonce nonce,
-    {
-      List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
-      required GasLimit gasLimit,
-      Balance? value,
-    }
-  ) => add_initial_liquidity_call.addInitialLiquidityUnsigned(factory, sender, nonce, tokenTransfers: tokenTransfers, gasLimit: gasLimit, value: value);
+    Nonce nonce, {
+    List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
+    required GasLimit gasLimit,
+    Balance? value,
+  }) => add_initial_liquidity_call.addInitialLiquidityUnsigned(
+    factory,
+    sender,
+    nonce,
+    tokenTransfers: tokenTransfers,
+    gasLimit: gasLimit,
+    value: value,
+  );
 
   Transaction addLiquidityUnsigned(
     Address sender,
     Nonce nonce,
     BigInt firstTokenAmountMin,
-    BigInt secondTokenAmountMin,
-    {
-      List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
-      required GasLimit gasLimit,
-      Balance? value,
-    }
-  ) => add_liquidity_call.addLiquidityUnsigned(factory, sender, nonce, firstTokenAmountMin, secondTokenAmountMin, tokenTransfers: tokenTransfers, gasLimit: gasLimit, value: value);
+    BigInt secondTokenAmountMin, {
+    List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
+    required GasLimit gasLimit,
+    Balance? value,
+  }) => add_liquidity_call.addLiquidityUnsigned(
+    factory,
+    sender,
+    nonce,
+    firstTokenAmountMin,
+    secondTokenAmountMin,
+    tokenTransfers: tokenTransfers,
+    gasLimit: gasLimit,
+    value: value,
+  );
 
   Transaction removeLiquidityUnsigned(
     Address sender,
     Nonce nonce,
     BigInt firstTokenAmountMin,
-    BigInt secondTokenAmountMin,
-    {
-      List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
-      required GasLimit gasLimit,
-      Balance? value,
-    }
-  ) => remove_liquidity_call.removeLiquidityUnsigned(factory, sender, nonce, firstTokenAmountMin, secondTokenAmountMin, tokenTransfers: tokenTransfers, gasLimit: gasLimit, value: value);
+    BigInt secondTokenAmountMin, {
+    List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
+    required GasLimit gasLimit,
+    Balance? value,
+  }) => remove_liquidity_call.removeLiquidityUnsigned(
+    factory,
+    sender,
+    nonce,
+    firstTokenAmountMin,
+    secondTokenAmountMin,
+    tokenTransfers: tokenTransfers,
+    gasLimit: gasLimit,
+    value: value,
+  );
 
   Transaction removeLiquidityAndBuyBackAndBurnTokenUnsigned(
     Address sender,
     Nonce nonce,
-    String tokenToBuybackAndBurn,
-    {
-      List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
-      required GasLimit gasLimit,
-      Balance? value,
-    }
-  ) => remove_liquidity_and_buy_back_and_burn_token_call.removeLiquidityAndBuyBackAndBurnTokenUnsigned(factory, sender, nonce, tokenToBuybackAndBurn, tokenTransfers: tokenTransfers, gasLimit: gasLimit, value: value);
+    String tokenToBuybackAndBurn, {
+    List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
+    required GasLimit gasLimit,
+    Balance? value,
+  }) => remove_liquidity_and_buy_back_and_burn_token_call
+      .removeLiquidityAndBuyBackAndBurnTokenUnsigned(
+        factory,
+        sender,
+        nonce,
+        tokenToBuybackAndBurn,
+        tokenTransfers: tokenTransfers,
+        gasLimit: gasLimit,
+        value: value,
+      );
 
   Transaction swapNoFeeAndForwardUnsigned(
     Address sender,
     Nonce nonce,
     String tokenOut,
-    String destinationAddress,
-    {
-      List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
-      required GasLimit gasLimit,
-      Balance? value,
-    }
-  ) => swap_no_fee_and_forward_call.swapNoFeeAndForwardUnsigned(factory, sender, nonce, tokenOut, destinationAddress, tokenTransfers: tokenTransfers, gasLimit: gasLimit, value: value);
+    String destinationAddress, {
+    List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
+    required GasLimit gasLimit,
+    Balance? value,
+  }) => swap_no_fee_and_forward_call.swapNoFeeAndForwardUnsigned(
+    factory,
+    sender,
+    nonce,
+    tokenOut,
+    destinationAddress,
+    tokenTransfers: tokenTransfers,
+    gasLimit: gasLimit,
+    value: value,
+  );
 
   Transaction swapTokensFixedInputUnsigned(
     Address sender,
     Nonce nonce,
     String tokenOut,
-    BigInt amountOutMin,
-    {
-      List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
-      required GasLimit gasLimit,
-      Balance? value,
-    }
-  ) => swap_tokens_fixed_input_call.swapTokensFixedInputUnsigned(factory, sender, nonce, tokenOut, amountOutMin, tokenTransfers: tokenTransfers, gasLimit: gasLimit, value: value);
+    BigInt amountOutMin, {
+    List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
+    required GasLimit gasLimit,
+    Balance? value,
+  }) => swap_tokens_fixed_input_call.swapTokensFixedInputUnsigned(
+    factory,
+    sender,
+    nonce,
+    tokenOut,
+    amountOutMin,
+    tokenTransfers: tokenTransfers,
+    gasLimit: gasLimit,
+    value: value,
+  );
 
   Transaction swapTokensFixedOutputUnsigned(
     Address sender,
     Nonce nonce,
     String tokenOut,
-    BigInt amountOut,
-    {
-      List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
-      required GasLimit gasLimit,
-      Balance? value,
-    }
-  ) => swap_tokens_fixed_output_call.swapTokensFixedOutputUnsigned(factory, sender, nonce, tokenOut, amountOut, tokenTransfers: tokenTransfers, gasLimit: gasLimit, value: value);
+    BigInt amountOut, {
+    List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
+    required GasLimit gasLimit,
+    Balance? value,
+  }) => swap_tokens_fixed_output_call.swapTokensFixedOutputUnsigned(
+    factory,
+    sender,
+    nonce,
+    tokenOut,
+    amountOut,
+    tokenTransfers: tokenTransfers,
+    gasLimit: gasLimit,
+    value: value,
+  );
 
   Transaction setLpTokenIdentifierUnsigned(
     Address sender,
     Nonce nonce,
-    String tokenIdentifier,
-    {
-      required GasLimit gasLimit,
-      Balance? value,
-    }
-  ) => set_lp_token_identifier_call.setLpTokenIdentifierUnsigned(factory, sender, nonce, tokenIdentifier, gasLimit: gasLimit, value: value);
+    String tokenIdentifier, {
+    required GasLimit gasLimit,
+    Balance? value,
+  }) => set_lp_token_identifier_call.setLpTokenIdentifierUnsigned(
+    factory,
+    sender,
+    nonce,
+    tokenIdentifier,
+    gasLimit: gasLimit,
+    value: value,
+  );
 
   Transaction whitelistUnsigned(
     Address sender,
     Nonce nonce,
-    String address,
-    {
-      required GasLimit gasLimit,
-      Balance? value,
-    }
-  ) => whitelist_call.whitelistUnsigned(factory, sender, nonce, address, gasLimit: gasLimit, value: value);
+    String address, {
+    required GasLimit gasLimit,
+    Balance? value,
+  }) => whitelist_call.whitelistUnsigned(
+    factory,
+    sender,
+    nonce,
+    address,
+    gasLimit: gasLimit,
+    value: value,
+  );
 
   Transaction removeWhitelistUnsigned(
     Address sender,
     Nonce nonce,
-    String address,
-    {
-      required GasLimit gasLimit,
-      Balance? value,
-    }
-  ) => remove_whitelist_call.removeWhitelistUnsigned(factory, sender, nonce, address, gasLimit: gasLimit, value: value);
+    String address, {
+    required GasLimit gasLimit,
+    Balance? value,
+  }) => remove_whitelist_call.removeWhitelistUnsigned(
+    factory,
+    sender,
+    nonce,
+    address,
+    gasLimit: gasLimit,
+    value: value,
+  );
 
   Transaction addTrustedSwapPairUnsigned(
     Address sender,
     Nonce nonce,
     String pairAddress,
     String firstToken,
-    String secondToken,
-    {
-      required GasLimit gasLimit,
-      Balance? value,
-    }
-  ) => add_trusted_swap_pair_call.addTrustedSwapPairUnsigned(factory, sender, nonce, pairAddress, firstToken, secondToken, gasLimit: gasLimit, value: value);
+    String secondToken, {
+    required GasLimit gasLimit,
+    Balance? value,
+  }) => add_trusted_swap_pair_call.addTrustedSwapPairUnsigned(
+    factory,
+    sender,
+    nonce,
+    pairAddress,
+    firstToken,
+    secondToken,
+    gasLimit: gasLimit,
+    value: value,
+  );
 
   Transaction removeTrustedSwapPairUnsigned(
     Address sender,
     Nonce nonce,
     String firstToken,
-    String secondToken,
-    {
-      required GasLimit gasLimit,
-      Balance? value,
-    }
-  ) => remove_trusted_swap_pair_call.removeTrustedSwapPairUnsigned(factory, sender, nonce, firstToken, secondToken, gasLimit: gasLimit, value: value);
+    String secondToken, {
+    required GasLimit gasLimit,
+    Balance? value,
+  }) => remove_trusted_swap_pair_call.removeTrustedSwapPairUnsigned(
+    factory,
+    sender,
+    nonce,
+    firstToken,
+    secondToken,
+    gasLimit: gasLimit,
+    value: value,
+  );
 
   Transaction setupFeesCollectorUnsigned(
     Address sender,
     Nonce nonce,
     String feesCollectorAddress,
-    BigInt feesCollectorCutPercentage,
-    {
-      required GasLimit gasLimit,
-      Balance? value,
-    }
-  ) => setup_fees_collector_call.setupFeesCollectorUnsigned(factory, sender, nonce, feesCollectorAddress, feesCollectorCutPercentage, gasLimit: gasLimit, value: value);
+    BigInt feesCollectorCutPercentage, {
+    required GasLimit gasLimit,
+    Balance? value,
+  }) => setup_fees_collector_call.setupFeesCollectorUnsigned(
+    factory,
+    sender,
+    nonce,
+    feesCollectorAddress,
+    feesCollectorCutPercentage,
+    gasLimit: gasLimit,
+    value: value,
+  );
 
   Transaction setFeeOnUnsigned(
     Address sender,
     Nonce nonce,
     bool enabled,
     String feeToAddress,
-    String feeToken,
-    {
-      required GasLimit gasLimit,
-      Balance? value,
-    }
-  ) => set_fee_on_call.setFeeOnUnsigned(factory, sender, nonce, enabled, feeToAddress, feeToken, gasLimit: gasLimit, value: value);
+    String feeToken, {
+    required GasLimit gasLimit,
+    Balance? value,
+  }) => set_fee_on_call.setFeeOnUnsigned(
+    factory,
+    sender,
+    nonce,
+    enabled,
+    feeToAddress,
+    feeToken,
+    gasLimit: gasLimit,
+    value: value,
+  );
 
   Transaction setStateActiveNoSwapsUnsigned(
     Address sender,
-    Nonce nonce,
-    {
-      required GasLimit gasLimit,
-      Balance? value,
-    }
-  ) => set_state_active_no_swaps_call.setStateActiveNoSwapsUnsigned(factory, sender, nonce, gasLimit: gasLimit, value: value);
+    Nonce nonce, {
+    required GasLimit gasLimit,
+    Balance? value,
+  }) => set_state_active_no_swaps_call.setStateActiveNoSwapsUnsigned(
+    factory,
+    sender,
+    nonce,
+    gasLimit: gasLimit,
+    value: value,
+  );
 
   Transaction setFeePercentsUnsigned(
     Address sender,
     Nonce nonce,
     BigInt totalFeePercent,
-    BigInt specialFeePercent,
-    {
-      required GasLimit gasLimit,
-      Balance? value,
-    }
-  ) => set_fee_percents_call.setFeePercentsUnsigned(factory, sender, nonce, totalFeePercent, specialFeePercent, gasLimit: gasLimit, value: value);
+    BigInt specialFeePercent, {
+    required GasLimit gasLimit,
+    Balance? value,
+  }) => set_fee_percents_call.setFeePercentsUnsigned(
+    factory,
+    sender,
+    nonce,
+    totalFeePercent,
+    specialFeePercent,
+    gasLimit: gasLimit,
+    value: value,
+  );
 
   Transaction updateAndGetTokensForGivenPositionWithSafePriceUnsigned(
     Address sender,
     Nonce nonce,
-    BigInt liquidity,
-    {
-      required GasLimit gasLimit,
-      Balance? value,
-    }
-  ) => update_and_get_tokens_for_given_position_with_safe_price_call.updateAndGetTokensForGivenPositionWithSafePriceUnsigned(factory, sender, nonce, liquidity, gasLimit: gasLimit, value: value);
+    BigInt liquidity, {
+    required GasLimit gasLimit,
+    Balance? value,
+  }) => update_and_get_tokens_for_given_position_with_safe_price_call
+      .updateAndGetTokensForGivenPositionWithSafePriceUnsigned(
+        factory,
+        sender,
+        nonce,
+        liquidity,
+        gasLimit: gasLimit,
+        value: value,
+      );
 
   Transaction updateAndGetSafePriceUnsigned(
     Address sender,
     Nonce nonce,
-    EsdtTokenPayment input,
-    {
-      required GasLimit gasLimit,
-      Balance? value,
-    }
-  ) => update_and_get_safe_price_call.updateAndGetSafePriceUnsigned(factory, sender, nonce, input, gasLimit: gasLimit, value: value);
+    EsdtTokenPayment input, {
+    required GasLimit gasLimit,
+    Balance? value,
+  }) => update_and_get_safe_price_call.updateAndGetSafePriceUnsigned(
+    factory,
+    sender,
+    nonce,
+    input,
+    gasLimit: gasLimit,
+    value: value,
+  );
 
   Transaction setLockingDeadlineEpochUnsigned(
     Address sender,
     Nonce nonce,
-    BigInt newDeadline,
-    {
-      required GasLimit gasLimit,
-      Balance? value,
-    }
-  ) => set_locking_deadline_epoch_call.setLockingDeadlineEpochUnsigned(factory, sender, nonce, newDeadline, gasLimit: gasLimit, value: value);
+    BigInt newDeadline, {
+    required GasLimit gasLimit,
+    Balance? value,
+  }) => set_locking_deadline_epoch_call.setLockingDeadlineEpochUnsigned(
+    factory,
+    sender,
+    nonce,
+    newDeadline,
+    gasLimit: gasLimit,
+    value: value,
+  );
 
   Transaction setLockingScAddressUnsigned(
     Address sender,
     Nonce nonce,
-    String newAddress,
-    {
-      required GasLimit gasLimit,
-      Balance? value,
-    }
-  ) => set_locking_sc_address_call.setLockingScAddressUnsigned(factory, sender, nonce, newAddress, gasLimit: gasLimit, value: value);
+    String newAddress, {
+    required GasLimit gasLimit,
+    Balance? value,
+  }) => set_locking_sc_address_call.setLockingScAddressUnsigned(
+    factory,
+    sender,
+    nonce,
+    newAddress,
+    gasLimit: gasLimit,
+    value: value,
+  );
 
   Transaction setUnlockEpochUnsigned(
     Address sender,
     Nonce nonce,
-    BigInt newEpoch,
-    {
-      required GasLimit gasLimit,
-      Balance? value,
-    }
-  ) => set_unlock_epoch_call.setUnlockEpochUnsigned(factory, sender, nonce, newEpoch, gasLimit: gasLimit, value: value);
+    BigInt newEpoch, {
+    required GasLimit gasLimit,
+    Balance? value,
+  }) => set_unlock_epoch_call.setUnlockEpochUnsigned(
+    factory,
+    sender,
+    nonce,
+    newEpoch,
+    gasLimit: gasLimit,
+    value: value,
+  );
 
   Transaction addAdminUnsigned(
     Address sender,
     Nonce nonce,
-    String address,
-    {
-      required GasLimit gasLimit,
-      Balance? value,
-    }
-  ) => add_admin_call.addAdminUnsigned(factory, sender, nonce, address, gasLimit: gasLimit, value: value);
+    String address, {
+    required GasLimit gasLimit,
+    Balance? value,
+  }) => add_admin_call.addAdminUnsigned(
+    factory,
+    sender,
+    nonce,
+    address,
+    gasLimit: gasLimit,
+    value: value,
+  );
 
   Transaction removeAdminUnsigned(
     Address sender,
     Nonce nonce,
-    String address,
-    {
-      required GasLimit gasLimit,
-      Balance? value,
-    }
-  ) => remove_admin_call.removeAdminUnsigned(factory, sender, nonce, address, gasLimit: gasLimit, value: value);
+    String address, {
+    required GasLimit gasLimit,
+    Balance? value,
+  }) => remove_admin_call.removeAdminUnsigned(
+    factory,
+    sender,
+    nonce,
+    address,
+    gasLimit: gasLimit,
+    value: value,
+  );
 
   Transaction updateOwnerOrAdminUnsigned(
     Address sender,
     Nonce nonce,
-    String previousOwner,
-    {
-      required GasLimit gasLimit,
-      Balance? value,
-    }
-  ) => update_owner_or_admin_call.updateOwnerOrAdminUnsigned(factory, sender, nonce, previousOwner, gasLimit: gasLimit, value: value);
+    String previousOwner, {
+    required GasLimit gasLimit,
+    Balance? value,
+  }) => update_owner_or_admin_call.updateOwnerOrAdminUnsigned(
+    factory,
+    sender,
+    nonce,
+    previousOwner,
+    gasLimit: gasLimit,
+    value: value,
+  );
 
   Transaction addToPauseWhitelistUnsigned(
     Address sender,
     Nonce nonce,
-    List<String> addressList,
-    {
-      required GasLimit gasLimit,
-      Balance? value,
-    }
-  ) => add_to_pause_whitelist_call.addToPauseWhitelistUnsigned(factory, sender, nonce, addressList, gasLimit: gasLimit, value: value);
+    List<String> addressList, {
+    required GasLimit gasLimit,
+    Balance? value,
+  }) => add_to_pause_whitelist_call.addToPauseWhitelistUnsigned(
+    factory,
+    sender,
+    nonce,
+    addressList,
+    gasLimit: gasLimit,
+    value: value,
+  );
 
   Transaction removeFromPauseWhitelistUnsigned(
     Address sender,
     Nonce nonce,
-    List<String> addressList,
-    {
-      required GasLimit gasLimit,
-      Balance? value,
-    }
-  ) => remove_from_pause_whitelist_call.removeFromPauseWhitelistUnsigned(factory, sender, nonce, addressList, gasLimit: gasLimit, value: value);
+    List<String> addressList, {
+    required GasLimit gasLimit,
+    Balance? value,
+  }) => remove_from_pause_whitelist_call.removeFromPauseWhitelistUnsigned(
+    factory,
+    sender,
+    nonce,
+    addressList,
+    gasLimit: gasLimit,
+    value: value,
+  );
 
   Transaction pauseUnsigned(
     Address sender,
-    Nonce nonce,
-    {
-      required GasLimit gasLimit,
-      Balance? value,
-    }
-  ) => pause_call.pauseUnsigned(factory, sender, nonce, gasLimit: gasLimit, value: value);
+    Nonce nonce, {
+    required GasLimit gasLimit,
+    Balance? value,
+  }) => pause_call.pauseUnsigned(
+    factory,
+    sender,
+    nonce,
+    gasLimit: gasLimit,
+    value: value,
+  );
 
   Transaction resumeUnsigned(
     Address sender,
-    Nonce nonce,
-    {
-      required GasLimit gasLimit,
-      Balance? value,
-    }
-  ) => resume_call.resumeUnsigned(factory, sender, nonce, gasLimit: gasLimit, value: value);
+    Nonce nonce, {
+    required GasLimit gasLimit,
+    Balance? value,
+  }) => resume_call.resumeUnsigned(
+    factory,
+    sender,
+    nonce,
+    gasLimit: gasLimit,
+    value: value,
+  );
 
   late final PairEvents events = PairEvents(_controller);
-
 }
 
 /// Event streaming accessor
@@ -902,9 +1308,8 @@ class PairEvents {
     );
   }
 
-  swap_polling_stream.SwapPollingStream
-      swapPolling() =>
-    swap_polling_stream.SwapPollingStream(_controller);
+  swap_polling_stream.SwapPollingStream swapPolling() =>
+      swap_polling_stream.SwapPollingStream(_controller);
 
   swap_websocket_stream.SwapWebSocketStream swapWebSocket({
     required String websocketUrl,
@@ -926,10 +1331,13 @@ class PairEvents {
   }
 
   swap_no_fee_and_forward_polling_stream.SwapNoFeeAndForwardPollingStream
-      swapNoFeeAndForwardPolling() =>
-    swap_no_fee_and_forward_polling_stream.SwapNoFeeAndForwardPollingStream(_controller);
+  swapNoFeeAndForwardPolling() =>
+      swap_no_fee_and_forward_polling_stream.SwapNoFeeAndForwardPollingStream(
+        _controller,
+      );
 
-  swap_no_fee_and_forward_websocket_stream.SwapNoFeeAndForwardWebSocketStream swapNoFeeAndForwardWebSocket({
+  swap_no_fee_and_forward_websocket_stream.SwapNoFeeAndForwardWebSocketStream
+  swapNoFeeAndForwardWebSocket({
     required String websocketUrl,
     Map<String, String> headers = const {},
     bool autoReconnect = true,
@@ -949,10 +1357,11 @@ class PairEvents {
   }
 
   add_liquidity_polling_stream.AddLiquidityPollingStream
-      addLiquidityPolling() =>
-    add_liquidity_polling_stream.AddLiquidityPollingStream(_controller);
+  addLiquidityPolling() =>
+      add_liquidity_polling_stream.AddLiquidityPollingStream(_controller);
 
-  add_liquidity_websocket_stream.AddLiquidityWebSocketStream addLiquidityWebSocket({
+  add_liquidity_websocket_stream.AddLiquidityWebSocketStream
+  addLiquidityWebSocket({
     required String websocketUrl,
     Map<String, String> headers = const {},
     bool autoReconnect = true,
@@ -972,10 +1381,11 @@ class PairEvents {
   }
 
   remove_liquidity_polling_stream.RemoveLiquidityPollingStream
-      removeLiquidityPolling() =>
-    remove_liquidity_polling_stream.RemoveLiquidityPollingStream(_controller);
+  removeLiquidityPolling() =>
+      remove_liquidity_polling_stream.RemoveLiquidityPollingStream(_controller);
 
-  remove_liquidity_websocket_stream.RemoveLiquidityWebSocketStream removeLiquidityWebSocket({
+  remove_liquidity_websocket_stream.RemoveLiquidityWebSocketStream
+  removeLiquidityWebSocket({
     required String websocketUrl,
     Map<String, String> headers = const {},
     bool autoReconnect = true,
@@ -993,5 +1403,4 @@ class PairEvents {
       pingInterval: pingInterval,
     );
   }
-
 }

@@ -113,8 +113,9 @@ class TransactionStatus {
   ///   print('Transaction not executable in this block, will be retried');
   /// }
   /// ```
-  static const TransactionStatus notExecutable =
-      TransactionStatus('not-executable-in-block');
+  static const TransactionStatus notExecutable = TransactionStatus(
+    'not-executable-in-block',
+  );
 
   /// Transaction was recalled (relayed v3 / future protocol support).
   ///

@@ -15,15 +15,13 @@ import 'package:abidock_mvx/abidock_mvx.dart';
 Future<Transaction> addInitialLiquidity(
   SmartContractController controller,
   IAccount sender,
-  Nonce nonce,
-  {
-    List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
-    required GasLimit gasLimit,
-    Address? relayer,
-    Address? guardian,
-    Balance? value,
-  }
-) async {
+  Nonce nonce, {
+  List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
+  required GasLimit gasLimit,
+  Address? relayer,
+  Address? guardian,
+  Balance? value,
+}) async {
   return controller.call(
     account: sender,
     nonce: nonce,
@@ -59,13 +57,11 @@ Future<Transaction> addInitialLiquidity(
 Transaction addInitialLiquidityUnsigned(
   SmartContractCallFactory factory,
   Address sender,
-  Nonce nonce,
-  {
-    List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
-    required GasLimit gasLimit,
-    Balance? value,
-  }
-) {
+  Nonce nonce, {
+  List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
+  required GasLimit gasLimit,
+  Balance? value,
+}) {
   return factory.createCall(
     sender: sender,
     nonce: nonce,

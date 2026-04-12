@@ -226,7 +226,15 @@ class ControllerGenerator extends GeneratorBase {
 
         for (final input in endpoint.inputs) {
           var paramName = nameSanitizer.toCamelCase(input.name);
-          if ({'sender', 'nonce', 'gasLimit', 'value', 'relayer', 'guardian', 'controller'}.contains(paramName)) {
+          if ({
+            'sender',
+            'nonce',
+            'gasLimit',
+            'value',
+            'relayer',
+            'guardian',
+            'controller',
+          }.contains(paramName)) {
             paramName = '${paramName}Param';
           }
           final dartType = typeMapper.mapToDartType(input.type);
@@ -251,7 +259,15 @@ class ControllerGenerator extends GeneratorBase {
         );
         for (final input in endpoint.inputs) {
           var paramName = nameSanitizer.toCamelCase(input.name);
-          if ({'sender', 'nonce', 'gasLimit', 'value', 'relayer', 'guardian', 'controller'}.contains(paramName)) {
+          if ({
+            'sender',
+            'nonce',
+            'gasLimit',
+            'value',
+            'relayer',
+            'guardian',
+            'controller',
+          }.contains(paramName)) {
             paramName = '${paramName}Param';
           }
           buffer.write(', $paramName');

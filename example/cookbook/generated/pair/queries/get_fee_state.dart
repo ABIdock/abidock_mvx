@@ -14,15 +14,11 @@ import 'package:abidock_mvx/abidock_mvx.dart';
 /// #### Throws:
 /// - [NetworkException] if network request fails
 /// - [ABIException] if ABI decoding fails
-Future<bool> getFeeState(
-  SmartContractController controller,
-) async {
+Future<bool> getFeeState(SmartContractController controller) async {
   return executeQuery(
     endpointName: 'getFeeState',
     action: () async {
-      final result = await controller.query(
-        endpointName: 'getFeeState',
-      );
+      final result = await controller.query(endpointName: 'getFeeState');
 
       return infer<bool>(result[0]);
     },

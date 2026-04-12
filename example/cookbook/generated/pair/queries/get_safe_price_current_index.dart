@@ -14,9 +14,7 @@ import 'package:abidock_mvx/abidock_mvx.dart';
 /// #### Throws:
 /// - [NetworkException] if network request fails
 /// - [ABIException] if ABI decoding fails
-Future<int> getSafePriceCurrentIndex(
-  SmartContractController controller,
-) async {
+Future<int> getSafePriceCurrentIndex(SmartContractController controller) async {
   return executeQuery(
     endpointName: 'getSafePriceCurrentIndex',
     action: () async {

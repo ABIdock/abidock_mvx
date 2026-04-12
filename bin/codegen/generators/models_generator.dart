@@ -256,7 +256,9 @@ class ModelsGenerator extends GeneratorBase {
     );
     buffer.writeln('      final idx = discriminants.indexOf(nativeValue);');
     buffer.writeln(
-      '      if (idx < 0) throw ArgumentError(\'Unknown $enumName discriminant: \$nativeValue\');',
+      '      if (idx < 0) {\n'
+      '        throw ArgumentError(\'Unknown $enumName discriminant: \$nativeValue\');\n'
+      '      }',
     );
     buffer.writeln('      return $enumName.values[idx];');
     buffer.writeln('    }');
@@ -358,7 +360,9 @@ class ModelsGenerator extends GeneratorBase {
     );
     buffer.writeln('      final idx = discriminants.indexOf(nativeValue);');
     buffer.writeln(
-      '      if (idx < 0) throw ArgumentError(\'Unknown $enumName discriminant: \$nativeValue\');',
+      '      if (idx < 0) {\n'
+      '        throw ArgumentError(\'Unknown $enumName discriminant: \$nativeValue\');\n'
+      '      }',
     );
     buffer.writeln('      return $enumName.values[idx];');
     buffer.writeln('    }');

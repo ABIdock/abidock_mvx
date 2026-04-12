@@ -18,14 +18,12 @@ Future<Transaction> removeTrustedSwapPair(
   IAccount sender,
   Nonce nonce,
   String firstToken,
-  String secondToken,
-  {
-    required GasLimit gasLimit,
-    Address? relayer,
-    Address? guardian,
-    Balance? value,
-  }
-) async {
+  String secondToken, {
+  required GasLimit gasLimit,
+  Address? relayer,
+  Address? guardian,
+  Balance? value,
+}) async {
   return controller.call(
     account: sender,
     nonce: nonce,
@@ -67,12 +65,10 @@ Transaction removeTrustedSwapPairUnsigned(
   Address sender,
   Nonce nonce,
   String firstToken,
-  String secondToken,
-  {
-    required GasLimit gasLimit,
-    Balance? value,
-  }
-) {
+  String secondToken, {
+  required GasLimit gasLimit,
+  Balance? value,
+}) {
   return factory.createCall(
     sender: sender,
     nonce: nonce,

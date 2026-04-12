@@ -19,8 +19,7 @@ class AddLiquidityEvent {
     required this.block,
     required this.epoch,
     required this.timestamp,
-  }
-);
+  });
 
   final String caller;
   final String firstTokenId;
@@ -36,21 +35,52 @@ class AddLiquidityEvent {
   final BigInt epoch;
   final BigInt timestamp;
 
-  static final type = StructType(name: 'AddLiquidityEvent', fieldDefinitions: [FieldDefinition(name: 'caller', type: AddressType.type), FieldDefinition(name: 'first_token_id', type: TokenIdentifierType.type), FieldDefinition(name: 'first_token_amount', type: BigUIntType.type), FieldDefinition(name: 'second_token_id', type: TokenIdentifierType.type), FieldDefinition(name: 'second_token_amount', type: BigUIntType.type), FieldDefinition(name: 'lp_token_id', type: TokenIdentifierType.type), FieldDefinition(name: 'lp_token_amount', type: BigUIntType.type), FieldDefinition(name: 'lp_supply', type: BigUIntType.type), FieldDefinition(name: 'first_token_reserves', type: BigUIntType.type), FieldDefinition(name: 'second_token_reserves', type: BigUIntType.type), FieldDefinition(name: 'block', type: U64Type.type), FieldDefinition(name: 'epoch', type: U64Type.type), FieldDefinition(name: 'timestamp', type: U64Type.type)]);
+  static final type = StructType(
+    name: 'AddLiquidityEvent',
+    fieldDefinitions: [
+      FieldDefinition(name: 'caller', type: AddressType.type),
+      FieldDefinition(name: 'first_token_id', type: TokenIdentifierType.type),
+      FieldDefinition(name: 'first_token_amount', type: BigUIntType.type),
+      FieldDefinition(name: 'second_token_id', type: TokenIdentifierType.type),
+      FieldDefinition(name: 'second_token_amount', type: BigUIntType.type),
+      FieldDefinition(name: 'lp_token_id', type: TokenIdentifierType.type),
+      FieldDefinition(name: 'lp_token_amount', type: BigUIntType.type),
+      FieldDefinition(name: 'lp_supply', type: BigUIntType.type),
+      FieldDefinition(name: 'first_token_reserves', type: BigUIntType.type),
+      FieldDefinition(name: 'second_token_reserves', type: BigUIntType.type),
+      FieldDefinition(name: 'block', type: U64Type.type),
+      FieldDefinition(name: 'epoch', type: U64Type.type),
+      FieldDefinition(name: 'timestamp', type: U64Type.type),
+    ],
+  );
 
   factory AddLiquidityEvent.fromAbi(TypedValue value) {
     final struct = value as StructValue;
     return AddLiquidityEvent(
       caller: infer<String>(struct.getFieldValue('caller').nativeValue),
-      firstTokenId: infer<String>(struct.getFieldValue('first_token_id').nativeValue),
-      firstTokenAmount: infer<BigInt>(struct.getFieldValue('first_token_amount').nativeValue),
-      secondTokenId: infer<String>(struct.getFieldValue('second_token_id').nativeValue),
-      secondTokenAmount: infer<BigInt>(struct.getFieldValue('second_token_amount').nativeValue),
+      firstTokenId: infer<String>(
+        struct.getFieldValue('first_token_id').nativeValue,
+      ),
+      firstTokenAmount: infer<BigInt>(
+        struct.getFieldValue('first_token_amount').nativeValue,
+      ),
+      secondTokenId: infer<String>(
+        struct.getFieldValue('second_token_id').nativeValue,
+      ),
+      secondTokenAmount: infer<BigInt>(
+        struct.getFieldValue('second_token_amount').nativeValue,
+      ),
       lpTokenId: infer<String>(struct.getFieldValue('lp_token_id').nativeValue),
-      lpTokenAmount: infer<BigInt>(struct.getFieldValue('lp_token_amount').nativeValue),
+      lpTokenAmount: infer<BigInt>(
+        struct.getFieldValue('lp_token_amount').nativeValue,
+      ),
       lpSupply: infer<BigInt>(struct.getFieldValue('lp_supply').nativeValue),
-      firstTokenReserves: infer<BigInt>(struct.getFieldValue('first_token_reserves').nativeValue),
-      secondTokenReserves: infer<BigInt>(struct.getFieldValue('second_token_reserves').nativeValue),
+      firstTokenReserves: infer<BigInt>(
+        struct.getFieldValue('first_token_reserves').nativeValue,
+      ),
+      secondTokenReserves: infer<BigInt>(
+        struct.getFieldValue('second_token_reserves').nativeValue,
+      ),
       block: infer<BigInt>(struct.getFieldValue('block').nativeValue),
       epoch: infer<BigInt>(struct.getFieldValue('epoch').nativeValue),
       timestamp: infer<BigInt>(struct.getFieldValue('timestamp').nativeValue),

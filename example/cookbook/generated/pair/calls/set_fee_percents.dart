@@ -18,14 +18,12 @@ Future<Transaction> setFeePercents(
   IAccount sender,
   Nonce nonce,
   BigInt totalFeePercent,
-  BigInt specialFeePercent,
-  {
-    required GasLimit gasLimit,
-    Address? relayer,
-    Address? guardian,
-    Balance? value,
-  }
-) async {
+  BigInt specialFeePercent, {
+  required GasLimit gasLimit,
+  Address? relayer,
+  Address? guardian,
+  Balance? value,
+}) async {
   return controller.call(
     account: sender,
     nonce: nonce,
@@ -67,12 +65,10 @@ Transaction setFeePercentsUnsigned(
   Address sender,
   Nonce nonce,
   BigInt totalFeePercent,
-  BigInt specialFeePercent,
-  {
-    required GasLimit gasLimit,
-    Balance? value,
-  }
-) {
+  BigInt specialFeePercent, {
+  required GasLimit gasLimit,
+  Balance? value,
+}) {
   return factory.createCall(
     sender: sender,
     nonce: nonce,

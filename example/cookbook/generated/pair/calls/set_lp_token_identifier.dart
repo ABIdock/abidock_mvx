@@ -16,14 +16,12 @@ Future<Transaction> setLpTokenIdentifier(
   SmartContractController controller,
   IAccount sender,
   Nonce nonce,
-  String tokenIdentifier,
-  {
-    required GasLimit gasLimit,
-    Address? relayer,
-    Address? guardian,
-    Balance? value,
-  }
-) async {
+  String tokenIdentifier, {
+  required GasLimit gasLimit,
+  Address? relayer,
+  Address? guardian,
+  Balance? value,
+}) async {
   return controller.call(
     account: sender,
     nonce: nonce,
@@ -63,12 +61,10 @@ Transaction setLpTokenIdentifierUnsigned(
   SmartContractCallFactory factory,
   Address sender,
   Nonce nonce,
-  String tokenIdentifier,
-  {
-    required GasLimit gasLimit,
-    Balance? value,
-  }
-) {
+  String tokenIdentifier, {
+  required GasLimit gasLimit,
+  Balance? value,
+}) {
   return factory.createCall(
     sender: sender,
     nonce: nonce,

@@ -14,9 +14,7 @@ import 'package:abidock_mvx/abidock_mvx.dart';
 /// #### Throws:
 /// - [NetworkException] if network request fails
 /// - [ABIException] if ABI decoding fails
-Future<String> getLockingScAddress(
-  SmartContractController controller,
-) async {
+Future<String> getLockingScAddress(SmartContractController controller) async {
   return executeQuery(
     endpointName: 'getLockingScAddress',
     action: () async {

@@ -286,7 +286,8 @@ class TypeMatchCallbacks<T> {
        onH256 = onH256 ?? _unsupported('H256 type'),
        onTokenIdentifier =
            onTokenIdentifier ?? _unsupported('TokenIdentifier type'),
-       onEgldOrEsdtTokenIdentifier = onEgldOrEsdtTokenIdentifier ??
+       onEgldOrEsdtTokenIdentifier =
+           onEgldOrEsdtTokenIdentifier ??
            _unsupported('EgldOrEsdtTokenIdentifier type'),
        onOptional = onOptional ?? _unsupported('Optional type'),
        onComposite = onComposite ?? _unsupported('Composite type'),
@@ -419,7 +420,8 @@ class ValueMatchCallbacks<T> {
        onH256 = onH256 ?? _unsupported('H256 value'),
        onTokenIdentifier =
            onTokenIdentifier ?? _unsupported('TokenIdentifier value'),
-       onEgldOrEsdtTokenIdentifier = onEgldOrEsdtTokenIdentifier ??
+       onEgldOrEsdtTokenIdentifier =
+           onEgldOrEsdtTokenIdentifier ??
            _unsupported('EgldOrEsdtTokenIdentifier value'),
        onOptional = onOptional ?? _unsupported('Optional value'),
        onComposite = onComposite ?? _unsupported('Composite value'),

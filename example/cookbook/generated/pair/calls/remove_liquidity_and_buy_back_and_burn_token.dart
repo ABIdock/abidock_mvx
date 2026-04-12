@@ -19,15 +19,13 @@ Future<Transaction> removeLiquidityAndBuyBackAndBurnToken(
   SmartContractController controller,
   IAccount sender,
   Nonce nonce,
-  String tokenToBuybackAndBurn,
-  {
-    List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
-    required GasLimit gasLimit,
-    Address? relayer,
-    Address? guardian,
-    Balance? value,
-  }
-) async {
+  String tokenToBuybackAndBurn, {
+  List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
+  required GasLimit gasLimit,
+  Address? relayer,
+  Address? guardian,
+  Balance? value,
+}) async {
   return controller.call(
     account: sender,
     nonce: nonce,
@@ -68,13 +66,11 @@ Transaction removeLiquidityAndBuyBackAndBurnTokenUnsigned(
   SmartContractCallFactory factory,
   Address sender,
   Nonce nonce,
-  String tokenToBuybackAndBurn,
-  {
-    List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
-    required GasLimit gasLimit,
-    Balance? value,
-  }
-) {
+  String tokenToBuybackAndBurn, {
+  List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
+  required GasLimit gasLimit,
+  Balance? value,
+}) {
   return factory.createCall(
     sender: sender,
     nonce: nonce,

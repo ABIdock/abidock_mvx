@@ -22,7 +22,7 @@ Future<State> getState(SmartContractController controller) async {
     action: () async {
       final result = await controller.query(endpointName: 'getState');
 
-      return infer<State>(result[0]);
+      return State.fromAbi(result.typedValues[0]);
     },
   );
 }

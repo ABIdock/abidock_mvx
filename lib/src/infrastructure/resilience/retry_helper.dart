@@ -1,7 +1,10 @@
 import 'dart:async';
 import 'dart:math';
 
+import '../../utils/sdk_exceptions.dart';
 import '../logging/logger.dart';
+
+const Set<int> _retriableStatusCodes = <int>{408, 429, 500, 502, 503, 504};
 
 /// Configuration for retry logic with exponential backoff.
 class RetryConfig {
@@ -200,6 +203,13 @@ class RetryHelper {
   /// #### Returns
   /// `bool` - True if error appears to be transient
   static bool isTransientError(Object error) {
+    if (error is NetworkException) {
+      final int? code = error.statusCode;
+      if (code != null) {
+        return _retriableStatusCodes.contains(code);
+      }
+    }
+
     final String errorString = error.toString().toLowerCase();
     if (errorString.contains('socketexception') ||
         errorString.contains('connection') ||
@@ -214,7 +224,7 @@ class RetryHelper {
       ).firstMatch(errorString);
       if (statusCodeMatch != null) {
         final int? statusCode = int.tryParse(statusCodeMatch.group(1) ?? '');
-        if (statusCode != null && statusCode >= 500 && statusCode < 600) {
+        if (statusCode != null && _retriableStatusCodes.contains(statusCode)) {
           return true;
         }
       }

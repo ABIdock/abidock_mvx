@@ -80,6 +80,13 @@ final class Bech32Encoder {
       );
     }
 
+    if (bech32 != bech32.toLowerCase() && bech32 != bech32.toUpperCase()) {
+      throw ArgumentError.value(
+        bech32,
+        'bech32',
+        'Mixed-case Bech32 strings are not allowed (BIP-0173)',
+      );
+    }
     final String normalizedBech32 = bech32.toLowerCase();
 
     final int separatorIndex = normalizedBech32.lastIndexOf('1');

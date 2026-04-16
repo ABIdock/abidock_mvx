@@ -62,6 +62,7 @@ class BlockOnNetwork {
           0,
       previousHash:
           optionalAs<String>(data['prevHash'], 'prevHash') ??
+          optionalAs<String>(data['prevBlockHash'], 'prevBlockHash') ??
           optionalAs<String>(data['previousBlockHash'], 'previousBlockHash'),
       timestamp: optionalInt(data['timestamp'], 'timestamp'),
       numTxs:

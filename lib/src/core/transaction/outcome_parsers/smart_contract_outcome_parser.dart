@@ -280,13 +280,12 @@ class SmartContractOutcomeParser {
 
     if (eligibleResults.isEmpty) return null;
 
-    if (eligibleResults.length > 1) {
-      throw SmartContractParseException(
-        'More than one smart contract result (holding the return data) found for transaction: ${transaction.txHash}',
-      );
-    }
-
-    final SmartContractResult result = eligibleResults.first;
+    final SmartContractResult result = eligibleResults.length == 1
+        ? eligibleResults.first
+        : eligibleResults.firstWhere(
+            (SmartContractResult scr) => scr.receiver == transaction.sender,
+            orElse: () => eligibleResults.first,
+          );
     final String returnCode = result.returnCode.code;
     return _SmartContractCallOutcome(
       returnCode: returnCode,

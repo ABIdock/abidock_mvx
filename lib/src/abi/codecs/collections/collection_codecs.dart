@@ -23,31 +23,29 @@ class OptionBinaryCodec with ValidationMixin {
   const OptionBinaryCodec(this.binaryCodec);
   final IBinaryCodec binaryCodec;
 
-  static final Uint8List _marker00 = Uint8List.fromList(<int>[0x00]);
-  static final Uint8List _marker01 = Uint8List.fromList(<int>[0x01]);
+  static Uint8List get _marker00 => Uint8List.fromList(<int>[0x00]);
+  static Uint8List get _marker01 => Uint8List.fromList(<int>[0x01]);
 
   /// Decodes Option from top-level buffer.
   ///
-  /// Top-level Option has no marker byte.
-  /// Empty buffer = None, non-empty = Some(top-level decoded inner).
-  ///
-  /// #### Parameters
-  /// - `buffer` - Binary data (empty for None, top-level inner for Some)
-  /// - `type` - Option type specification
-  ///
-  /// #### Returns
-  /// `OptionValue` - Decoded value
-  ///
-  /// #### Throws
-  /// - `AbiBinaryCodecException` - If inner value decode fails
+  /// Empty buffer = None; non-empty must start with `0x01` followed by the
+  /// nested encoding of the inner value.
   OptionValue decodeTopLevel(Uint8List buffer, OptionType type) {
     if (buffer.isEmpty) {
       return OptionValue.none(type);
     }
 
-    final TypedValue innerValue = binaryCodec.decodeTopLevel(
+    if (buffer[0] != 0x01) {
+      throw AbiBinaryCodecException(
+        'Invalid top-level Option marker: 0x${buffer[0].toRadixString(16)} '
+        '(expected 0x01 or empty)',
+      );
+    }
+
+    final (TypedValue innerValue, _) = binaryCodec.decodeNested(
       buffer,
       type.innerType,
+      1,
     );
     return OptionValue.some(type, innerValue);
   }
@@ -92,17 +90,8 @@ class OptionBinaryCodec with ValidationMixin {
 
   /// Encodes Option for top-level.
   ///
-  /// Top-level Option has no marker byte.
-  /// None = empty buffer, Some = top-level encoded inner value.
-  ///
-  /// #### Parameters
-  /// - `value` - Option value to encode
-  ///
-  /// #### Returns
-  /// `Uint8List` - Empty for None, or top-level encoded inner for Some
-  ///
-  /// #### Throws
-  /// - `AbiBinaryCodecException` - If validation fails
+  /// None = empty buffer; Some = `[0x01]` followed by nested encoding of the
+  /// inner value.
   Uint8List encodeTopLevel(OptionValue value) {
     _validateOptionValue(value);
 
@@ -110,7 +99,11 @@ class OptionBinaryCodec with ValidationMixin {
       return BinaryCodecUtils.emptyBuffer;
     }
 
-    return binaryCodec.encodeTopLevel(value.value!);
+    final Uint8List innerBytes = binaryCodec.encodeNested(value.value!);
+    return (BinaryBuilder()
+          ..addBytes(_marker01)
+          ..addBytes(innerBytes))
+        .toBytes();
   }
 
   /// Encodes Option for nested.
@@ -189,6 +182,11 @@ class ListBinaryCodec with ValidationMixin {
         type.elementType,
         currentOffset,
       );
+      if (itemBytes <= 0) {
+        throw AbiBinaryCodecException(
+          'List element consumed zero bytes at offset $currentOffset',
+        );
+      }
       elements.add(item);
       currentOffset += itemBytes;
     }

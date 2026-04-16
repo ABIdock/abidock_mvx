@@ -13,7 +13,7 @@ void main() {
         expect(message.bytes, equals(bytes));
         expect(message.bytes.length, equals(5));
 
-        const emptyMessage = Message([]);
+        final emptyMessage = Message(const <int>[]);
         expect(emptyMessage.bytes, isEmpty);
 
         const unicode = '🔒 Login with €100 💰';

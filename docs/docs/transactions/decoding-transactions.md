@@ -39,6 +39,18 @@ switch (decoded) {
   case ContractCall(:final call):
     print('call ${call.function}(${call.arguments.length} args)');
 
+  case ContractDeploy(:final bytecode, :final arguments):
+    print('deploy ${bytecode.length} bytes of code, ${arguments.length} ctor args');
+
+  case ContractUpgrade(:final bytecode):
+    print('upgrade with ${bytecode.length} bytes');
+
+  case ContractChangeOwner(:final newOwner):
+    print('change owner → ${newOwner.bech32}');
+
+  case ClaimDeveloperRewards():
+    print('claim developer rewards');
+
   case UnknownTransaction(:final reason):
     print('could not decode: $reason');
 }
@@ -53,6 +65,10 @@ switch (decoded) {
 | `NftTransfer` | `ESDTNFTTransfer@<collectionHex>@<nonceHex>@<amountHex>@<destinationHex>[@<function>@<arg>...]` |
 | `MultiTransfer` | `MultiESDTNFTTransfer@<destHex>@<countHex>@(<tokenHex>@<nonceHex>@<amountHex>)+[@<function>@<arg>...]` |
 | `ContractCall` | any other `<function>@<argHex>...` payload |
+| `ContractDeploy` | `<codeHex>@<vmTypeHex>@<metadataHex>[@<argHex>...]` with `receiver == Address.zero()` |
+| `ContractUpgrade` | `upgradeContract@<codeHex>@<metadataHex>[@<argHex>...]` |
+| `ContractChangeOwner` | `ChangeOwnerAddress@<newOwnerHex>` |
+| `ClaimDeveloperRewards` | `ClaimDeveloperRewards` (no args) |
 | `UnknownTransaction` | invalid UTF-8, truncated transfer list, or malformed argument |
 
 The decoder never throws — anything it doesn't understand becomes

@@ -120,6 +120,13 @@ class GatewayNetworkProvider extends BaseNetworkProvider {
   String sendMultipleTransactionsEndpoint() => 'transaction/send-multiple';
 
   @override
+  String queryContractEndpoint() => 'vm-values/query';
+
+  @override
+  String networkStatusEndpoint({int shard = 4294967295}) =>
+      'network/status/$shard';
+
+  @override
   String getTransactionEndpoint(
     String txHash, {
     bool withProcessStatus = false,
@@ -130,7 +137,7 @@ class GatewayNetworkProvider extends BaseNetworkProvider {
 
   @override
   String getTransactionStatusEndpoint(String txHash) =>
-      'transaction/$txHash/status';
+      'transaction/$txHash/process-status';
 
   @override
   String simulateTransactionEndpoint() =>
@@ -241,13 +248,41 @@ class GatewayNetworkProvider extends BaseNetworkProvider {
             'txsHashes',
           ) ??
           <String, dynamic>{};
+      final Map<String, dynamic> txsErrors =
+          optionalAs<Map<String, dynamic>>(
+            response['txsErrors'],
+            'txsErrors',
+          ) ??
+          <String, dynamic>{};
 
       final List<String?> hashes = List<String?>.filled(txCount, null);
+      final List<SendTxOutcome> outcomes = <SendTxOutcome>[];
       for (int i = 0; i < txCount; i++) {
-        hashes[i] = optionalAs<String>(txHashesMap[i.toString()], 'txHash[$i]');
+        final String? hash = optionalAs<String>(
+          txHashesMap[i.toString()],
+          'txHash[$i]',
+        );
+        hashes[i] = hash;
+        if (hash != null) {
+          outcomes.add(SendTxSuccess(i, hash));
+        } else {
+          outcomes.add(
+            SendTxFailure(
+              i,
+              reason: optionalAs<String>(
+                txsErrors[i.toString()],
+                'txsErrors[$i]',
+              ),
+            ),
+          );
+        }
       }
 
-      return SendTransactionsResult(numSent: numSent, txHashes: hashes);
+      return SendTransactionsResult(
+        numSent: numSent,
+        txHashes: hashes,
+        outcomes: outcomes,
+      );
     }
     return SendTransactionsResult(
       numSent: 0,
@@ -301,45 +336,35 @@ class GatewayNetworkProvider extends BaseNetworkProvider {
   }
 
   @override
-  List<TokenOnNetwork> parseFungibleTokens(dynamic response) {
-    if (response is Map<String, dynamic>) {
-      final dynamic esdts = response['esdts'];
-      if (esdts is Map<String, dynamic>) {
-        return esdts.entries.map((MapEntry<String, dynamic> entry) {
-          final Map<String, dynamic> tokenData =
-              requireAs<Map<String, dynamic>>(
-                entry.value,
-                'esdts[${entry.key}]',
-              );
-          return TokenOnNetwork.fromJson(<String, dynamic>{
-            'identifier': entry.key,
-            ...tokenData,
-          });
-        }).toList();
-      }
-    }
-    return <TokenOnNetwork>[];
-  }
+  List<TokenOnNetwork> parseFungibleTokens(dynamic response) =>
+      _parseEsdts(response, fungible: true);
 
   @override
-  List<TokenOnNetwork> parseNonFungibleTokens(dynamic response) {
-    if (response is Map<String, dynamic>) {
-      final dynamic esdts = response['esdts'];
-      if (esdts is Map<String, dynamic>) {
-        return esdts.entries.map((MapEntry<String, dynamic> entry) {
-          final Map<String, dynamic> tokenData =
-              requireAs<Map<String, dynamic>>(
-                entry.value,
-                'esdts[${entry.key}]',
-              );
-          return TokenOnNetwork.fromJson(<String, dynamic>{
-            'identifier': entry.key,
-            ...tokenData,
-          });
-        }).toList();
-      }
+  List<TokenOnNetwork> parseNonFungibleTokens(dynamic response) =>
+      _parseEsdts(response, fungible: false);
+
+  List<TokenOnNetwork> _parseEsdts(dynamic response, {required bool fungible}) {
+    if (response is! Map<String, dynamic>) return <TokenOnNetwork>[];
+    final dynamic esdts = response['esdts'];
+    if (esdts is! Map<String, dynamic>) return <TokenOnNetwork>[];
+
+    final List<TokenOnNetwork> out = <TokenOnNetwork>[];
+    for (final MapEntry<String, dynamic> entry in esdts.entries) {
+      final Map<String, dynamic> tokenData = requireAs<Map<String, dynamic>>(
+        entry.value,
+        'esdts[${entry.key}]',
+      );
+      final int nonce = optionalInt(tokenData['nonce'], 'nonce') ?? 0;
+      final bool isFungible = nonce == 0;
+      if (isFungible != fungible) continue;
+      out.add(
+        TokenOnNetwork.fromJson(<String, dynamic>{
+          'identifier': entry.key,
+          ...tokenData,
+        }),
+      );
     }
-    return <TokenOnNetwork>[];
+    return out;
   }
 
   @override
@@ -424,7 +449,7 @@ class GatewayNetworkProvider extends BaseNetworkProvider {
         0;
 
     final dynamic blockResponse = await executeWithCircuitBreaker(
-      () => doGetGeneric('block/by-nonce/$nonce?shard=$shard'),
+      () => doGetGeneric('block/$shard/by-nonce/$nonce'),
     );
     return parseBlock(blockResponse);
   }
@@ -486,6 +511,13 @@ class GatewayNetworkProvider extends BaseNetworkProvider {
         final dynamic error = responseData['error'];
         if (error is String && error.isNotEmpty) {
           return error;
+        }
+        if (error is Map<String, dynamic>) {
+          final String? nested = optionalAs<String>(
+            error['message'],
+            'message',
+          );
+          if (nested != null && nested.isNotEmpty) return nested;
         }
         final String? message = optionalAs<String>(
           responseData['message'],

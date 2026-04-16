@@ -490,35 +490,26 @@ void main() {
       expect(result, isNull);
     });
 
-    test('single zero byte decodes as Some(0) (top-level has no marker)', () {
-      // Top-level Option has no marker byte.
-      // Non-empty buffer = Some(top-level decoded inner).
+    test('Some u32 (top-level marker + nested u32)', () {
       final type = OptionType(U32Type.type);
-      final result = deserializer.deserializeValue(_encode([0x00]), type);
-      expect(result, 0);
-    });
-
-    test('Some u32', () {
-      // Top-level Option: no marker, just the top-level encoded inner value
-      final type = OptionType(U32Type.type);
-      final bytes = <int>[0x00, 0x00, 0x00, 0x2A];
+      final bytes = <int>[0x01, 0x00, 0x00, 0x00, 0x2A];
       final result = deserializer.deserializeValue(_encode(bytes), type);
       expect(result, 42);
     });
 
-    test('Some u8', () {
-      // Top-level Option: no marker, just the top-level encoded inner value
+    test('Some u8 (top-level marker + nested u8)', () {
       final type = OptionType(U8Type.type);
-      final bytes = <int>[0x2A];
+      final bytes = <int>[0x01, 0x2A];
       final result = deserializer.deserializeValue(_encode(bytes), type);
       expect(result, 42);
     });
 
-    test('any non-empty buffer decodes as Some (top-level has no marker)', () {
-      // Per spec, any non-empty buffer is Some for top-level Option
+    test('invalid top-level marker throws', () {
       final type = OptionType(U32Type.type);
-      final result = deserializer.deserializeValue(_encode([0x02]), type);
-      expect(result, 2);
+      expect(
+        () => deserializer.deserializeValue(_encode([0x02]), type),
+        throwsA(isA<Exception>()),
+      );
     });
   });
 

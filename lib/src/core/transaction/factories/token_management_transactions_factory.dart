@@ -588,7 +588,7 @@ class TokenManagementTransactionsFactory {
 
     return _buildTransaction(
       sender: sender,
-      functionName: nonce > 0 ? 'wipeNFT' : 'wipe',
+      functionName: 'wipe',
       args: args,
       gasLimit: config.gasLimitWiping,
     );
@@ -767,6 +767,178 @@ class TokenManagementTransactionsFactory {
     );
   }
 
+  /// Transfers the token manager role on an ESDT / NFT / SFT / MetaESDT
+  /// token to [newOwner]. Must be sent by the current token manager.
+  Transaction createTransactionForTransferringOwnership({
+    required Address sender,
+    required String tokenIdentifier,
+    required Address newOwner,
+  }) {
+    return _buildTransaction(
+      sender: sender,
+      functionName: 'transferOwnership',
+      args: <TypedValue>[
+        TokenIdentifierValue(tokenIdentifier),
+        AddressValue(newOwner.bytes),
+      ],
+      gasLimit: config.gasLimitSetSpecialRole,
+    );
+  }
+
+  /// Toggles token property flags (`canFreeze`, `canWipe`, `canPause`,
+  /// `canChangeOwner`, `canUpgrade`, `canAddSpecialRoles`) post-issuance.
+  /// Only `true` flags are emitted; pass [TokenProperties] reflecting the
+  /// new desired state.
+  Transaction createTransactionForControllingProperties({
+    required Address sender,
+    required String tokenIdentifier,
+    required TokenProperties properties,
+  }) {
+    final List<TypedValue> args = <TypedValue>[
+      TokenIdentifierValue(tokenIdentifier),
+      ..._propertiesAsArgs(properties),
+    ];
+    return _buildTransaction(
+      sender: sender,
+      functionName: 'controlChanges',
+      args: args,
+      gasLimit: config.gasLimitSetSpecialRole,
+    );
+  }
+
+  /// Appends a new URI to an existing NFT / SFT / MetaESDT instance.
+  /// Complements `createTransactionForSettingNewUris` which fully replaces
+  /// the URI list.
+  Transaction createTransactionForAddingNftUri({
+    required Address sender,
+    required String tokenIdentifier,
+    required int nonce,
+    required List<String> uris,
+  }) {
+    if (uris.isEmpty) {
+      throw ArgumentError('At least one URI is required');
+    }
+    final List<TypedValue> args = <TypedValue>[
+      TokenIdentifierValue(tokenIdentifier),
+      U64Value(BigInt.from(nonce)),
+      for (final String uri in uris) StringValue(uri),
+    ];
+    return _buildTransaction(
+      sender: sender,
+      functionName: 'ESDTNFTAddURI',
+      args: args,
+      gasLimit: config.gasLimitSetNewUris,
+    );
+  }
+
+  /// Permanently stops NFT creation for [tokenIdentifier]. Irreversible.
+  Transaction createTransactionForStoppingNftCreate({
+    required Address sender,
+    required String tokenIdentifier,
+  }) {
+    return _buildTransaction(
+      sender: sender,
+      functionName: 'stopNFTCreate',
+      args: <TypedValue>[TokenIdentifierValue(tokenIdentifier)],
+      gasLimit: config.gasLimitSetSpecialRole,
+    );
+  }
+
+  /// Transfers the NFT-create role for [tokenIdentifier] from [oldCreator]
+  /// to [newCreator]. Only valid when `canTransferNFTCreateRole` was set
+  /// at issuance.
+  Transaction createTransactionForTransferringNftCreateRole({
+    required Address sender,
+    required String tokenIdentifier,
+    required Address oldCreator,
+    required Address newCreator,
+  }) {
+    return _buildTransaction(
+      sender: sender,
+      functionName: 'transferNFTCreateRole',
+      args: <TypedValue>[
+        TokenIdentifierValue(tokenIdentifier),
+        AddressValue(oldCreator.bytes),
+        AddressValue(newCreator.bytes),
+      ],
+      gasLimit: config.gasLimitSetSpecialRole,
+    );
+  }
+
+  /// Unsets the global burn role for [tokenIdentifier] (the counterpart to
+  /// `createTransactionForSettingBurnRoleGlobally`).
+  Transaction createTransactionForUnsettingBurnRoleForAll({
+    required Address sender,
+    required String tokenIdentifier,
+  }) {
+    return _buildTransaction(
+      sender: sender,
+      functionName: 'unsetBurnRoleGlobally',
+      args: <TypedValue>[TokenIdentifierValue(tokenIdentifier)],
+      gasLimit: config.gasLimitToggleBurnRoleGlobally,
+    );
+  }
+
+  /// Registers a token and sets all roles for the caller in a single tx
+  /// with a dynamic variant (distinct from the non-dynamic helper).
+  Transaction createTransactionForRegisteringAndSettingAllRolesDynamic({
+    required Address sender,
+    required String tokenName,
+    required String tokenTicker,
+    required String tokenType,
+    required int numDecimals,
+  }) {
+    _validateTokenName(tokenName);
+    _validateTokenTicker(tokenTicker);
+
+    final List<TypedValue> args = <TypedValue>[
+      StringValue(tokenName),
+      StringValue(tokenTicker),
+      StringValue(tokenType),
+      U32Value(numDecimals),
+    ];
+
+    return _buildTransaction(
+      sender: sender,
+      functionName: 'registerAndSetAllRolesDynamic',
+      args: args,
+      value: Balance.fromString(config.issueCost),
+      gasLimit: config.gasLimitRegisterDynamic,
+    );
+  }
+
+  /// Upgrades an SFT collection to MetaESDT. [numDecimals] becomes the
+  /// new decimal precision.
+  Transaction createTransactionForChangingSftToMetaEsdt({
+    required Address sender,
+    required String tokenIdentifier,
+    required int numDecimals,
+  }) {
+    return _buildTransaction(
+      sender: sender,
+      functionName: 'changeSFTToMetaESDT',
+      args: <TypedValue>[
+        TokenIdentifierValue(tokenIdentifier),
+        U32Value(numDecimals),
+      ],
+      gasLimit: config.gasLimitSetSpecialRole,
+    );
+  }
+
+  /// Refreshes the on-chain metadata for [tokenIdentifier] (post-hoc
+  /// migration helper).
+  Transaction createTransactionForUpdatingTokenId({
+    required Address sender,
+    required String tokenIdentifier,
+  }) {
+    return _buildTransaction(
+      sender: sender,
+      functionName: 'updateTokenID',
+      args: <TypedValue>[TokenIdentifierValue(tokenIdentifier)],
+      gasLimit: config.gasLimitUpdateTokenId,
+    );
+  }
+
   /// Validates token name format (3-20 alphanumeric characters).
   static void _validateTokenName(String tokenName) {
     if (!RegExp(r'^[A-Za-z0-9]{3,20}$').hasMatch(tokenName)) {
@@ -790,24 +962,22 @@ class TokenManagementTransactionsFactory {
   }
 
   List<TypedValue> _propertiesAsArgs(TokenProperties props) {
-    return <TypedValue>[
-      StringValue('canFreeze'),
-      StringValue(props.canFreeze.toString()),
-      StringValue('canWipe'),
-      StringValue(props.canWipe.toString()),
-      StringValue('canPause'),
-      StringValue(props.canPause.toString()),
-      if (props.canTransferNFTCreateRole) ...<TypedValue>[
-        StringValue('canTransferNFTCreateRole'),
-        StringValue('true'),
-      ],
-      StringValue('canChangeOwner'),
-      StringValue(props.canChangeOwner.toString()),
-      StringValue('canUpgrade'),
-      StringValue(props.canUpgrade.toString()),
-      StringValue('canAddSpecialRoles'),
-      StringValue(props.canAddSpecialRoles.toString()),
-    ];
+    final List<TypedValue> args = <TypedValue>[];
+    void emitIfTrue(String name, bool flag) {
+      if (flag) {
+        args.add(StringValue(name));
+        args.add(StringValue('true'));
+      }
+    }
+
+    emitIfTrue('canFreeze', props.canFreeze);
+    emitIfTrue('canWipe', props.canWipe);
+    emitIfTrue('canPause', props.canPause);
+    emitIfTrue('canTransferNFTCreateRole', props.canTransferNFTCreateRole);
+    emitIfTrue('canChangeOwner', props.canChangeOwner);
+    emitIfTrue('canUpgrade', props.canUpgrade);
+    emitIfTrue('canAddSpecialRoles', props.canAddSpecialRoles);
+    return args;
   }
 
   Transaction _buildTransaction({

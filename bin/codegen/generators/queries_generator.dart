@@ -29,7 +29,7 @@ class QueriesGenerator extends GeneratorBase {
   FileOutput _generateQuery(AbiEndpoint endpoint) {
     final buffer = StringBuffer();
     buffer.write(getGeneratedFileHeader());
-    final functionName = nameSanitizer.toCamelCase(endpoint.name);
+    final functionName = nameSanitizer.sanitizeParamName(endpoint.name);
     final filename = 'queries/${nameSanitizer.toSnakeCase(endpoint.name)}.dart';
 
     final imports = <String>[];
@@ -83,7 +83,7 @@ class QueriesGenerator extends GeneratorBase {
       buffer.writeln('///');
       buffer.writeln('/// #### Parameters:');
       for (final input in endpoint.inputs) {
-        final paramName = nameSanitizer.toCamelCase(input.name);
+        final paramName = nameSanitizer.sanitizeParamName(input.name);
         final abiType = typeMapper.getAbiTypeStringForDocs(input.type);
         buffer.writeln('/// - `$paramName`: $abiType');
       }
@@ -106,7 +106,7 @@ class QueriesGenerator extends GeneratorBase {
     buffer.writeln('$returnType $functionName(');
     buffer.writeln('  SmartContractController controller,');
     for (final input in endpoint.inputs) {
-      final paramName = nameSanitizer.toCamelCase(input.name);
+      final paramName = nameSanitizer.sanitizeParamName(input.name);
       final dartType = typeMapper.mapToDartType(input.type);
       buffer.writeln('  $dartType $paramName,');
     }
@@ -114,7 +114,7 @@ class QueriesGenerator extends GeneratorBase {
 
     if (endpoint.inputs.isNotEmpty) {
       for (final input in endpoint.inputs) {
-        final paramName = nameSanitizer.toCamelCase(input.name);
+        final paramName = nameSanitizer.sanitizeParamName(input.name);
         final typeExpr = typeMapper.mapToTypeExpression(input.type);
         buffer.writeln(
           '  final ${paramName}Value = $typeExpr.createValue($paramName);',
@@ -138,7 +138,7 @@ class QueriesGenerator extends GeneratorBase {
     if (endpoint.inputs.isNotEmpty) {
       buffer.writeln('        arguments: [');
       for (final input in endpoint.inputs) {
-        final paramName = nameSanitizer.toCamelCase(input.name);
+        final paramName = nameSanitizer.sanitizeParamName(input.name);
         buffer.writeln('          ${paramName}Value,');
       }
       buffer.writeln('        ],');
@@ -167,12 +167,11 @@ class QueriesGenerator extends GeneratorBase {
           }
           buffer.writeln('      }');
         }
-        buffer.writeln('      return infer<$dartType>(result[0]);');
+        buffer.writeln('      return ${_decodeExpression(output.type, 0)};');
       } else {
         buffer.writeln('      return (');
         for (int i = 0; i < outputs.length; i++) {
-          final dartType = typeMapper.mapToDartType(outputs[i].type);
-          buffer.write('        infer<$dartType>(result[$i])');
+          buffer.write('        ${_decodeExpression(outputs[i].type, i)}');
           if (i < outputs.length - 1) buffer.writeln(',');
         }
         buffer.writeln();
@@ -185,6 +184,29 @@ class QueriesGenerator extends GeneratorBase {
     buffer.writeln('}');
 
     return FileOutput(path: filename, content: buffer.toString());
+  }
+
+  /// Emits the Dart expression that decodes the `i`-th query return slot
+  /// into the Dart representation of [type]. Structs and enums are rebuilt
+  /// from their full `TypedValue` via `fromAbi` because their native value
+  /// is a plain `Map<String, dynamic>` / `int` discriminant and loses
+  /// type information; primitives take the native value directly.
+  String _decodeExpression(AbiType type, int index) {
+    final String dartType = typeMapper.mapToDartType(type);
+    if (type is StructType || type is EnumType || type is ExplicitEnumType) {
+      return '$dartType.fromAbi(result.typedValues[$index])';
+    }
+    if (type is ListType) {
+      final element = type.elementType;
+      if (element is StructType ||
+          element is EnumType ||
+          element is ExplicitEnumType) {
+        final String elementType = typeMapper.mapToDartType(element);
+        return '(result.typedValues[$index] as ListValue).elements'
+            '.map<$elementType>($elementType.fromAbi).toList()';
+      }
+    }
+    return 'infer<$dartType>(result[$index])';
   }
 
   /// Extract inner type from List&lt;T&gt; into the inner T type.

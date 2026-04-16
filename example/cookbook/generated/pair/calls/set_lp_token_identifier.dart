@@ -17,23 +17,29 @@ Future<Transaction> setLpTokenIdentifier(
   IAccount sender,
   Nonce nonce,
   String tokenIdentifier, {
-  required GasLimit gasLimit,
   Address? relayer,
   Address? guardian,
   Balance? value,
 }) async {
-  return controller.call(
+  // Create transaction with max gas for simulation
+  final tx = await controller.call(
     account: sender,
     nonce: nonce,
     endpointName: 'setLpTokenIdentifier',
     arguments: <dynamic>[tokenIdentifier],
     value: value,
     options: BaseControllerInput(
-      gasLimit: gasLimit,
+      gasLimit: const GasLimit(600000000),
       relayer: relayer,
       guardian: guardian,
     ),
   );
+
+  // Estimate gas using simulation
+  final gasLimit = await simulateGas(tx, controller.networkProvider);
+
+  // Return transaction with estimated gas
+  return tx.copyWith(newGasLimit: gasLimit);
 }
 
 /// Builds an unsigned transaction for setLpTokenIdentifier endpoint.
@@ -41,13 +47,13 @@ Future<Transaction> setLpTokenIdentifier(
 /// - `tokenIdentifier`: TokenIdentifier
 ///
 /// #### Returns:
-/// Unsigned [Transaction] ready to be signed
+/// Future<[Transaction]> - Unsigned transaction with auto-estimated gas
 ///
 /// #### Example:
 /// ```dart
 /// // Build unsigned transactions for batch signing
-/// final tx1 = setLpTokenIdentifierUnsigned(factory, sender, nonce1, ...);
-/// final tx2 = anotherUnsigned(factory2, sender, nonce2, ...);
+/// final tx1 = await setLpTokenIdentifierUnsigned(factory, provider, sender, nonce1, ...);
+/// final tx2 = await anotherUnsigned(factory2, provider, sender, nonce2, ...);
 ///
 /// // Sign batch
 /// final sigs = await account.signTransactions([tx1, tx2]);
@@ -57,20 +63,27 @@ Future<Transaction> setLpTokenIdentifier(
 /// final signed2 = tx2.copyWith(newSignature: Signature.fromUint8List(sigs[1]));
 /// await provider.sendTransactions([signed1, signed2]);
 /// ```
-Transaction setLpTokenIdentifierUnsigned(
+Future<Transaction> setLpTokenIdentifierUnsigned(
   SmartContractCallFactory factory,
+  NetworkProvider networkProvider,
   Address sender,
   Nonce nonce,
   String tokenIdentifier, {
-  required GasLimit gasLimit,
   Balance? value,
-}) {
-  return factory.createCall(
+}) async {
+  // Create transaction with max gas for simulation
+  final tx = factory.createCall(
     sender: sender,
     nonce: nonce,
     endpointName: 'setLpTokenIdentifier',
     arguments: <dynamic>[tokenIdentifier],
-    gasLimit: gasLimit,
+    gasLimit: const GasLimit(600000000),
     value: value,
   );
+
+  // Estimate gas using simulation
+  final gasLimit = await simulateGas(tx, networkProvider);
+
+  // Return transaction with estimated gas
+  return tx.copyWith(newGasLimit: gasLimit);
 }

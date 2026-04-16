@@ -158,15 +158,9 @@ final class I8Value extends IntNumericalValue {
   @override
   List<String> get classHierarchy => _classHierarchy;
 
-  static final List<Uint8List> _precomputed = List.generate(
-    256,
-    (i) => Uint8List(1)..[0] = (i - 128) & 0xFF,
-    growable: false,
-  );
-
   @pragma('vm:prefer-inline')
   @override
-  List<int> toBytes() => _precomputed[value + 128];
+  List<int> toBytes() => Uint8List(1)..[0] = value & 0xFF;
 
   I8Value operator +(I8Value other) => addChecked(other) as I8Value;
   I8Value operator -(I8Value other) => subtractChecked(other) as I8Value;

@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import '../../utils/hex_utils.dart';
 import '../nonce.dart';
 import 'transaction.dart';
+import 'transaction_constants.dart';
 
 /// Protocol Buffer wire types used in encoding.
 /// Uses varint for integers, length-delimited for bytes/strings/messages.
@@ -88,15 +89,12 @@ class ProtoSerializer {
       _writeVarintField(buffer, 13, transaction.options);
     }
 
-    if (transaction.guardian != null && !transaction.guardian!.isEmpty) {
+    if (_isGuardedTransaction(transaction)) {
       _writeBytesField(
         buffer,
         14,
         Uint8List.fromList(transaction.guardian!.bytes),
       );
-    }
-
-    if (transaction.guardianSignature.isNotEmpty) {
       _writeBytesField(buffer, 15, transaction.guardianSignature.toUint8List());
     }
 
@@ -106,12 +104,30 @@ class ProtoSerializer {
         16,
         Uint8List.fromList(transaction.relayer!.bytes),
       );
+      if (transaction.relayerSignature.isNotEmpty) {
+        _writeBytesField(
+          buffer,
+          17,
+          transaction.relayerSignature.toUint8List(),
+        );
+      }
     }
-    if (transaction.relayerSignature.isNotEmpty) {
-      _writeBytesField(buffer, 17, transaction.relayerSignature.toUint8List());
+
+    for (final Transaction inner in transaction.innerTransactions) {
+      final Uint8List innerBytes = serializeTransaction(inner);
+      _writeBytesField(buffer, 18, innerBytes);
     }
 
     return buffer.toBytes();
+  }
+
+  static bool _isGuardedTransaction(Transaction tx) {
+    final bool hasFlag =
+        (tx.options & transactionOptionsTxGuarded) ==
+        transactionOptionsTxGuarded;
+    final bool hasGuardian = tx.guardian != null && !tx.guardian!.isEmpty;
+    final bool hasSignature = tx.guardianSignature.isNotEmpty;
+    return hasFlag && hasGuardian && hasSignature;
   }
 
   /// Serializes transaction value using sign & magnitude format.
@@ -136,8 +152,11 @@ class ProtoSerializer {
   /// final large = _serializeValue(BigInt.from(65535));
   /// ```
   Uint8List _serializeValue(BigInt value) {
+    if (value.isNegative) {
+      throw ArgumentError('Transaction value cannot be negative: $value');
+    }
     if (value == BigInt.zero) {
-      return Uint8List.fromList([0x00]);
+      return Uint8List.fromList([0x00, 0x00]);
     }
 
     final String hexString = value.toRadixString(16);
@@ -147,36 +166,34 @@ class ProtoSerializer {
     return Uint8List.fromList([0x00, ...magnitudeBytes]);
   }
 
-  /// Writes varint field.
   void _writeVarintField(BytesBuilder buffer, int fieldNumber, int value) {
     final int key = (fieldNumber << 3) | _WireType.varint;
-    _writeVarint(buffer, key);
-
-    _writeVarint(buffer, value);
+    _writeVarint(buffer, BigInt.from(key));
+    _writeVarint(buffer, BigInt.from(value));
   }
 
-  /// Writes length-delimited field.
   void _writeBytesField(BytesBuilder buffer, int fieldNumber, Uint8List data) {
     final int key = (fieldNumber << 3) | _WireType.lengthDelimited;
-    _writeVarint(buffer, key);
-
-    _writeVarint(buffer, data.length);
-
+    _writeVarint(buffer, BigInt.from(key));
+    _writeVarint(buffer, BigInt.from(data.length));
     buffer.add(data);
   }
 
-  void _writeVarint(BytesBuilder buffer, int value) {
-    if (value < 0) {
+  void _writeVarint(BytesBuilder buffer, BigInt value) {
+    if (value.isNegative) {
       throw ArgumentError.value(
         value,
         'value',
         'Varint encoding requires non-negative value',
       );
     }
-    while (value >= 0x80) {
-      buffer.addByte((value & 0x7F) | 0x80);
-      value >>= 7;
+    final BigInt continuation = BigInt.from(0x80);
+    final BigInt low7 = BigInt.from(0x7F);
+    BigInt v = value;
+    while (v >= continuation) {
+      buffer.addByte(((v & low7) | continuation).toInt());
+      v = v >> 7;
     }
-    buffer.addByte(value & 0x7F);
+    buffer.addByte((v & low7).toInt());
   }
 }

@@ -47,6 +47,9 @@ class TransactionAwaitingOptions {
     this.pollingInterval = const Duration(milliseconds: 400),
     this.patience = const Duration(milliseconds: 800),
     this.maxConsecutiveErrors = 5,
+    this.awaitCrossShardCompletion = false,
+    this.numShards,
+    this.roundDuration,
   });
 
   /// Maximum wait time before timeout.
@@ -60,6 +63,23 @@ class TransactionAwaitingOptions {
 
   /// Max consecutive fetch errors before giving up with the original cause.
   final int maxConsecutiveErrors;
+
+  /// When `true`, [TransactionWatcher.awaitCompleted] additionally waits for
+  /// the chain's `completedTxEvent` log before returning. That event fires
+  /// once all cross-shard SCResults have been produced. Cross-shard SC calls
+  /// commonly look "success" at source-shard inclusion but their destination
+  /// SCResult is still in-flight; without this flag the watcher can return a
+  /// premature snapshot.
+  final bool awaitCrossShardCompletion;
+
+  /// Number of shards on the target network. When set alongside
+  /// [roundDuration], [TransactionWatcher] adapts its polling timeout to
+  /// `max(timeout, roundDuration * (numShards + 1) * 3)` for cross-shard
+  /// safety. Pull from `NetworkConfig` / `NetworkStatus` when available.
+  final int? numShards;
+
+  /// Round duration on the target network (typically 6 s on mainnet).
+  final Duration? roundDuration;
 }
 
 /// Polls blockchain to monitor transaction status until completion.
@@ -214,13 +234,21 @@ class TransactionWatcher {
     TransactionOnNetwork? lastTx;
     int consecutiveErrors = 0;
 
+    final Duration effectiveTimeout =
+        options.numShards != null && options.roundDuration != null
+        ? _maxDuration(
+            options.timeout,
+            options.roundDuration! * (options.numShards! + 1) * 3,
+          )
+        : options.timeout;
+
     while (true) {
       final Duration elapsed = DateTime.now().difference(startTime);
-      if (elapsed >= options.timeout) {
+      if (elapsed >= effectiveTimeout) {
         throw TransactionWatcherTimeoutException(
-          'Transaction did not complete within ${options.timeout.inSeconds}s',
+          'Transaction did not complete within ${effectiveTimeout.inSeconds}s',
           transactionHash: txHash,
-          timeout: options.timeout,
+          timeout: effectiveTimeout,
         );
       }
 
@@ -232,6 +260,11 @@ class TransactionWatcher {
           if (lastTx.isInBlock && options.patience.inMilliseconds > 0) {
             await Future<void>.delayed(options.patience);
             lastTx = await fetchTransaction(txHash);
+          }
+          if (options.awaitCrossShardCompletion &&
+              !_hasCompletedEvent(lastTx)) {
+            await Future<void>.delayed(options.pollingInterval);
+            continue;
           }
           return lastTx;
         }
@@ -281,6 +314,20 @@ class TransactionWatcher {
     } catch (e) {
       return false;
     }
+  }
+
+  static Duration _maxDuration(Duration a, Duration b) => a > b ? a : b;
+
+  static bool _hasCompletedEvent(TransactionOnNetwork tx) {
+    final logs = tx.logs;
+    if (logs == null) return false;
+    for (final event in logs.events) {
+      final String id = event.identifier;
+      if (id == 'completedTxEvent' || id == 'SCDeploy' || id == 'signalError') {
+        return true;
+      }
+    }
+    return false;
   }
 
   /// Closes HTTP client and frees resources.

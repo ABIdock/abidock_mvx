@@ -112,27 +112,36 @@ class ApiNetworkProvider extends BaseNetworkProvider {
 
   @override
   String accountStorageEndpoint(Address address) =>
-      'accounts/${address.bech32}/keys';
+      'address/${address.bech32}/keys';
 
   @override
   String accountStorageKeyEndpoint(Address address, String keyHex) =>
-      'accounts/${address.bech32}/keys/$keyHex';
+      'address/${address.bech32}/key/$keyHex';
 
   @override
   String sendTransactionEndpoint() => 'transactions';
 
   @override
-  String sendMultipleTransactionsEndpoint() => 'transactions';
+  String queryContractEndpoint() => 'query';
+
+  @override
+  String networkStatusEndpoint({int shard = 4294967295}) =>
+      'network/status/$shard';
+
+  @override
+  String? estimateTransactionCostEndpoint() => null;
+
+  @override
+  String sendMultipleTransactionsEndpoint() => 'transaction/send-multiple';
 
   @override
   String getTransactionEndpoint(
     String txHash, {
     bool withProcessStatus = false,
   }) {
-    final String fields = withProcessStatus
-        ? '?fields=processingTypeOnSource,processingTypeOnDestination'
-        : '';
-    return 'transactions/$txHash$fields';
+    return withProcessStatus
+        ? 'transactions/$txHash?withResults=true'
+        : 'transactions/$txHash';
   }
 
   @override
@@ -164,7 +173,7 @@ class ApiNetworkProvider extends BaseNetworkProvider {
 
   @override
   String nonFungibleInstanceEndpoint(String collection, int nonce) {
-    final String nonceHex = nonce.toRadixString(16).padLeft(2, '0');
+    final String nonceHex = _nonceToEvenLengthHex(nonce);
     return 'nfts/$collection-$nonceHex';
   }
 
@@ -241,16 +250,41 @@ class ApiNetworkProvider extends BaseNetworkProvider {
             'txsHashes',
           ) ??
           <String, dynamic>{};
+      final Map<String, dynamic> txsErrors =
+          optionalAs<Map<String, dynamic>>(
+            response['txsErrors'],
+            'txsErrors',
+          ) ??
+          <String, dynamic>{};
 
       final List<String?> hashes = List<String?>.filled(txCount, null);
+      final List<SendTxOutcome> outcomes = <SendTxOutcome>[];
       for (int i = 0; i < txCount; i++) {
-        hashes[i] = optionalAs<String>(
+        final String? hash = optionalAs<String>(
           txsHashes[i.toString()],
           'txsHashes[$i]',
         );
+        hashes[i] = hash;
+        if (hash != null) {
+          outcomes.add(SendTxSuccess(i, hash));
+        } else {
+          outcomes.add(
+            SendTxFailure(
+              i,
+              reason: optionalAs<String>(
+                txsErrors[i.toString()],
+                'txsErrors[$i]',
+              ),
+            ),
+          );
+        }
       }
 
-      return SendTransactionsResult(numSent: numSent, txHashes: hashes);
+      return SendTransactionsResult(
+        numSent: numSent,
+        txHashes: hashes,
+        outcomes: outcomes,
+      );
     }
     return SendTransactionsResult(
       numSent: 0,
@@ -381,7 +415,7 @@ class ApiNetworkProvider extends BaseNetworkProvider {
       response,
       'response',
     );
-    final String nonceHex = nonce.toRadixString(16).padLeft(2, '0');
+    final String nonceHex = _nonceToEvenLengthHex(nonce);
     return TokenOnNetwork.fromJson(<String, dynamic>{
       'identifier': data['identifier'] ?? '$collection-$nonceHex',
       'collection': data['collection'] ?? collection,
@@ -461,5 +495,12 @@ class ApiNetworkProvider extends BaseNetworkProvider {
       }
     }
     return 'HTTP ${e.response?.statusCode ?? 'unknown'}: ${e.message}';
+  }
+
+  static String _nonceToEvenLengthHex(int nonce) {
+    String hex = nonce.toRadixString(16);
+    if (hex.length.isOdd) hex = '0$hex';
+    if (hex.length < 2) hex = hex.padLeft(2, '0');
+    return hex;
   }
 }

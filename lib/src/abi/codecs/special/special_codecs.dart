@@ -301,10 +301,9 @@ class ManagedDecimalBinaryCodec with ValidationMixin {
   /// #### Throws
   /// - `AbiBinaryCodecException` - If scale mismatch
   Uint8List encodeNested(ManagedDecimalValue value) {
-    const int maxScale = 77;
-    if (value.scale < 0 || value.scale > maxScale) {
+    if (value.scale < 0) {
       throw AbiBinaryCodecException(
-        'ManagedDecimal scale ${value.scale} out of valid range (0-$maxScale)',
+        'ManagedDecimal scale ${value.scale} must be non-negative',
       );
     }
 
@@ -356,11 +355,16 @@ class ManagedDecimalBinaryCodec with ValidationMixin {
   }
 
   Uint8List _encodeBigInt(BigInt value) {
+    if (value == BigInt.zero) {
+      return Uint8List(0);
+    }
     if (value.isNegative) {
       final BigInt valuePlusOne = value + BigInt.one;
-      final Uint8List buffer = BinaryCodecUtils.bigIntToBuffer(
-        valuePlusOne.abs(),
-      );
+      Uint8List buffer = BinaryCodecUtils.bigIntToBuffer(valuePlusOne.abs());
+
+      if (buffer.isEmpty) {
+        buffer = Uint8List(1);
+      }
 
       for (int i = 0; i < buffer.length; i++) {
         buffer[i] = (~buffer[i]) & 0xFF;

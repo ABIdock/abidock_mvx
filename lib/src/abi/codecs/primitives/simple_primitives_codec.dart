@@ -19,8 +19,8 @@ import '../codec_base.dart';
 class BooleanBinaryCodec with ValidationMixin {
   const BooleanBinaryCodec();
 
-  static final Uint8List _true = Uint8List(1)..[0] = 1;
-  static final Uint8List _false = Uint8List(1)..[0] = 0;
+  static Uint8List get _true => Uint8List.fromList(<int>[1]);
+  static Uint8List get _false => Uint8List.fromList(<int>[0]);
 
   /// Decodes Boolean from top-level buffer (empty=false, non-empty=true).
   ///
@@ -174,7 +174,7 @@ class StringBinaryCodec with ValidationMixin {
       offset + lengthBytes,
       endOffset,
     );
-    final String str = utf8.decode(stringBytes);
+    final String str = utf8.decode(stringBytes, allowMalformed: true);
     return (StringValue(str), lengthBytes + length);
   }
 

@@ -35,7 +35,6 @@ Future<void> main() async {
     mexIdentifier,
     minAmountOut,
     tokenTransfers: [wegldTransfer],
-    gasLimit: const GasLimit(50000000),
   );
 
   final txHash = await provider.sendTransaction(tx);

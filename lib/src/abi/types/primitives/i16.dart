@@ -163,19 +163,9 @@ final class I16Value extends IntNumericalValue {
   @override
   List<String> get classHierarchy => _classHierarchy;
 
-  static final List<Uint8List> _precomputed = List.generate(256, (i) {
-    final int val = i - 128;
-    final int unsigned = val & 0xFFFF;
-    return Uint8List(2)
-      ..[0] = (unsigned >> 8) & 0xFF
-      ..[1] = unsigned & 0xFF;
-  }, growable: false);
-
   @pragma('vm:prefer-inline')
   @override
   List<int> toBytes() {
-    if (value >= -128 && value <= 127) return _precomputed[value + 128];
-
     final int unsigned = value & 0xFFFF;
     return Uint8List(2)
       ..[0] = (unsigned >> 8) & 0xFF

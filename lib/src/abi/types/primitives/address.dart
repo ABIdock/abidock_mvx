@@ -196,7 +196,7 @@ final class AddressValue extends TypedValue {
 
   @pragma('vm:prefer-inline')
   @override
-  List<int> toBytes() => value;
+  List<int> toBytes() => Uint8List.fromList(value);
 
   /// Returns the hex representation of this address.
   @override

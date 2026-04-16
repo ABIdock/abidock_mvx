@@ -11,13 +11,14 @@ import '../../signature.dart';
 import '../gas_models/gas_limit.dart';
 import '../gas_models/gas_price.dart';
 import '../transaction.dart';
+import '../transaction_constants.dart';
 import '../transaction_version.dart';
 
 /// Extra gas limit for guarded transactions (50,000 gas).
 const int extraGasLimitForGuardedTransactions = 50000;
 
-/// Extra gas limit for relayed transactions (0 gas - no extra needed).
-const int extraGasLimitForRelayedTransactions = 0;
+/// Extra gas limit for relayed transactions (50,000 gas).
+const int extraGasLimitForRelayedTransactions = 50000;
 
 /// Base options for controller methods with optional overrides.
 ///
@@ -254,21 +255,23 @@ class BaseController {
   /// // Result: version=2, options=2 (GuardedTransaction flag)
   /// ```
   Transaction setVersionAndOptionsForGuardian(Transaction transaction) {
-    if (transaction.guardian != null && !transaction.guardian!.isZero) {
-      logger?.debug(
-        'Configuring guardian transaction',
-        context: {
-          'guardian': transaction.guardian!.bech32,
-          'newVersion': 2,
-          'newOptions': 2,
-        },
-      );
-      return transaction.copyWith(
-        newVersion: const TransactionVersion(2),
-        newOptions: 2,
-      );
+    if (transaction.guardian == null || transaction.guardian!.isZero) {
+      return transaction;
     }
-    return transaction;
+    final int newOptions = transaction.options | transactionOptionsTxGuarded;
+    final TransactionVersion newVersion =
+        transaction.version.value < minTransactionVersionThatSupportsOptions
+        ? const TransactionVersion(minTransactionVersionThatSupportsOptions)
+        : transaction.version;
+    logger?.debug(
+      'Configuring guardian transaction',
+      context: {
+        'guardian': transaction.guardian!.bech32,
+        'newVersion': newVersion.value,
+        'newOptions': newOptions,
+      },
+    );
+    return transaction.copyWith(newVersion: newVersion, newOptions: newOptions);
   }
 
   /// Sets transaction gas price and limit with automatic estimation.

@@ -161,28 +161,9 @@ final class I64Value extends BigIntNumericalValue {
   @override
   List<String> get classHierarchy => _classHierarchy;
 
-  static final List<Uint8List> _precomputed = List.generate(256, (i) {
-    final BigInt val = BigInt.from(i - 128);
-    final BigInt mask = (BigInt.one << 64) - BigInt.one;
-    final BigInt unsigned = val & mask;
-    return Uint8List(8)
-      ..[0] = ((unsigned >> 56) & BigInt.from(0xFF)).toInt()
-      ..[1] = ((unsigned >> 48) & BigInt.from(0xFF)).toInt()
-      ..[2] = ((unsigned >> 40) & BigInt.from(0xFF)).toInt()
-      ..[3] = ((unsigned >> 32) & BigInt.from(0xFF)).toInt()
-      ..[4] = ((unsigned >> 24) & BigInt.from(0xFF)).toInt()
-      ..[5] = ((unsigned >> 16) & BigInt.from(0xFF)).toInt()
-      ..[6] = ((unsigned >> 8) & BigInt.from(0xFF)).toInt()
-      ..[7] = (unsigned & BigInt.from(0xFF)).toInt();
-  }, growable: false);
-
   @pragma('vm:prefer-inline')
   @override
   List<int> toBytes() {
-    if (value >= BigInt.from(-128) && value <= BigInt.from(127)) {
-      return _precomputed[value.toInt() + 128];
-    }
-
     final BigInt mask = (BigInt.one << 64) - BigInt.one;
     final BigInt unsigned = value & mask;
     return Uint8List(8)

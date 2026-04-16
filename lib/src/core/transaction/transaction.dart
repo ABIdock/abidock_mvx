@@ -108,7 +108,9 @@ final class Transaction {
     this.guardianSignature = const Signature.empty(),
     this.relayer,
     this.relayerSignature = const Signature.empty(),
+    List<Transaction> innerTransactions = const <Transaction>[],
   }) : _data = data,
+       innerTransactions = List<Transaction>.unmodifiable(innerTransactions),
        value = value ?? Balance.zero();
 
   /// Creates transaction from JSON.
@@ -155,6 +157,10 @@ final class Transaction {
   final Address? relayer;
   final Signature relayerSignature;
 
+  /// Inner pre-signed transactions wrapped by a relayed-v3 outer transaction.
+  /// Empty for non-relayed-v3 flows.
+  final List<Transaction> innerTransactions;
+
   /// Transaction data (cached).
   final Uint8List _data;
 
@@ -174,7 +180,7 @@ final class Transaction {
   ///   print('Calling: $function');
   /// }
   /// ```
-  Uint8List get data => _data;
+  Uint8List get data => Uint8List.fromList(_data);
 
   /// Creates copy with optional new values.
   ///
@@ -224,6 +230,7 @@ final class Transaction {
     Balance? newValue,
     Address? newSender,
     Address? newReceiver,
+    Uint8List? newData,
     String? newSenderUsername,
     String? newReceiverUsername,
     GasPrice? newGasPrice,
@@ -236,12 +243,13 @@ final class Transaction {
     Signature? newGuardianSignature,
     Address? newRelayer,
     Signature? newRelayerSignature,
+    List<Transaction>? newInnerTransactions,
   }) {
     return Transaction(
       nonce: newNonce ?? nonce,
       sender: newSender ?? sender,
       receiver: newReceiver ?? receiver,
-      data: _data,
+      data: newData ?? _data,
       gasLimit: newGasLimit ?? gasLimit,
       gasPrice: newGasPrice ?? gasPrice,
       chainId: newChainId ?? chainId,
@@ -255,52 +263,16 @@ final class Transaction {
       guardianSignature: newGuardianSignature ?? guardianSignature,
       relayer: newRelayer ?? relayer,
       relayerSignature: newRelayerSignature ?? relayerSignature,
+      innerTransactions: newInnerTransactions ?? innerTransactions,
     );
   }
 
-  /// Converts transaction to JSON.
-  Map<String, dynamic> toJson() {
-    final Map<String, dynamic> map = <String, dynamic>{
-      'nonce': nonce.value,
-      'value': value.value.toString(),
-      'receiver': receiver.bech32,
-      'sender': sender.bech32,
-      'gasPrice': gasPrice.value,
-      'gasLimit': gasLimit.value,
-      'chainID': chainId.value,
-      'version': version.value,
-    };
-
-    if (senderUsername.isNotEmpty) {
-      map['senderUsername'] = base64.encode(utf8.encode(senderUsername));
-    }
-    if (receiverUsername.isNotEmpty) {
-      map['receiverUsername'] = base64.encode(utf8.encode(receiverUsername));
-    }
-    if (_data.isNotEmpty) {
-      map['data'] = base64.encode(_data);
-    }
-    if (options != 0) {
-      map['options'] = options;
-    }
-    if (guardian != null) {
-      map['guardian'] = guardian!.bech32;
-    }
-    if (signature.hex.isNotEmpty) {
-      map['signature'] = signature.hex;
-    }
-    if (guardianSignature.hex.isNotEmpty) {
-      map['guardianSignature'] = guardianSignature.hex;
-    }
-    if (relayer != null) {
-      map['relayer'] = relayer!.bech32;
-    }
-    if (relayerSignature.hex.isNotEmpty) {
-      map['relayerSignature'] = relayerSignature.hex;
-    }
-
-    return map;
-  }
+  /// Converts transaction to the canonical JSON shape used for broadcast.
+  ///
+  /// Delegates to [TransactionComputer.toPlainObject] with `withSignature: true`
+  /// so broadcast and signing share a single field-order contract.
+  Map<String, dynamic> toJson() =>
+      const TransactionComputer().toPlainObject(this, withSignature: true);
 
   /// Serializes transaction for signing.
   ///
@@ -355,7 +327,17 @@ final class Transaction {
           guardianSignature == other.guardianSignature &&
           relayer == other.relayer &&
           relayerSignature == other.relayerSignature &&
+          _listEquals(innerTransactions, other.innerTransactions) &&
           CollectionUtils.bytesEquals(_data, other._data);
+
+  static bool _listEquals(List<Transaction> a, List<Transaction> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
 
   @override
   int get hashCode => Object.hash(
@@ -376,6 +358,7 @@ final class Transaction {
     relayer,
     relayerSignature,
     Object.hashAll(_data),
+    Object.hashAll(innerTransactions),
   );
 
   /// Checks if transaction is guarded.

@@ -135,6 +135,9 @@ class UserSecretKey {
     for (int i = 0; i < seed.length; i++) {
       seed[i] = random.nextInt(256);
     }
+    if (seed.every((b) => b == 0) || seed.every((b) => b == 0xFF)) {
+      throw StateError('CSPRNG produced degenerate key material');
+    }
     return UserSecretKey(seed);
   }
 

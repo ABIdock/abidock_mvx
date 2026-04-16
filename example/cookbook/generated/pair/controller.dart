@@ -98,27 +98,56 @@ import 'queries/get_whitelisted_managed_addresses.dart'
 ///
 /// #### Example
 /// ```dart
+/// final logger = ConsoleLogger(
+///   minLevel: LogLevel.debug,
+///   includeTimestamp: true,
+///   prettyPrintContext: true,
+///   showBorders: true,
+///   useColors: true,
+/// );
 /// final controller = PairController(
 ///   contractAddress: 'erd1...',
 ///   networkProvider: provider,
+///   logger: logger,
 /// );
 /// ```
 class PairController {
   final SmartContractController _controller;
+  final ConsoleLogger logger;
 
   /// Creates controller with contract address.
   PairController({
     required dynamic contractAddress,
     required NetworkProvider networkProvider,
-  }) : _controller = SmartContractController(
+    ConsoleLogger? logger,
+  }) : logger =
+           logger ??
+           ConsoleLogger(
+             minLevel: LogLevel.debug,
+             includeTimestamp: true,
+             prettyPrintContext: true,
+             showBorders: true,
+             useColors: true,
+           ),
+       _controller = SmartContractController(
          abi: abi,
          contractAddress: contractAddress is String
              ? SmartContractAddress.fromBech32(contractAddress)
              : contractAddress as Address,
          networkProvider: networkProvider,
+         logger:
+             logger ??
+             ConsoleLogger(
+               minLevel: LogLevel.debug,
+               includeTimestamp: true,
+               prettyPrintContext: true,
+               showBorders: true,
+               useColors: true,
+             ),
        );
 
-  PairController.withController(this._controller);
+  PairController.withController(this._controller)
+    : logger = _controller.logger as ConsoleLogger;
 
   SmartContractController get controller => _controller;
 
@@ -223,7 +252,6 @@ class PairController {
     IAccount sender,
     Nonce nonce, {
     List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
-    required GasLimit gasLimit,
     Address? relayer,
     Address? guardian,
     Balance? value,
@@ -232,7 +260,6 @@ class PairController {
     sender,
     nonce,
     tokenTransfers: tokenTransfers,
-    gasLimit: gasLimit,
     relayer: relayer,
     guardian: guardian,
     value: value,
@@ -244,7 +271,6 @@ class PairController {
     BigInt firstTokenAmountMin,
     BigInt secondTokenAmountMin, {
     List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
-    required GasLimit gasLimit,
     Address? relayer,
     Address? guardian,
     Balance? value,
@@ -255,7 +281,6 @@ class PairController {
     firstTokenAmountMin,
     secondTokenAmountMin,
     tokenTransfers: tokenTransfers,
-    gasLimit: gasLimit,
     relayer: relayer,
     guardian: guardian,
     value: value,
@@ -267,7 +292,6 @@ class PairController {
     BigInt firstTokenAmountMin,
     BigInt secondTokenAmountMin, {
     List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
-    required GasLimit gasLimit,
     Address? relayer,
     Address? guardian,
     Balance? value,
@@ -278,7 +302,6 @@ class PairController {
     firstTokenAmountMin,
     secondTokenAmountMin,
     tokenTransfers: tokenTransfers,
-    gasLimit: gasLimit,
     relayer: relayer,
     guardian: guardian,
     value: value,
@@ -289,7 +312,6 @@ class PairController {
     Nonce nonce,
     String tokenToBuybackAndBurn, {
     List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
-    required GasLimit gasLimit,
     Address? relayer,
     Address? guardian,
     Balance? value,
@@ -300,7 +322,6 @@ class PairController {
         nonce,
         tokenToBuybackAndBurn,
         tokenTransfers: tokenTransfers,
-        gasLimit: gasLimit,
         relayer: relayer,
         guardian: guardian,
         value: value,
@@ -312,7 +333,6 @@ class PairController {
     String tokenOut,
     String destinationAddress, {
     List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
-    required GasLimit gasLimit,
     Address? relayer,
     Address? guardian,
     Balance? value,
@@ -323,7 +343,6 @@ class PairController {
     tokenOut,
     destinationAddress,
     tokenTransfers: tokenTransfers,
-    gasLimit: gasLimit,
     relayer: relayer,
     guardian: guardian,
     value: value,
@@ -335,7 +354,6 @@ class PairController {
     String tokenOut,
     BigInt amountOutMin, {
     List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
-    required GasLimit gasLimit,
     Address? relayer,
     Address? guardian,
     Balance? value,
@@ -346,7 +364,6 @@ class PairController {
     tokenOut,
     amountOutMin,
     tokenTransfers: tokenTransfers,
-    gasLimit: gasLimit,
     relayer: relayer,
     guardian: guardian,
     value: value,
@@ -358,7 +375,6 @@ class PairController {
     String tokenOut,
     BigInt amountOut, {
     List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
-    required GasLimit gasLimit,
     Address? relayer,
     Address? guardian,
     Balance? value,
@@ -369,7 +385,6 @@ class PairController {
     tokenOut,
     amountOut,
     tokenTransfers: tokenTransfers,
-    gasLimit: gasLimit,
     relayer: relayer,
     guardian: guardian,
     value: value,
@@ -379,7 +394,6 @@ class PairController {
     IAccount sender,
     Nonce nonce,
     String tokenIdentifier, {
-    required GasLimit gasLimit,
     Address? relayer,
     Address? guardian,
     Balance? value,
@@ -388,7 +402,6 @@ class PairController {
     sender,
     nonce,
     tokenIdentifier,
-    gasLimit: gasLimit,
     relayer: relayer,
     guardian: guardian,
     value: value,
@@ -398,7 +411,6 @@ class PairController {
     IAccount sender,
     Nonce nonce,
     String address, {
-    required GasLimit gasLimit,
     Address? relayer,
     Address? guardian,
     Balance? value,
@@ -407,7 +419,6 @@ class PairController {
     sender,
     nonce,
     address,
-    gasLimit: gasLimit,
     relayer: relayer,
     guardian: guardian,
     value: value,
@@ -417,7 +428,6 @@ class PairController {
     IAccount sender,
     Nonce nonce,
     String address, {
-    required GasLimit gasLimit,
     Address? relayer,
     Address? guardian,
     Balance? value,
@@ -426,7 +436,6 @@ class PairController {
     sender,
     nonce,
     address,
-    gasLimit: gasLimit,
     relayer: relayer,
     guardian: guardian,
     value: value,
@@ -438,7 +447,6 @@ class PairController {
     String pairAddress,
     String firstToken,
     String secondToken, {
-    required GasLimit gasLimit,
     Address? relayer,
     Address? guardian,
     Balance? value,
@@ -449,7 +457,6 @@ class PairController {
     pairAddress,
     firstToken,
     secondToken,
-    gasLimit: gasLimit,
     relayer: relayer,
     guardian: guardian,
     value: value,
@@ -460,7 +467,6 @@ class PairController {
     Nonce nonce,
     String firstToken,
     String secondToken, {
-    required GasLimit gasLimit,
     Address? relayer,
     Address? guardian,
     Balance? value,
@@ -470,7 +476,6 @@ class PairController {
     nonce,
     firstToken,
     secondToken,
-    gasLimit: gasLimit,
     relayer: relayer,
     guardian: guardian,
     value: value,
@@ -481,7 +486,6 @@ class PairController {
     Nonce nonce,
     String feesCollectorAddress,
     BigInt feesCollectorCutPercentage, {
-    required GasLimit gasLimit,
     Address? relayer,
     Address? guardian,
     Balance? value,
@@ -491,7 +495,6 @@ class PairController {
     nonce,
     feesCollectorAddress,
     feesCollectorCutPercentage,
-    gasLimit: gasLimit,
     relayer: relayer,
     guardian: guardian,
     value: value,
@@ -503,7 +506,6 @@ class PairController {
     bool enabled,
     String feeToAddress,
     String feeToken, {
-    required GasLimit gasLimit,
     Address? relayer,
     Address? guardian,
     Balance? value,
@@ -514,7 +516,6 @@ class PairController {
     enabled,
     feeToAddress,
     feeToken,
-    gasLimit: gasLimit,
     relayer: relayer,
     guardian: guardian,
     value: value,
@@ -523,7 +524,6 @@ class PairController {
   Future<Transaction> setStateActiveNoSwaps(
     IAccount sender,
     Nonce nonce, {
-    required GasLimit gasLimit,
     Address? relayer,
     Address? guardian,
     Balance? value,
@@ -531,7 +531,6 @@ class PairController {
     _controller,
     sender,
     nonce,
-    gasLimit: gasLimit,
     relayer: relayer,
     guardian: guardian,
     value: value,
@@ -542,7 +541,6 @@ class PairController {
     Nonce nonce,
     BigInt totalFeePercent,
     BigInt specialFeePercent, {
-    required GasLimit gasLimit,
     Address? relayer,
     Address? guardian,
     Balance? value,
@@ -552,7 +550,6 @@ class PairController {
     nonce,
     totalFeePercent,
     specialFeePercent,
-    gasLimit: gasLimit,
     relayer: relayer,
     guardian: guardian,
     value: value,
@@ -562,7 +559,6 @@ class PairController {
     IAccount sender,
     Nonce nonce,
     BigInt liquidity, {
-    required GasLimit gasLimit,
     Address? relayer,
     Address? guardian,
     Balance? value,
@@ -572,7 +568,6 @@ class PairController {
         sender,
         nonce,
         liquidity,
-        gasLimit: gasLimit,
         relayer: relayer,
         guardian: guardian,
         value: value,
@@ -582,7 +577,6 @@ class PairController {
     IAccount sender,
     Nonce nonce,
     EsdtTokenPayment input, {
-    required GasLimit gasLimit,
     Address? relayer,
     Address? guardian,
     Balance? value,
@@ -591,7 +585,6 @@ class PairController {
     sender,
     nonce,
     input,
-    gasLimit: gasLimit,
     relayer: relayer,
     guardian: guardian,
     value: value,
@@ -601,7 +594,6 @@ class PairController {
     IAccount sender,
     Nonce nonce,
     BigInt newDeadline, {
-    required GasLimit gasLimit,
     Address? relayer,
     Address? guardian,
     Balance? value,
@@ -610,7 +602,6 @@ class PairController {
     sender,
     nonce,
     newDeadline,
-    gasLimit: gasLimit,
     relayer: relayer,
     guardian: guardian,
     value: value,
@@ -620,7 +611,6 @@ class PairController {
     IAccount sender,
     Nonce nonce,
     String newAddress, {
-    required GasLimit gasLimit,
     Address? relayer,
     Address? guardian,
     Balance? value,
@@ -629,7 +619,6 @@ class PairController {
     sender,
     nonce,
     newAddress,
-    gasLimit: gasLimit,
     relayer: relayer,
     guardian: guardian,
     value: value,
@@ -639,7 +628,6 @@ class PairController {
     IAccount sender,
     Nonce nonce,
     BigInt newEpoch, {
-    required GasLimit gasLimit,
     Address? relayer,
     Address? guardian,
     Balance? value,
@@ -648,7 +636,6 @@ class PairController {
     sender,
     nonce,
     newEpoch,
-    gasLimit: gasLimit,
     relayer: relayer,
     guardian: guardian,
     value: value,
@@ -658,7 +645,6 @@ class PairController {
     IAccount sender,
     Nonce nonce,
     String address, {
-    required GasLimit gasLimit,
     Address? relayer,
     Address? guardian,
     Balance? value,
@@ -667,7 +653,6 @@ class PairController {
     sender,
     nonce,
     address,
-    gasLimit: gasLimit,
     relayer: relayer,
     guardian: guardian,
     value: value,
@@ -677,7 +662,6 @@ class PairController {
     IAccount sender,
     Nonce nonce,
     String address, {
-    required GasLimit gasLimit,
     Address? relayer,
     Address? guardian,
     Balance? value,
@@ -686,7 +670,6 @@ class PairController {
     sender,
     nonce,
     address,
-    gasLimit: gasLimit,
     relayer: relayer,
     guardian: guardian,
     value: value,
@@ -696,7 +679,6 @@ class PairController {
     IAccount sender,
     Nonce nonce,
     String previousOwner, {
-    required GasLimit gasLimit,
     Address? relayer,
     Address? guardian,
     Balance? value,
@@ -705,7 +687,6 @@ class PairController {
     sender,
     nonce,
     previousOwner,
-    gasLimit: gasLimit,
     relayer: relayer,
     guardian: guardian,
     value: value,
@@ -715,7 +696,6 @@ class PairController {
     IAccount sender,
     Nonce nonce,
     List<String> addressList, {
-    required GasLimit gasLimit,
     Address? relayer,
     Address? guardian,
     Balance? value,
@@ -724,7 +704,6 @@ class PairController {
     sender,
     nonce,
     addressList,
-    gasLimit: gasLimit,
     relayer: relayer,
     guardian: guardian,
     value: value,
@@ -734,7 +713,6 @@ class PairController {
     IAccount sender,
     Nonce nonce,
     List<String> addressList, {
-    required GasLimit gasLimit,
     Address? relayer,
     Address? guardian,
     Balance? value,
@@ -743,7 +721,6 @@ class PairController {
     sender,
     nonce,
     addressList,
-    gasLimit: gasLimit,
     relayer: relayer,
     guardian: guardian,
     value: value,
@@ -752,7 +729,6 @@ class PairController {
   Future<Transaction> pause(
     IAccount sender,
     Nonce nonce, {
-    required GasLimit gasLimit,
     Address? relayer,
     Address? guardian,
     Balance? value,
@@ -760,7 +736,6 @@ class PairController {
     _controller,
     sender,
     nonce,
-    gasLimit: gasLimit,
     relayer: relayer,
     guardian: guardian,
     value: value,
@@ -769,7 +744,6 @@ class PairController {
   Future<Transaction> resume(
     IAccount sender,
     Nonce nonce, {
-    required GasLimit gasLimit,
     Address? relayer,
     Address? guardian,
     Balance? value,
@@ -777,461 +751,432 @@ class PairController {
     _controller,
     sender,
     nonce,
-    gasLimit: gasLimit,
     relayer: relayer,
     guardian: guardian,
     value: value,
   );
 
-  Transaction addInitialLiquidityUnsigned(
+  Future<Transaction> addInitialLiquidityUnsigned(
     Address sender,
     Nonce nonce, {
     List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
-    required GasLimit gasLimit,
     Balance? value,
   }) => add_initial_liquidity_call.addInitialLiquidityUnsigned(
     factory,
+    networkProvider,
     sender,
     nonce,
     tokenTransfers: tokenTransfers,
-    gasLimit: gasLimit,
     value: value,
   );
 
-  Transaction addLiquidityUnsigned(
+  Future<Transaction> addLiquidityUnsigned(
     Address sender,
     Nonce nonce,
     BigInt firstTokenAmountMin,
     BigInt secondTokenAmountMin, {
     List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
-    required GasLimit gasLimit,
     Balance? value,
   }) => add_liquidity_call.addLiquidityUnsigned(
     factory,
+    networkProvider,
     sender,
     nonce,
     firstTokenAmountMin,
     secondTokenAmountMin,
     tokenTransfers: tokenTransfers,
-    gasLimit: gasLimit,
     value: value,
   );
 
-  Transaction removeLiquidityUnsigned(
+  Future<Transaction> removeLiquidityUnsigned(
     Address sender,
     Nonce nonce,
     BigInt firstTokenAmountMin,
     BigInt secondTokenAmountMin, {
     List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
-    required GasLimit gasLimit,
     Balance? value,
   }) => remove_liquidity_call.removeLiquidityUnsigned(
     factory,
+    networkProvider,
     sender,
     nonce,
     firstTokenAmountMin,
     secondTokenAmountMin,
     tokenTransfers: tokenTransfers,
-    gasLimit: gasLimit,
     value: value,
   );
 
-  Transaction removeLiquidityAndBuyBackAndBurnTokenUnsigned(
+  Future<Transaction> removeLiquidityAndBuyBackAndBurnTokenUnsigned(
     Address sender,
     Nonce nonce,
     String tokenToBuybackAndBurn, {
     List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
-    required GasLimit gasLimit,
     Balance? value,
   }) => remove_liquidity_and_buy_back_and_burn_token_call
       .removeLiquidityAndBuyBackAndBurnTokenUnsigned(
         factory,
+        networkProvider,
         sender,
         nonce,
         tokenToBuybackAndBurn,
         tokenTransfers: tokenTransfers,
-        gasLimit: gasLimit,
         value: value,
       );
 
-  Transaction swapNoFeeAndForwardUnsigned(
+  Future<Transaction> swapNoFeeAndForwardUnsigned(
     Address sender,
     Nonce nonce,
     String tokenOut,
     String destinationAddress, {
     List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
-    required GasLimit gasLimit,
     Balance? value,
   }) => swap_no_fee_and_forward_call.swapNoFeeAndForwardUnsigned(
     factory,
+    networkProvider,
     sender,
     nonce,
     tokenOut,
     destinationAddress,
     tokenTransfers: tokenTransfers,
-    gasLimit: gasLimit,
     value: value,
   );
 
-  Transaction swapTokensFixedInputUnsigned(
+  Future<Transaction> swapTokensFixedInputUnsigned(
     Address sender,
     Nonce nonce,
     String tokenOut,
     BigInt amountOutMin, {
     List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
-    required GasLimit gasLimit,
     Balance? value,
   }) => swap_tokens_fixed_input_call.swapTokensFixedInputUnsigned(
     factory,
+    networkProvider,
     sender,
     nonce,
     tokenOut,
     amountOutMin,
     tokenTransfers: tokenTransfers,
-    gasLimit: gasLimit,
     value: value,
   );
 
-  Transaction swapTokensFixedOutputUnsigned(
+  Future<Transaction> swapTokensFixedOutputUnsigned(
     Address sender,
     Nonce nonce,
     String tokenOut,
     BigInt amountOut, {
     List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
-    required GasLimit gasLimit,
     Balance? value,
   }) => swap_tokens_fixed_output_call.swapTokensFixedOutputUnsigned(
     factory,
+    networkProvider,
     sender,
     nonce,
     tokenOut,
     amountOut,
     tokenTransfers: tokenTransfers,
-    gasLimit: gasLimit,
     value: value,
   );
 
-  Transaction setLpTokenIdentifierUnsigned(
+  Future<Transaction> setLpTokenIdentifierUnsigned(
     Address sender,
     Nonce nonce,
     String tokenIdentifier, {
-    required GasLimit gasLimit,
     Balance? value,
   }) => set_lp_token_identifier_call.setLpTokenIdentifierUnsigned(
     factory,
+    networkProvider,
     sender,
     nonce,
     tokenIdentifier,
-    gasLimit: gasLimit,
     value: value,
   );
 
-  Transaction whitelistUnsigned(
+  Future<Transaction> whitelistUnsigned(
     Address sender,
     Nonce nonce,
     String address, {
-    required GasLimit gasLimit,
     Balance? value,
   }) => whitelist_call.whitelistUnsigned(
     factory,
+    networkProvider,
     sender,
     nonce,
     address,
-    gasLimit: gasLimit,
     value: value,
   );
 
-  Transaction removeWhitelistUnsigned(
+  Future<Transaction> removeWhitelistUnsigned(
     Address sender,
     Nonce nonce,
     String address, {
-    required GasLimit gasLimit,
     Balance? value,
   }) => remove_whitelist_call.removeWhitelistUnsigned(
     factory,
+    networkProvider,
     sender,
     nonce,
     address,
-    gasLimit: gasLimit,
     value: value,
   );
 
-  Transaction addTrustedSwapPairUnsigned(
+  Future<Transaction> addTrustedSwapPairUnsigned(
     Address sender,
     Nonce nonce,
     String pairAddress,
     String firstToken,
     String secondToken, {
-    required GasLimit gasLimit,
     Balance? value,
   }) => add_trusted_swap_pair_call.addTrustedSwapPairUnsigned(
     factory,
+    networkProvider,
     sender,
     nonce,
     pairAddress,
     firstToken,
     secondToken,
-    gasLimit: gasLimit,
     value: value,
   );
 
-  Transaction removeTrustedSwapPairUnsigned(
+  Future<Transaction> removeTrustedSwapPairUnsigned(
     Address sender,
     Nonce nonce,
     String firstToken,
     String secondToken, {
-    required GasLimit gasLimit,
     Balance? value,
   }) => remove_trusted_swap_pair_call.removeTrustedSwapPairUnsigned(
     factory,
+    networkProvider,
     sender,
     nonce,
     firstToken,
     secondToken,
-    gasLimit: gasLimit,
     value: value,
   );
 
-  Transaction setupFeesCollectorUnsigned(
+  Future<Transaction> setupFeesCollectorUnsigned(
     Address sender,
     Nonce nonce,
     String feesCollectorAddress,
     BigInt feesCollectorCutPercentage, {
-    required GasLimit gasLimit,
     Balance? value,
   }) => setup_fees_collector_call.setupFeesCollectorUnsigned(
     factory,
+    networkProvider,
     sender,
     nonce,
     feesCollectorAddress,
     feesCollectorCutPercentage,
-    gasLimit: gasLimit,
     value: value,
   );
 
-  Transaction setFeeOnUnsigned(
+  Future<Transaction> setFeeOnUnsigned(
     Address sender,
     Nonce nonce,
     bool enabled,
     String feeToAddress,
     String feeToken, {
-    required GasLimit gasLimit,
     Balance? value,
   }) => set_fee_on_call.setFeeOnUnsigned(
     factory,
+    networkProvider,
     sender,
     nonce,
     enabled,
     feeToAddress,
     feeToken,
-    gasLimit: gasLimit,
     value: value,
   );
 
-  Transaction setStateActiveNoSwapsUnsigned(
+  Future<Transaction> setStateActiveNoSwapsUnsigned(
     Address sender,
     Nonce nonce, {
-    required GasLimit gasLimit,
     Balance? value,
   }) => set_state_active_no_swaps_call.setStateActiveNoSwapsUnsigned(
     factory,
+    networkProvider,
     sender,
     nonce,
-    gasLimit: gasLimit,
     value: value,
   );
 
-  Transaction setFeePercentsUnsigned(
+  Future<Transaction> setFeePercentsUnsigned(
     Address sender,
     Nonce nonce,
     BigInt totalFeePercent,
     BigInt specialFeePercent, {
-    required GasLimit gasLimit,
     Balance? value,
   }) => set_fee_percents_call.setFeePercentsUnsigned(
     factory,
+    networkProvider,
     sender,
     nonce,
     totalFeePercent,
     specialFeePercent,
-    gasLimit: gasLimit,
     value: value,
   );
 
-  Transaction updateAndGetTokensForGivenPositionWithSafePriceUnsigned(
+  Future<Transaction> updateAndGetTokensForGivenPositionWithSafePriceUnsigned(
     Address sender,
     Nonce nonce,
     BigInt liquidity, {
-    required GasLimit gasLimit,
     Balance? value,
   }) => update_and_get_tokens_for_given_position_with_safe_price_call
       .updateAndGetTokensForGivenPositionWithSafePriceUnsigned(
         factory,
+        networkProvider,
         sender,
         nonce,
         liquidity,
-        gasLimit: gasLimit,
         value: value,
       );
 
-  Transaction updateAndGetSafePriceUnsigned(
+  Future<Transaction> updateAndGetSafePriceUnsigned(
     Address sender,
     Nonce nonce,
     EsdtTokenPayment input, {
-    required GasLimit gasLimit,
     Balance? value,
   }) => update_and_get_safe_price_call.updateAndGetSafePriceUnsigned(
     factory,
+    networkProvider,
     sender,
     nonce,
     input,
-    gasLimit: gasLimit,
     value: value,
   );
 
-  Transaction setLockingDeadlineEpochUnsigned(
+  Future<Transaction> setLockingDeadlineEpochUnsigned(
     Address sender,
     Nonce nonce,
     BigInt newDeadline, {
-    required GasLimit gasLimit,
     Balance? value,
   }) => set_locking_deadline_epoch_call.setLockingDeadlineEpochUnsigned(
     factory,
+    networkProvider,
     sender,
     nonce,
     newDeadline,
-    gasLimit: gasLimit,
     value: value,
   );
 
-  Transaction setLockingScAddressUnsigned(
+  Future<Transaction> setLockingScAddressUnsigned(
     Address sender,
     Nonce nonce,
     String newAddress, {
-    required GasLimit gasLimit,
     Balance? value,
   }) => set_locking_sc_address_call.setLockingScAddressUnsigned(
     factory,
+    networkProvider,
     sender,
     nonce,
     newAddress,
-    gasLimit: gasLimit,
     value: value,
   );
 
-  Transaction setUnlockEpochUnsigned(
+  Future<Transaction> setUnlockEpochUnsigned(
     Address sender,
     Nonce nonce,
     BigInt newEpoch, {
-    required GasLimit gasLimit,
     Balance? value,
   }) => set_unlock_epoch_call.setUnlockEpochUnsigned(
     factory,
+    networkProvider,
     sender,
     nonce,
     newEpoch,
-    gasLimit: gasLimit,
     value: value,
   );
 
-  Transaction addAdminUnsigned(
+  Future<Transaction> addAdminUnsigned(
     Address sender,
     Nonce nonce,
     String address, {
-    required GasLimit gasLimit,
     Balance? value,
   }) => add_admin_call.addAdminUnsigned(
     factory,
+    networkProvider,
     sender,
     nonce,
     address,
-    gasLimit: gasLimit,
     value: value,
   );
 
-  Transaction removeAdminUnsigned(
+  Future<Transaction> removeAdminUnsigned(
     Address sender,
     Nonce nonce,
     String address, {
-    required GasLimit gasLimit,
     Balance? value,
   }) => remove_admin_call.removeAdminUnsigned(
     factory,
+    networkProvider,
     sender,
     nonce,
     address,
-    gasLimit: gasLimit,
     value: value,
   );
 
-  Transaction updateOwnerOrAdminUnsigned(
+  Future<Transaction> updateOwnerOrAdminUnsigned(
     Address sender,
     Nonce nonce,
     String previousOwner, {
-    required GasLimit gasLimit,
     Balance? value,
   }) => update_owner_or_admin_call.updateOwnerOrAdminUnsigned(
     factory,
+    networkProvider,
     sender,
     nonce,
     previousOwner,
-    gasLimit: gasLimit,
     value: value,
   );
 
-  Transaction addToPauseWhitelistUnsigned(
+  Future<Transaction> addToPauseWhitelistUnsigned(
     Address sender,
     Nonce nonce,
     List<String> addressList, {
-    required GasLimit gasLimit,
     Balance? value,
   }) => add_to_pause_whitelist_call.addToPauseWhitelistUnsigned(
     factory,
+    networkProvider,
     sender,
     nonce,
     addressList,
-    gasLimit: gasLimit,
     value: value,
   );
 
-  Transaction removeFromPauseWhitelistUnsigned(
+  Future<Transaction> removeFromPauseWhitelistUnsigned(
     Address sender,
     Nonce nonce,
     List<String> addressList, {
-    required GasLimit gasLimit,
     Balance? value,
   }) => remove_from_pause_whitelist_call.removeFromPauseWhitelistUnsigned(
     factory,
+    networkProvider,
     sender,
     nonce,
     addressList,
-    gasLimit: gasLimit,
     value: value,
   );
 
-  Transaction pauseUnsigned(
+  Future<Transaction> pauseUnsigned(
     Address sender,
     Nonce nonce, {
-    required GasLimit gasLimit,
     Balance? value,
   }) => pause_call.pauseUnsigned(
     factory,
+    networkProvider,
     sender,
     nonce,
-    gasLimit: gasLimit,
     value: value,
   );
 
-  Transaction resumeUnsigned(
+  Future<Transaction> resumeUnsigned(
     Address sender,
     Nonce nonce, {
-    required GasLimit gasLimit,
     Balance? value,
   }) => resume_call.resumeUnsigned(
     factory,
+    networkProvider,
     sender,
     nonce,
-    gasLimit: gasLimit,
     value: value,
   );
 

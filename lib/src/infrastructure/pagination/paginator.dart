@@ -85,9 +85,10 @@ class Paginator<T> {
 
   /// Whether fetch is in progress.
   bool _isFetching = false;
+  final Map<String, Future<PagedResult<T>>> _inflight =
+      <String, Future<PagedResult<T>>>{};
 
   /// Active fetch future for deduplication.
-  Future<PagedResult<T>>? _activeFetch;
 
   /// Gets current page (if any fetched).
   PagedResult<T>? get currentPage => _currentPage;
@@ -105,15 +106,26 @@ class Paginator<T> {
 
   /// Fetches a page with the given parameters.
   ///
-  /// If a fetch is already in progress, returns the existing future
-  /// instead of starting a duplicate request.
-  Future<PagedResult<T>> _fetch(PaginationParams params) {
-    if (_isFetching && _activeFetch != null) {
-      return _activeFetch!;
-    }
+  /// If a fetch with the exact same parameters is already in flight, the
+  /// in-flight future is returned so duplicate work is avoided. Fetches
+  /// for *different* parameters run independently.
+  Future<PagedResult<T>> _fetch(PaginationParams params) async {
+    final String key = _cacheKey(params);
+    final Future<PagedResult<T>>? existing = _inflight[key];
+    if (existing != null) return existing;
 
-    _activeFetch = _doFetch(params);
-    return _activeFetch!;
+    final Completer<PagedResult<T>> completer = Completer<PagedResult<T>>();
+    _inflight[key] = completer.future;
+    try {
+      final PagedResult<T> result = await _doFetch(params);
+      completer.complete(result);
+      return result;
+    } catch (e, st) {
+      completer.completeError(e, st);
+      rethrow;
+    } finally {
+      _inflight.remove(key);
+    }
   }
 
   /// Performs the actual page fetch with caching and prefetch logic.
@@ -151,7 +163,6 @@ class Paginator<T> {
       return result;
     } finally {
       _isFetching = false;
-      _activeFetch = null;
     }
   }
 

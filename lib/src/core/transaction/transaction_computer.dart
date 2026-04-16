@@ -8,6 +8,10 @@ import 'package:pointycastle/export.dart';
 import '../../utils/hex_utils.dart';
 import '../address.dart';
 import '../network_configuration.dart';
+import 'controllers/base_controller.dart'
+    show
+        extraGasLimitForGuardedTransactions,
+        extraGasLimitForRelayedTransactions;
 import 'proto_serializer.dart';
 import 'transaction.dart';
 import 'transaction_constants.dart';
@@ -120,6 +124,16 @@ class TransactionComputer {
   /// #### Returns
   /// `Transaction` - New transaction with guardian enabled
   Transaction applyGuardian(Transaction transaction, Address guardian) {
+    if (transaction.guardian != null &&
+        !transaction.guardian!.isEmpty &&
+        transaction.guardian != guardian) {
+      throw StateError(
+        'Transaction already has a different guardian '
+        '(${transaction.guardian!.bech32}); construct a fresh transaction '
+        'before re-guarding.',
+      );
+    }
+
     int version = transaction.version.value;
     int options = transaction.options;
 
@@ -221,6 +235,21 @@ class TransactionComputer {
       map['guardianSignature'] = transaction.guardianSignature.hex;
     }
 
+    if (withSignature &&
+        transaction.relayer != null &&
+        transaction.relayerSignature.isNotEmpty) {
+      map['relayerSignature'] = transaction.relayerSignature.hex;
+    }
+
+    if (transaction.innerTransactions.isNotEmpty) {
+      map['innerTransactions'] = transaction.innerTransactions
+          .map(
+            (Transaction inner) =>
+                toPlainObject(inner, withSignature: withSignature),
+          )
+          .toList();
+    }
+
     return map;
   }
 
@@ -237,6 +266,33 @@ class TransactionComputer {
           'Non-empty transaction options requires transaction version >= $minTransactionVersionThatSupportsOptions',
         );
       }
+      if (transaction.relayer != null && !transaction.relayer!.isEmpty) {
+        throw ArgumentError(
+          'Relayed v3 transactions require transaction version >= $minTransactionVersionThatSupportsOptions',
+        );
+      }
+    }
+
+    const int knownOptionBits =
+        transactionOptionsTxHashSign | transactionOptionsTxGuarded;
+    if ((transaction.options & ~knownOptionBits) != 0) {
+      throw ArgumentError(
+        'Unknown transaction option bits: '
+        '0x${(transaction.options & ~knownOptionBits).toRadixString(16)}',
+      );
+    }
+
+    if (transaction.guardian != null &&
+        !transaction.guardian!.isEmpty &&
+        !hasOptionsSetForGuardedTransaction(transaction)) {
+      throw ArgumentError(
+        'Guardian address set but transactionOptionsTxGuarded bit is not enabled',
+      );
+    }
+
+    if (transaction.senderUsername.length > 32 ||
+        transaction.receiverUsername.length > 32) {
+      throw ArgumentError('Herotag must be <= 32 bytes');
     }
   }
 
@@ -267,9 +323,16 @@ class TransactionComputer {
     NetworkConfiguration networkConfig,
   ) {
     final int dataLength = transaction.data.length;
-    final BigInt moveBalanceGas =
+    BigInt moveBalanceGas =
         networkConfig.minGasLimit.toBigInt +
         BigInt.from(dataLength) * BigInt.from(networkConfig.gasPerDataByte);
+
+    if (hasOptionsSetForGuardedTransaction(transaction)) {
+      moveBalanceGas += BigInt.from(extraGasLimitForGuardedTransactions);
+    }
+    if (isRelayedV3Transaction(transaction)) {
+      moveBalanceGas += BigInt.from(extraGasLimitForRelayedTransactions);
+    }
 
     if (transaction.gasLimit.toBigInt < moveBalanceGas) {
       throw ArgumentError(
@@ -285,10 +348,14 @@ class TransactionComputer {
     }
 
     final BigInt processingGas = transaction.gasLimit.toBigInt - moveBalanceGas;
-    final double modifiedGasPrice =
-        gasPrice.toDouble() * networkConfig.gasPriceModifier.value;
+    const int denominator = 10000;
+    final int numerator = (networkConfig.gasPriceModifier.value * denominator)
+        .round();
     final BigInt feeForProcessing =
-        processingGas * BigInt.from(modifiedGasPrice.floor());
+        processingGas *
+        gasPrice *
+        BigInt.from(numerator) ~/
+        BigInt.from(denominator);
 
     return feeForMove + feeForProcessing;
   }

@@ -135,25 +135,9 @@ final class U64Value extends BigIntNumericalValue {
   @override
   List<String> get classHierarchy => _classHierarchy;
 
-  static final List<Uint8List> _precomputed = List.generate(
-    256,
-    (i) => Uint8List(8)
-      ..[0] = (i >> 56) & 0xFF
-      ..[1] = (i >> 48) & 0xFF
-      ..[2] = (i >> 40) & 0xFF
-      ..[3] = (i >> 32) & 0xFF
-      ..[4] = (i >> 24) & 0xFF
-      ..[5] = (i >> 16) & 0xFF
-      ..[6] = (i >> 8) & 0xFF
-      ..[7] = i & 0xFF,
-    growable: false,
-  );
-
   @pragma('vm:prefer-inline')
   @override
   List<int> toBytes() {
-    if (value <= BigInt.from(255)) return _precomputed[value.toInt()];
-
     return Uint8List(8)
       ..[0] = ((value >> 56) & BigInt.from(0xFF)).toInt()
       ..[1] = ((value >> 48) & BigInt.from(0xFF)).toInt()

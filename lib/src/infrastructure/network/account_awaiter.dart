@@ -83,8 +83,15 @@ class AccountAwaiter {
           );
         }
 
-        // Exponential backoff on errors: pollingInterval * 2^(errors-1)
-        final backoff = opts.pollingInterval * (1 << (consecutiveErrors - 1));
+        final int exponent = consecutiveErrors - 1 > 10
+            ? 10
+            : consecutiveErrors - 1;
+        final Duration rawBackoff = opts.pollingInterval * (1 << exponent);
+        final Duration remaining = endTime.difference(DateTime.now());
+        if (remaining <= Duration.zero) break;
+        final Duration backoff = rawBackoff > remaining
+            ? remaining
+            : rawBackoff;
         await Future<void>.delayed(backoff);
       }
     }

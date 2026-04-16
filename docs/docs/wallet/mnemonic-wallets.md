@@ -156,6 +156,48 @@ void main() async {
 }
 ```
 
+## Recovering a mnemonic from a keystore file
+
+If you received a `kind == "mnemonic"` keystore (JSON file encrypting the
+phrase itself, not a derived key), you can recover the mnemonic without
+going through `deriveKey`:
+
+```dart
+// Recover the typed Mnemonic object (auto-zeroed via Finalizer; still
+// call dispose() for deterministic clearing):
+final Mnemonic mnemonic = await UserWallet.loadMnemonic(
+  'wallet.json',
+  'password',
+);
+try {
+  final words = mnemonic.getWords();
+  // ... use the words
+} finally {
+  mnemonic.dispose();
+}
+
+// Or decrypt directly from an already-parsed JSON map:
+final Mnemonic m = UserWallet.decryptMnemonic(keyFileJson, password);
+```
+
+### Raw-bytes variant
+
+Integrators that wrap the mnemonic in a custom type (or need to hand the
+bytes to another SDK) can reach for the raw-bytes API. **The returned
+`Uint8List` contains secret material; zero it with `fillRange` as soon as
+you're done.**
+
+```dart
+final Uint8List bytes = UserWallet.decryptMnemonicBytes(keyFileJson, password);
+try {
+  // ... consume the bytes (e.g. `utf8.decode(bytes)` to get the phrase)
+} finally {
+  bytes.fillRange(0, bytes.length, 0);
+}
+```
+
+Throws `ArgumentError` if the keystore's `kind` is not `"mnemonic"`.
+
 ## Complete Example
 
 ```dart

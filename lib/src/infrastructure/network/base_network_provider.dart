@@ -46,7 +46,8 @@ abstract class BaseNetworkProvider implements NetworkProvider {
     this.enableCircuitBreaker = false,
   }) : _baseUrl = baseUrl,
        _chainId = chainId,
-       _dio = client ?? Dio() {
+       _dio = client ?? Dio(),
+       _ownsClient = client == null {
     if (enableCircuitBreaker) {
       _circuitBreaker = CircuitBreaker(
         failureThreshold: 5,
@@ -91,6 +92,7 @@ abstract class BaseNetworkProvider implements NetworkProvider {
   @protected
   Dio get dio => _dio;
   final Dio _dio;
+  final bool _ownsClient;
 
   /// Logger for debugging and monitoring.
   final Logger? logger;
@@ -180,6 +182,20 @@ abstract class BaseNetworkProvider implements NetworkProvider {
   /// Endpoint for fetching a hyperblock by nonce.
   @protected
   String hyperblockByNonceEndpoint(int nonce);
+
+  /// Endpoint for smart-contract VM queries.
+  @protected
+  String queryContractEndpoint();
+
+  /// Endpoint for fetching network status. API uses a single path;
+  /// Gateway takes a shard suffix.
+  @protected
+  String networkStatusEndpoint({int shard = 4294967295});
+
+  /// Endpoint for transaction cost estimation (Gateway-only). Return `null`
+  /// to signal that the provider does not support this method.
+  @protected
+  String? estimateTransactionCostEndpoint() => 'transaction/cost';
 
   /// Parses NetworkConfig from response.
   @protected
@@ -293,7 +309,7 @@ abstract class BaseNetworkProvider implements NetworkProvider {
     logger?.debug('Fetching network status');
 
     final response = await executeWithCircuitBreaker(
-      () => doGetGeneric('network/status/4294967295'),
+      () => doGetGeneric(networkStatusEndpoint()),
     );
 
     return parseNetworkStatus(
@@ -483,8 +499,14 @@ abstract class BaseNetworkProvider implements NetworkProvider {
       context: <String, dynamic>{'txData': txData},
     );
 
+    final String? endpoint = estimateTransactionCostEndpoint();
+    if (endpoint == null) {
+      throw UnsupportedError(
+        'estimateTransactionCost is only supported by the Gateway provider.',
+      );
+    }
     final response = await executeWithCircuitBreaker(
-      () => doPostGeneric('transaction/cost', txData),
+      () => doPostGeneric(endpoint, txData),
     );
 
     logger?.debug(
@@ -528,18 +550,20 @@ abstract class BaseNetworkProvider implements NetworkProvider {
 
       logger?.debug('Query request body', context: requestBody);
 
-      final Response<dynamic> response = await dio
-          .post<dynamic>(
-            '$baseUrl/vm-values/query',
-            data: requestBody,
-            options: Options(
-              headers: <String, dynamic>{
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-              },
-            ),
-          )
-          .timeout(defaultTimeout);
+      final Response<dynamic> response = await executeWithCircuitBreaker(() {
+        return dio
+            .post<dynamic>(
+              '$baseUrl/${queryContractEndpoint()}',
+              data: requestBody,
+              options: Options(
+                headers: <String, dynamic>{
+                  'Content-Type': 'application/json',
+                  'Accept': 'application/json',
+                },
+              ),
+            )
+            .timeout(defaultTimeout);
+      });
 
       if (response.statusCode != HttpStatus.ok &&
           response.statusCode != HttpStatus.created) {
@@ -937,7 +961,9 @@ abstract class BaseNetworkProvider implements NetworkProvider {
   @override
   void close() {
     logger?.debug('Closing $providerName');
-    _dio.close();
+    if (_ownsClient) {
+      _dio.close(force: true);
+    }
   }
 
   /// Executes operation with circuit breaker protection if enabled.

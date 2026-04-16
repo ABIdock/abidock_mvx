@@ -445,8 +445,10 @@ class TokenOnNetwork {
   /// Full token identifier including nonce.
   String get fullIdentifier {
     if (nonce > 0 && isNftLike) {
-      final String nonceHex = nonce.toRadixString(16).padLeft(2, '0');
-      return '$identifier-$nonceHex';
+      String hex = nonce.toRadixString(16);
+      if (hex.length.isOdd) hex = '0$hex';
+      if (hex.length < 2) hex = hex.padLeft(2, '0');
+      return '$identifier-$hex';
     }
     return identifier;
   }

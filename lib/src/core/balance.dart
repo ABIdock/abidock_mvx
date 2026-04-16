@@ -149,10 +149,7 @@ final class Balance {
       return Balance.zero();
     }
 
-    String valueStr = value.toString();
-    if (valueStr.contains('e') || valueStr.contains('E')) {
-      valueStr = value.toStringAsFixed(denomination);
-    }
+    final String valueStr = value.toStringAsFixed(denomination);
     final List<String> parts = valueStr.split('.');
     final String integerPart = parts[0];
     String decimalPart = parts.length > 1 ? parts[1] : '';
@@ -230,6 +227,38 @@ final class Balance {
       );
     }
     return Balance(result);
+  }
+
+  /// Multiplies this balance by a scalar (e.g. `gasLimit * gasPrice`).
+  Balance operator *(BigInt scalar) {
+    if (scalar.isNegative) {
+      throw ArgumentError.value(scalar, 'scalar', 'must be non-negative');
+    }
+    return Balance(value * scalar);
+  }
+
+  /// Integer-divides this balance by a scalar.
+  Balance operator ~/(BigInt divisor) {
+    if (divisor <= BigInt.zero) {
+      throw ArgumentError.value(divisor, 'divisor', 'must be positive');
+    }
+    return Balance(value ~/ divisor);
+  }
+
+  /// Integer-divides this balance by another balance and returns a scalar ratio.
+  BigInt ratioTo(Balance other) {
+    if (other.value == BigInt.zero) {
+      throw ArgumentError('Cannot take ratio with zero balance');
+    }
+    return value ~/ other.value;
+  }
+
+  /// Modulo a scalar.
+  Balance operator %(BigInt divisor) {
+    if (divisor <= BigInt.zero) {
+      throw ArgumentError.value(divisor, 'divisor', 'must be positive');
+    }
+    return Balance(value % divisor);
   }
 
   /// Compares this balance with another.

@@ -693,7 +693,7 @@ class NativeSerializer {
   static BigInt _toBigInt(dynamic value, String context) {
     if (value is BigInt) return value;
     if (value is int) return BigInt.from(value);
-    if (value is double) return BigInt.from(value.toInt());
+    if (value is double) return BigInt.from(value);
     if (value is String) {
       final BigInt? parsed = BigInt.tryParse(value);
       if (parsed != null) return parsed;

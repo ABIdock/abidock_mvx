@@ -77,7 +77,6 @@ class NonceManager {
   int? _nextValue;
   int _highestApplied = -1;
   DateTime? _lastResync;
-  Future<void>? _inflight;
   final List<int> _releasedButNotReused = <int>[];
 
   /// Reserves and returns the next nonce.
@@ -110,10 +109,15 @@ class NonceManager {
   /// next `next()` call, maintaining strict ordering.
   void release(Nonce nonce) {
     if (_nextValue == null) return;
+    if (nonce.value <= _highestApplied) {
+      return;
+    }
     if (nonce.value == _nextValue! - 1) {
       _nextValue = nonce.value;
     } else if (nonce.value < _nextValue!) {
-      _releasedButNotReused.add(nonce.value);
+      if (!_releasedButNotReused.contains(nonce.value)) {
+        _releasedButNotReused.add(nonce.value);
+      }
     }
   }
 
@@ -150,26 +154,28 @@ class NonceManager {
       if (_nextValue == null || desired > _nextValue!) {
         _nextValue = desired;
       }
+      _releasedButNotReused.removeWhere(
+        (int n) => n <= _highestApplied || n < networkNonce,
+      );
       _lastResync = DateTime.now();
     } catch (_) {
       if (force && _nextValue == null) rethrow;
-      // Silent failure on background refresh: keep using the local counter.
     }
   }
 
+  final List<Completer<void>> _queue = <Completer<void>>[];
+
   Future<void> _serialize(Future<void> Function() action) async {
-    while (_inflight != null) {
-      final Future<void> current = _inflight!;
-      await current;
-      if (identical(_inflight, current)) break;
+    final Completer<void> me = Completer<void>();
+    _queue.add(me);
+    if (_queue.length > 1) {
+      await _queue[_queue.length - 2].future;
     }
-    final Completer<void> gate = Completer<void>();
-    _inflight = gate.future;
     try {
       await action();
     } finally {
-      _inflight = null;
-      gate.complete();
+      _queue.remove(me);
+      me.complete();
     }
   }
 }

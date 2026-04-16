@@ -1,5 +1,6 @@
 /// Encrypted data structure for wallet keystore files in MultiversX format.
 /// Contains ciphertext, encryption parameters, salt, and MAC for verification.
+import 'constants.dart';
 import 'derivation_params.dart';
 
 /// Encrypted wallet data container for password-based encryption.
@@ -55,9 +56,25 @@ class EncryptedData {
         'mac': final String mac,
       },
     }) {
+      if (version != 4) {
+        throw FormatException(
+          'Unsupported keystore version: $version (expected 4)',
+        );
+      }
+      if (cipher != cipherAlgorithm) {
+        throw FormatException('Unsupported cipher: $cipher');
+      }
+      if (kdf != keyDerivationFunction) {
+        throw FormatException('Unsupported KDF: $kdf');
+      }
       final ScryptKeyDerivationParams params;
       try {
-        params = ScryptKeyDerivationParams(n: n, r: r, p: p, dklen: dklen);
+        params = ScryptKeyDerivationParams.permissive(
+          n: n,
+          r: r,
+          p: p,
+          dklen: dklen,
+        );
       } on ArgumentError catch (e) {
         throw FormatException('Invalid keystore KDF parameters: ${e.message}');
       }

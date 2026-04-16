@@ -64,6 +64,49 @@ class AccountStorage {
     return entries.any((AccountStorageEntry entry) => entry.key == key);
   }
 
+  /// Returns all entries whose hex key starts with the hex-encoding of
+  /// [prefix]. Useful for scanning ESDT / role-flag namespaces.
+  List<AccountStorageEntry> entriesWithPrefix(String prefix) {
+    final String hex = _utf8ToHex(prefix);
+    return entries
+        .where((AccountStorageEntry e) => e.key.startsWith(hex))
+        .toList();
+  }
+
+  /// Looks up the ESDT balance entry for [tokenIdentifier] (and optional
+  /// [nonce] for NFTs / SFTs / MetaESDT). Returns `null` when the account
+  /// has no balance for that token.
+  AccountStorageEntry? esdtEntry(String tokenIdentifier, {int? nonce}) {
+    final StringBuffer key = StringBuffer(_utf8ToHex('ELRONDesdt'))
+      ..write(_utf8ToHex(tokenIdentifier));
+    if (nonce != null && nonce > 0) {
+      key.write(_nonceHex(nonce));
+    }
+    return getEntry(key.toString());
+  }
+
+  /// Looks up the role-flag entry for [tokenIdentifier].
+  AccountStorageEntry? esdtRolesEntry(String tokenIdentifier) {
+    final String key =
+        _utf8ToHex('ELRONDroleesdt') + _utf8ToHex(tokenIdentifier);
+    return getEntry(key);
+  }
+
+  /// Looks up the last-created-nonce tracker for [tokenIdentifier].
+  AccountStorageEntry? esdtLastNonceEntry(String tokenIdentifier) {
+    final String key = _utf8ToHex('ELRONDnonce') + _utf8ToHex(tokenIdentifier);
+    return getEntry(key);
+  }
+
+  static String _utf8ToHex(String s) =>
+      s.codeUnits.map((int c) => c.toRadixString(16).padLeft(2, '0')).join();
+
+  static String _nonceHex(int nonce) {
+    String hex = nonce.toRadixString(16);
+    if (hex.length.isOdd) hex = '0$hex';
+    return hex;
+  }
+
   @override
   String toString() => 'AccountStorage(entries: ${entries.length})';
 }

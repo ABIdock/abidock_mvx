@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:bip39_plus/bip39_plus.dart' as bip39;
 import 'package:convert/convert.dart';
 import 'package:ed25519_hd_key/ed25519_hd_key.dart';
+import 'package:unorm_dart/unorm_dart.dart' as unorm;
 
 import '../utils/sdk_exceptions.dart';
 import 'user_keys.dart';
@@ -185,7 +186,12 @@ class Mnemonic {
     String password = '',
   }) async {
     final text = _getText();
-    final Uint8List seed = bip39.mnemonicToSeed(text, passphrase: password);
+    final String normalizedText = unorm.nfkd(text);
+    final String normalizedPassword = unorm.nfkd(password);
+    final Uint8List seed = bip39.mnemonicToSeed(
+      normalizedText,
+      passphrase: normalizedPassword,
+    );
     final String derivationPath = "$bip44DerivationPrefix/$addressIndex'";
 
     try {

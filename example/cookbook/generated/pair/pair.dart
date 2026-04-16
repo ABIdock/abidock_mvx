@@ -73,3 +73,8 @@ export 'queries/get_total_supply.dart';
 export 'queries/get_trusted_swap_pairs.dart';
 export 'queries/get_unlock_epoch.dart';
 export 'queries/get_whitelisted_managed_addresses.dart';
+export 'transfer_service.dart';
+export 'transfers/egld_transfer.dart';
+export 'transfers/esdt_transfer.dart';
+export 'transfers/multi_transfer.dart';
+export 'transfers/nft_transfer.dart';

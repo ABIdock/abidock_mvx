@@ -263,11 +263,7 @@ final class ManagedDecimalValue extends TypedValue {
     bool isSigned = false,
     bool isVariable = false,
   }) {
-    String valueStr = value.toString();
-
-    if (valueStr.contains('e') || valueStr.contains('E')) {
-      valueStr = value.toStringAsFixed(scale);
-    }
+    final String valueStr = value.toStringAsFixed(scale);
 
     return ManagedDecimalValue.fromString(
       valueStr,

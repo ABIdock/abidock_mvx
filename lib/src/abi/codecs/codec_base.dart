@@ -9,11 +9,12 @@ import '../core/type_system.dart';
 class BinaryCodecConstraints {
   BinaryCodecConstraints._();
 
-  /// Maximum buffer length (256KB).
-  static const int maxBufferLength = 256000;
+  /// Maximum buffer length (16 MB) -- accommodates large on-chain values
+  /// while retaining a DoS guard.
+  static const int maxBufferLength = 16 * 1024 * 1024;
 
-  /// Maximum list length (128K items).
-  static const int maxListLength = 128000;
+  /// Maximum list length (1M items).
+  static const int maxListLength = 1000000;
 
   /// Maximum recursion depth.
   static const int maxRecursionDepth = 32;

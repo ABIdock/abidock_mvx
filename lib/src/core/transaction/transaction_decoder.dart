@@ -126,6 +126,64 @@ final class ContractCall extends DecodedTransaction {
   final DecodedContractCall call;
 }
 
+/// A contract deployment (receiver is the zero address, data starts with
+/// the WASM bytecode, then VM type, then code metadata, then constructor args).
+final class ContractDeploy extends DecodedTransaction {
+  const ContractDeploy({
+    required super.transaction,
+    required this.bytecode,
+    required this.vmType,
+    required this.codeMetadata,
+    required this.arguments,
+  });
+
+  final Uint8List bytecode;
+  final Uint8List vmType;
+  final Uint8List codeMetadata;
+  final List<Uint8List> arguments;
+}
+
+/// An `upgradeContract@...` call.
+final class ContractUpgrade extends DecodedTransaction {
+  const ContractUpgrade({
+    required super.transaction,
+    required this.bytecode,
+    required this.codeMetadata,
+    required this.arguments,
+  });
+
+  final Uint8List bytecode;
+  final Uint8List codeMetadata;
+  final List<Uint8List> arguments;
+}
+
+/// A `ChangeOwnerAddress@<newOwner>` call.
+final class ContractChangeOwner extends DecodedTransaction {
+  const ContractChangeOwner({
+    required super.transaction,
+    required this.newOwner,
+  });
+
+  final Address newOwner;
+}
+
+/// A `ClaimDeveloperRewards` call.
+final class ClaimDeveloperRewards extends DecodedTransaction {
+  const ClaimDeveloperRewards({required super.transaction});
+}
+
+/// A relayed-v3 outer transaction wrapping one or more pre-signed inner
+/// transactions. Surfaces the bundle so explorers / relayers can walk each
+/// inner tx without re-parsing the protobuf.
+final class RelayedV3Transaction extends DecodedTransaction {
+  const RelayedV3Transaction({
+    required super.transaction,
+    required this.innerTransactions,
+  });
+
+  final List<Transaction> innerTransactions;
+}
+
 /// The data-field-level view of `<function>@<argHex>...`.
 class DecodedContractCall {
   const DecodedContractCall({required this.function, required this.arguments});
@@ -177,6 +235,13 @@ class TransactionDecoder {
   ///
   /// Never throws — anything unrecognized becomes [UnknownTransaction].
   DecodedTransaction decode(Transaction transaction) {
+    if (transaction.innerTransactions.isNotEmpty) {
+      return RelayedV3Transaction(
+        transaction: transaction,
+        innerTransactions: transaction.innerTransactions,
+      );
+    }
+
     final Uint8List data = transaction.data;
     if (data.isEmpty) {
       return NativeEgldTransfer(transaction: transaction);
@@ -202,6 +267,16 @@ class TransactionDecoder {
         return _decodeNftTransfer(transaction, parts);
       case 'MultiESDTNFTTransfer':
         return _decodeMultiTransfer(transaction, parts);
+      case 'upgradeContract':
+        return _decodeUpgrade(transaction, parts);
+      case 'ChangeOwnerAddress':
+        return _decodeChangeOwner(transaction, parts);
+      case 'ClaimDeveloperRewards':
+        return ClaimDeveloperRewards(transaction: transaction);
+    }
+
+    if (head.isEmpty && transaction.receiver.isZero) {
+      return _decodeDeploy(transaction, parts);
     }
 
     // Not a built-in. If the data contains `@`, treat it as a contract call;
@@ -333,6 +408,93 @@ class TransactionDecoder {
       transfers: items,
       functionCall: inner,
     );
+  }
+
+  DecodedTransaction _decodeDeploy(Transaction tx, List<String> parts) {
+    if (parts.length < 4) {
+      return UnknownTransaction(
+        transaction: tx,
+        reason: 'Deploy expects codeHex, vmType, metadata',
+      );
+    }
+    final Uint8List? code = _hexToBytes(parts[1]);
+    final Uint8List? vmType = _hexToBytes(parts[2]);
+    final Uint8List? metadata = _hexToBytes(parts[3]);
+    if (code == null || vmType == null || metadata == null) {
+      return UnknownTransaction(
+        transaction: tx,
+        reason: 'Deploy has malformed code/vmType/metadata',
+      );
+    }
+    final List<Uint8List> args = <Uint8List>[];
+    for (int i = 4; i < parts.length; i++) {
+      final Uint8List? b = _hexToBytes(parts[i]);
+      if (b == null) {
+        return UnknownTransaction(
+          transaction: tx,
+          reason: 'Deploy arg $i malformed',
+        );
+      }
+      args.add(b);
+    }
+    return ContractDeploy(
+      transaction: tx,
+      bytecode: code,
+      vmType: vmType,
+      codeMetadata: metadata,
+      arguments: args,
+    );
+  }
+
+  DecodedTransaction _decodeUpgrade(Transaction tx, List<String> parts) {
+    if (parts.length < 3) {
+      return UnknownTransaction(
+        transaction: tx,
+        reason: 'upgradeContract expects code and metadata',
+      );
+    }
+    final Uint8List? code = _hexToBytes(parts[1]);
+    final Uint8List? metadata = _hexToBytes(parts[2]);
+    if (code == null || metadata == null) {
+      return UnknownTransaction(
+        transaction: tx,
+        reason: 'upgradeContract has malformed code or metadata',
+      );
+    }
+    final List<Uint8List> args = <Uint8List>[];
+    for (int i = 3; i < parts.length; i++) {
+      final Uint8List? b = _hexToBytes(parts[i]);
+      if (b == null) {
+        return UnknownTransaction(
+          transaction: tx,
+          reason: 'upgradeContract arg $i malformed',
+        );
+      }
+      args.add(b);
+    }
+    return ContractUpgrade(
+      transaction: tx,
+      bytecode: code,
+      codeMetadata: metadata,
+      arguments: args,
+    );
+  }
+
+  DecodedTransaction _decodeChangeOwner(Transaction tx, List<String> parts) {
+    if (parts.length != 2) {
+      return UnknownTransaction(
+        transaction: tx,
+        reason: 'ChangeOwnerAddress expects exactly one argument',
+      );
+    }
+    final Address? owner = _hexToAddress(parts[1]);
+    if (owner == null) {
+      return UnknownTransaction(
+        transaction: tx,
+        reason: 'ChangeOwnerAddress argument is not a 32-byte address',
+      );
+    }
+    return ContractChangeOwner(transaction: tx, newOwner: owner);
   }
 
   DecodedContractCall? _decodeCall(List<String> parts) {

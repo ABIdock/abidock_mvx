@@ -1,10 +1,10 @@
 /// LRU cache implementation with TTL expiration.
 /// Automatically evicts oldest entries when at capacity and removes expired entries.
 ///
-/// **Thread Safety:** This cache is NOT thread-safe. If accessed from multiple
-/// isolates or concurrent async operations that may interleave, external
-/// synchronization is required. For single-isolate async code with non-interleaving
-/// operations, the cache is safe to use.
+/// **Concurrency:** every public method is synchronous, so on a single Dart
+/// isolate two callers cannot race each other -- Dart's cooperative scheduler
+/// cannot interleave inside a sync method. Do not share a single instance
+/// across isolates without external synchronization.
 ///
 /// #### Example
 /// ```dart
@@ -81,7 +81,10 @@ class CacheEntry<T> {
 
 /// LRU cache with TTL support.
 ///
-/// Thread-safe Least Recently Used cache with automatic expiration and eviction.
+/// Least Recently Used cache with automatic expiration and eviction.
+/// Safe to call from interleaving async code on a single isolate: each
+/// mutating method acquires a `Completer`-based FIFO mutex so parallel
+/// `get` / `put` / `invalidate` calls cannot race.
 /// Maintains access order for LRU policy and tracks comprehensive statistics.
 ///
 /// #### Example

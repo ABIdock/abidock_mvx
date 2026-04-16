@@ -9,6 +9,7 @@ import '../address.dart';
 import '../message/message.dart';
 import '../nonce.dart';
 import '../transaction/transaction.dart';
+import '../transaction/transaction_computer.dart';
 import 'account_interface.dart';
 
 /// Account on the network with local signing.
@@ -94,10 +95,14 @@ class Account implements IAccount {
     int addressIndex = 0,
   }) async {
     final Mnemonic mnemonicObj = Mnemonic.fromString(mnemonic);
-    final UserSecretKey secretKey = await mnemonicObj.deriveKey(
-      addressIndex: addressIndex,
-    );
-    return fromSecretKey(secretKey);
+    try {
+      final UserSecretKey secretKey = await mnemonicObj.deriveKey(
+        addressIndex: addressIndex,
+      );
+      return fromSecretKey(secretKey);
+    } finally {
+      mnemonicObj.dispose();
+    }
   }
 
   /// Creates account from keystore file.
@@ -184,8 +189,7 @@ class Account implements IAccount {
 
   @override
   Future<Uint8List> signTransaction(Transaction transaction) async {
-    final Uint8List serialized = transaction.serializeForSigning();
-    return secretKey.sign(serialized);
+    return secretKey.sign(_signingBytes(transaction));
   }
 
   @override
@@ -194,8 +198,7 @@ class Account implements IAccount {
   ) async {
     final signatures = <Uint8List>[];
     for (final transaction in transactions) {
-      final Uint8List serialized = transaction.serializeForSigning();
-      final signature = await secretKey.sign(serialized);
+      final signature = await secretKey.sign(_signingBytes(transaction));
       signatures.add(signature);
     }
     return signatures;
@@ -206,8 +209,28 @@ class Account implements IAccount {
     Transaction transaction,
     Uint8List signature,
   ) async {
-    final Uint8List serialized = transaction.serializeForSigning();
-    return publicKey.verify(serialized, signature);
+    return publicKey.verify(_signingBytes(transaction), signature);
+  }
+
+  @override
+  bool get prefersHashSigning => false;
+
+  @override
+  Future<Uint8List> signAsGuardian(Transaction transaction) =>
+      signTransaction(transaction);
+
+  @override
+  Future<Uint8List> signAsRelayer(Transaction outerTransaction) =>
+      signTransaction(outerTransaction);
+
+  /// Bytes to be fed into Ed25519 for this transaction. When the tx has the
+  /// `hashSign` option bit set, the chain expects the signature over the
+  /// Keccak-256 of the signing JSON, not the raw JSON bytes.
+  static Uint8List _signingBytes(Transaction transaction) {
+    const computer = TransactionComputer();
+    return computer.hasOptionsSetForHashSigning(transaction)
+        ? computer.computeHashForSigning(transaction)
+        : computer.computeBytesForSigning(transaction);
   }
 
   @override

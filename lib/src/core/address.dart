@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:convert/convert.dart' as convert;
 import 'package:pointycastle/pointycastle.dart' show Digest;
@@ -79,7 +78,13 @@ class Address {
   /// print(addr.bech32);
   /// ```
   Address.fromHex(final String hex, {this.hrp = 'erd'})
-    : bytes = convert.hex.decode(hex);
+    : bytes = convert.hex.decode(hex) {
+    if (bytes.length != _addressLength) {
+      throw FormatException(
+        'Address hex must decode to $_addressLength bytes, got ${bytes.length}',
+      );
+    }
+  }
 
   /// Validates Bech32-encoded address string.
   ///
@@ -157,6 +162,7 @@ class Address {
   bool operator ==(final Object other) {
     if (identical(this, other)) return true;
     if (other is! Address) return false;
+    if (hrp != other.hrp) return false;
     if (bytes.length != other.bytes.length) return false;
     for (int i = 0; i < bytes.length; i++) {
       if (bytes[i] != other.bytes[i]) return false;
@@ -166,9 +172,12 @@ class Address {
 
   @override
   int get hashCode {
-    int hash = 0;
+    int hash = 0x811c9dc5;
+    for (final int code in hrp.codeUnits) {
+      hash = ((hash ^ code) * 0x01000193) & 0x7FFFFFFF;
+    }
     for (int i = 0; i < bytes.length; i++) {
-      hash = (hash ^ bytes[i]) * 0x01000193;
+      hash = ((hash ^ bytes[i]) * 0x01000193) & 0x7FFFFFFF;
     }
     return hash;
   }
@@ -201,7 +210,12 @@ class Address {
 
     final lastByteOfPubKey = address.bytes[31];
 
-    final n = (math.log(numberOfShards) / math.log(2)).ceil();
+    int n = 0;
+    int v = numberOfShards - 1;
+    while (v > 0) {
+      n++;
+      v >>= 1;
+    }
     final maskHigh = (1 << n) - 1;
     final maskLow = (1 << (n - 1)) - 1;
 
@@ -249,7 +263,7 @@ class AddressComputer {
       ...deployer.bytes.sublist(30),
     ];
 
-    return Address(contractBytes);
+    return Address(contractBytes, hrp: deployer.hrp);
   }
 
   /// Encodes integer as 8-byte u64 little-endian.

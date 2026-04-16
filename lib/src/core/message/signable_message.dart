@@ -51,7 +51,7 @@ final class SignableMessage extends Message {
   /// - `nonce` - Cryptographic nonce for uniqueness (prevents replay)
   /// - `chainId` - Chain ID (e.g., 'D' for devnet) to prevent cross-chain replay (optional)
   /// - `recipient` - Target address to prevent relay attacks (optional)
-  const SignableMessage(
+  SignableMessage(
     super.bytes, {
     required this.timestamp,
     required this.nonce,
@@ -161,6 +161,6 @@ final class SignableMessage extends Message {
   static String _generateNonce() {
     final random = Random.secure();
     final bytes = List<int>.generate(16, (_) => random.nextInt(256));
-    return base64Encode(bytes);
+    return base64UrlEncode(bytes);
   }
 }

@@ -30,6 +30,33 @@ abstract interface class IAccount {
   /// `Address` - The blockchain address associated with this account
   Address get address;
 
+  /// Whether this signer prefers (or requires) the transaction to be signed
+  /// over the Keccak-256 hash of the signing JSON instead of the raw JSON.
+  ///
+  /// Hardware wallets (Ledger) and some MPC / remote-signing services set
+  /// this to `true` for transactions whose data-field exceeds the device's
+  /// display buffer (roughly 150 bytes). When `true`, controllers should
+  /// apply `TransactionComputer.applyOptionsForHashSigning(tx)` before
+  /// calling [signTransaction]; otherwise the chain will reject the signed
+  /// transaction.
+  ///
+  /// Defaults to `false` for local Ed25519 signers that can sign any size.
+  bool get prefersHashSigning;
+
+  /// Signs [transaction] as the guardian for a guarded transaction.
+  ///
+  /// Local Ed25519 signers delegate to [signTransaction] -- the chain
+  /// requires the guardian signature to be over the *same* bytes as the
+  /// user's signature. Dedicated guardian services (2FA providers) may
+  /// route through their own signing key material.
+  Future<Uint8List> signAsGuardian(Transaction transaction);
+
+  /// Signs [outerTransaction] as the relayer of a relayed-v3 bundle.
+  ///
+  /// Local signers delegate to [signTransaction]. Remote relayer services
+  /// may route to their own key material.
+  Future<Uint8List> signAsRelayer(Transaction outerTransaction);
+
   /// Signs raw data.
   /// Use signTransaction or signMessage for structured signing.
   ///

@@ -54,6 +54,7 @@ const sidebars: SidebarsConfig = {
         'smart-contracts/loading-abi',
         'smart-contracts/queries',
         'smart-contracts/interactions',
+        'smart-contracts/deploy-upgrade',
         'smart-contracts/relayed-transactions',
       ],
     },

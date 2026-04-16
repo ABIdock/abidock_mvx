@@ -86,47 +86,69 @@ class ResponseParser {
       return <TypedValue>[];
     }
 
-    if (returnData.length != outputs.length) {
+    final bool lastIsVariadic =
+        outputs.isNotEmpty && outputs.last.type is VariadicType;
+
+    if (!lastIsVariadic && returnData.length != outputs.length) {
       throw ResponseParsingException(
         'Return data count mismatch: expected ${outputs.length}, got ${returnData.length}',
+        endpointName: endpoint.name,
+      );
+    }
+    if (lastIsVariadic && returnData.length < outputs.length - 1) {
+      throw ResponseParsingException(
+        'Return data count mismatch: expected at least ${outputs.length - 1} '
+        'non-variadic outputs, got ${returnData.length}',
         endpointName: endpoint.name,
       );
     }
 
     final List<TypedValue> typedValues = <TypedValue>[];
 
-    for (int i = 0; i < returnData.length; i++) {
-      try {
-        final AbiParameter output = outputs[i];
-        final String data = returnData[i];
+    final int fixedCount = lastIsVariadic ? outputs.length - 1 : outputs.length;
+    for (int i = 0; i < fixedCount; i++) {
+      typedValues.add(_safeDecode(outputs[i], returnData[i], i, endpoint.name));
+    }
 
-        AbiType decodeType = output.type;
-        if (output.multiResult && _isOptionalType(output.type)) {
-          decodeType = _unwrapOptionalType(output.type);
-        }
-
-        final TypedValue typedValue = _decodeValue(
-          data,
-          decodeType,
-          i,
-          endpoint.name,
+    if (lastIsVariadic) {
+      final VariadicType variadicType = outputs.last.type as VariadicType;
+      final AbiType itemType = variadicType.itemType;
+      final List<TypedValue> items = <TypedValue>[];
+      for (int i = fixedCount; i < returnData.length; i++) {
+        final AbiParameter itemParam = AbiParameter(
+          name: outputs.last.name,
+          type: itemType,
         );
-        typedValues.add(typedValue);
-      } catch (e, stackTrace) {
-        if (e is ResponseParsingException) {
-          rethrow;
-        }
-        throw ResponseParsingException(
-          'Failed to decode return data at index $i',
-          endpointName: endpoint.name,
-          returnIndex: i,
-          cause: e,
-          stackTrace: stackTrace,
-        );
+        items.add(_safeDecode(itemParam, returnData[i], i, endpoint.name));
       }
+      typedValues.add(VariadicValue(items, itemType: itemType));
     }
 
     return typedValues;
+  }
+
+  TypedValue _safeDecode(
+    AbiParameter output,
+    String data,
+    int index,
+    String endpointName,
+  ) {
+    try {
+      AbiType decodeType = output.type;
+      if (output.multiResult && _isOptionalType(output.type)) {
+        decodeType = _unwrapOptionalType(output.type);
+      }
+      return _decodeValue(data, decodeType, index, endpointName);
+    } catch (e, stackTrace) {
+      if (e is ResponseParsingException) rethrow;
+      throw ResponseParsingException(
+        'Failed to decode return data at index $index',
+        endpointName: endpointName,
+        returnIndex: index,
+        cause: e,
+        stackTrace: stackTrace,
+      );
+    }
   }
 
   /// Checks if type is an optional type.

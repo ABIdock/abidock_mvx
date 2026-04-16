@@ -159,21 +159,9 @@ final class I32Value extends IntNumericalValue {
   @override
   List<String> get classHierarchy => _classHierarchy;
 
-  static final List<Uint8List> _precomputed = List.generate(256, (i) {
-    final int val = i - 128;
-    final int unsigned = val & 0xFFFFFFFF;
-    return Uint8List(4)
-      ..[0] = (unsigned >> 24) & 0xFF
-      ..[1] = (unsigned >> 16) & 0xFF
-      ..[2] = (unsigned >> 8) & 0xFF
-      ..[3] = unsigned & 0xFF;
-  }, growable: false);
-
   @pragma('vm:prefer-inline')
   @override
   List<int> toBytes() {
-    if (value >= -128 && value <= 127) return _precomputed[value + 128];
-
     final int unsigned = value & 0xFFFFFFFF;
     return Uint8List(4)
       ..[0] = (unsigned >> 24) & 0xFF

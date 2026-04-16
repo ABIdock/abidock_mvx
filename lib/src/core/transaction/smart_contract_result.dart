@@ -240,20 +240,23 @@ _DecodedScrPayload _decodePayload(String data) {
 
 ReturnCode _decodeReturnCode(String segment) {
   if (segment.isEmpty) return ReturnCode.none;
-  // Most protocol codes arrive as the ASCII string "ok" / "user error" / ...
-  // Some are hex-encoded ("6f6b" = "ok"). Try hex first; fall back to raw.
+
+  final ReturnCode direct = ReturnCode.parse(segment);
+  if (!direct.isCustom) return direct;
+
   if (_looksLikeHex(segment)) {
     try {
       final Uint8List bytes = _hexToBytes(segment);
       final String asAscii = utf8.decode(bytes, allowMalformed: true);
       if (asAscii.isNotEmpty && _isPrintable(asAscii)) {
-        return ReturnCode.parse(asAscii);
+        final ReturnCode decoded = ReturnCode.parse(asAscii);
+        if (!decoded.isCustom) return decoded;
       }
     } catch (_) {
-      // fall through
+      return direct;
     }
   }
-  return ReturnCode.parse(segment);
+  return direct;
 }
 
 bool _looksLikeHex(String s) {

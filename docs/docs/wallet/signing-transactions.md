@@ -94,12 +94,30 @@ void main() async {
 
 ## What Gets Signed?
 
-The transaction is serialized to bytes for signing:
+The transaction is serialized to canonical JSON bytes for signing:
 
 ```dart
-// The transaction is serialized to JSON then signed
 final txBytes = transaction.serializeForSigning();
 final signature = await secretKey.sign(txBytes);
+```
+
+### Hash-signing for large transactions
+
+When the transaction has the `TRANSACTION_OPTIONS_TX_HASH_SIGN` option bit set,
+the chain expects the Ed25519 signature over the **Keccak-256 hash of the
+signing JSON**, not the raw JSON bytes. This is the path a Ledger or any
+hash-signer uses for transactions with large data payloads.
+
+`Account.signTransaction(tx)` and `Account.verifyTransactionSignature(tx, sig)`
+take care of this automatically -- they route through
+`TransactionComputer.computeHashForSigning(tx)` when the options bit is set and
+through `computeBytesForSigning(tx)` otherwise. You only need to call
+`TransactionComputer.applyOptionsForHashSigning(tx)` to flip the option on:
+
+```dart
+const computer = TransactionComputer();
+final hashSignedTx = computer.applyOptionsForHashSigning(tx);
+final signature = await account.signTransaction(hashSignedTx); // signs the hash
 ```
 
 ## Signing Messages

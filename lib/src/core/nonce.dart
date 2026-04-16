@@ -51,7 +51,12 @@ final class Nonce {
   /// final nonce = Nonce(5);
   /// final later = nonce + 3; // Nonce(8)
   /// ```
-  Nonce operator +(int amount) => Nonce(value + amount);
+  Nonce operator +(int amount) {
+    if (amount < 0) {
+      return this - (-amount);
+    }
+    return Nonce(value + amount);
+  }
 
   /// Subtracts an integer from this nonce.
   ///
@@ -63,7 +68,15 @@ final class Nonce {
   /// final nonce = Nonce(5);
   /// final earlier = nonce - 2; // Nonce(3)
   /// ```
-  Nonce operator -(int amount) => Nonce(value - amount);
+  Nonce operator -(int amount) {
+    final int result = value - amount;
+    if (result < 0) {
+      throw ArgumentError(
+        'Nonce subtraction would produce negative value: $value - $amount',
+      );
+    }
+    return Nonce(result);
+  }
 
   /// Compares this nonce with another.
   int compareTo(Nonce other) => value.compareTo(other.value);

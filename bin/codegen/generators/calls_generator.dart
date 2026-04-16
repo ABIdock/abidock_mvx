@@ -33,7 +33,7 @@ class CallsGenerator extends GeneratorBase {
   FileOutput _generateCall(AbiEndpoint endpoint) {
     final buffer = StringBuffer();
     buffer.write(getGeneratedFileHeader());
-    final functionName = nameSanitizer.toCamelCase(endpoint.name);
+    final functionName = nameSanitizer.sanitizeParamName(endpoint.name);
     final filename = 'calls/${nameSanitizer.toSnakeCase(endpoint.name)}.dart';
 
     final imports = <String>[];
@@ -99,7 +99,7 @@ class CallsGenerator extends GeneratorBase {
     if (endpoint.inputs.isNotEmpty) {
       buffer.writeln('/// #### Parameters:');
       for (final input in endpoint.inputs) {
-        final paramName = nameSanitizer.toCamelCase(input.name);
+        final paramName = nameSanitizer.sanitizeParamName(input.name);
         final abiType = typeMapper.getAbiTypeStringForDocs(input.type);
         buffer.writeln('/// - `$paramName`: $abiType');
       }
@@ -118,7 +118,7 @@ class CallsGenerator extends GeneratorBase {
     buffer.writeln('  Nonce nonce,');
 
     for (final input in endpoint.inputs) {
-      var paramName = nameSanitizer.toCamelCase(input.name);
+      var paramName = nameSanitizer.sanitizeParamName(input.name);
       if ({
         'sender',
         'nonce',
@@ -152,7 +152,7 @@ class CallsGenerator extends GeneratorBase {
     // Build arguments list
     final argsList = <String>[];
     for (final input in endpoint.inputs) {
-      var paramName = nameSanitizer.toCamelCase(input.name);
+      var paramName = nameSanitizer.sanitizeParamName(input.name);
       if ({
         'sender',
         'nonce',
@@ -238,7 +238,7 @@ class CallsGenerator extends GeneratorBase {
     if (endpoint.inputs.isNotEmpty) {
       buffer.writeln('/// #### Parameters:');
       for (final input in endpoint.inputs) {
-        final paramName = nameSanitizer.toCamelCase(input.name);
+        final paramName = nameSanitizer.sanitizeParamName(input.name);
         final abiType = typeMapper.getAbiTypeStringForDocs(input.type);
         buffer.writeln('/// - `$paramName`: $abiType');
       }
@@ -303,7 +303,7 @@ class CallsGenerator extends GeneratorBase {
     }
 
     for (final input in endpoint.inputs) {
-      var paramName = nameSanitizer.toCamelCase(input.name);
+      var paramName = nameSanitizer.sanitizeParamName(input.name);
       if ({
         'sender',
         'nonce',
@@ -340,7 +340,7 @@ class CallsGenerator extends GeneratorBase {
     // Build arguments list
     final argsList = <String>[];
     for (final input in endpoint.inputs) {
-      var paramName = nameSanitizer.toCamelCase(input.name);
+      var paramName = nameSanitizer.sanitizeParamName(input.name);
       if ({
         'sender',
         'nonce',
@@ -403,9 +403,6 @@ class CallsGenerator extends GeneratorBase {
     final types = <String>{};
     for (final input in endpoint.inputs) {
       _collectTypeNames(input.type, types);
-    }
-    for (final output in endpoint.outputs) {
-      _collectTypeNames(output.type, types);
     }
     return types;
   }

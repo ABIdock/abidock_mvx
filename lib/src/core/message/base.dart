@@ -1,9 +1,11 @@
 import 'package:meta/meta.dart';
 
 /// Prefix for signed messages.
-/// Standard prefix for the MultiversX message signing protocol. The `\x17` byte (23 decimal) indicates the length of "MultiversX Signed Message:".
-
-const String messagePrefix = '\x17MultiversX Signed Message:\n';
+///
+/// Canonical MultiversX message-signing prefix. Retained from the pre-rebrand
+/// Elrond protocol spec so signatures interop with every existing wallet,
+/// ledger app, node verifier, and other SDK.
+const String messagePrefix = '\x17Elrond Signed Message:\n';
 
 /// Message in the MultiversX ecosystem.
 /// Used for authentication, proof of ownership, or other non-transaction signatures. Messages are signed with the standard messagePrefix.
@@ -30,9 +32,10 @@ class Message {
   ///
   /// #### Parameters
   /// - `bytes` - Raw message content (text as UTF-8 or binary)
-  const Message(this.bytes);
+  Message(List<int> bytes) : _bytes = List<int>.unmodifiable(bytes);
 
-  /// Raw message bytes.
-  /// Message content as list of bytes.
-  final List<int> bytes;
+  final List<int> _bytes;
+
+  /// Raw message bytes (unmodifiable view).
+  List<int> get bytes => _bytes;
 }

@@ -13,33 +13,39 @@ Future<Transaction> resume(
   SmartContractController controller,
   IAccount sender,
   Nonce nonce, {
-  required GasLimit gasLimit,
   Address? relayer,
   Address? guardian,
   Balance? value,
 }) async {
-  return controller.call(
+  // Create transaction with max gas for simulation
+  final tx = await controller.call(
     account: sender,
     nonce: nonce,
     endpointName: 'resume',
     value: value,
     options: BaseControllerInput(
-      gasLimit: gasLimit,
+      gasLimit: const GasLimit(600000000),
       relayer: relayer,
       guardian: guardian,
     ),
   );
+
+  // Estimate gas using simulation
+  final gasLimit = await simulateGas(tx, controller.networkProvider);
+
+  // Return transaction with estimated gas
+  return tx.copyWith(newGasLimit: gasLimit);
 }
 
 /// Builds an unsigned transaction for resume endpoint.
 /// #### Returns:
-/// Unsigned [Transaction] ready to be signed
+/// Future<[Transaction]> - Unsigned transaction with auto-estimated gas
 ///
 /// #### Example:
 /// ```dart
 /// // Build unsigned transactions for batch signing
-/// final tx1 = resumeUnsigned(factory, sender, nonce1, ...);
-/// final tx2 = anotherUnsigned(factory2, sender, nonce2, ...);
+/// final tx1 = await resumeUnsigned(factory, provider, sender, nonce1, ...);
+/// final tx2 = await anotherUnsigned(factory2, provider, sender, nonce2, ...);
 ///
 /// // Sign batch
 /// final sigs = await account.signTransactions([tx1, tx2]);
@@ -49,18 +55,25 @@ Future<Transaction> resume(
 /// final signed2 = tx2.copyWith(newSignature: Signature.fromUint8List(sigs[1]));
 /// await provider.sendTransactions([signed1, signed2]);
 /// ```
-Transaction resumeUnsigned(
+Future<Transaction> resumeUnsigned(
   SmartContractCallFactory factory,
+  NetworkProvider networkProvider,
   Address sender,
   Nonce nonce, {
-  required GasLimit gasLimit,
   Balance? value,
-}) {
-  return factory.createCall(
+}) async {
+  // Create transaction with max gas for simulation
+  final tx = factory.createCall(
     sender: sender,
     nonce: nonce,
     endpointName: 'resume',
-    gasLimit: gasLimit,
+    gasLimit: const GasLimit(600000000),
     value: value,
   );
+
+  // Estimate gas using simulation
+  final gasLimit = await simulateGas(tx, networkProvider);
+
+  // Return transaction with estimated gas
+  return tx.copyWith(newGasLimit: gasLimit);
 }

@@ -22,7 +22,7 @@ MultiversX SDK for Dart/Flutter that provides wallets, smart-contract controller
 | ---------- | ----------- |
 | Wallet & Key Management | Mnemonic, PEM, keystore, guardian, and relayed-transaction flows |
 | Transactions | Auto-gas estimation, nonce management, token transfers (EGLD/ESDT/NFT/SFT) |
-| Smart Contracts | Unified `SmartContractController` with typed queries, calls, and event streaming |
+| Smart Contracts | Unified `SmartContractController` with typed queries, calls, and event streaming; `SmartContractTransactionsFactory` for deploy / upgrade / change-owner / claim-developer-rewards |
 | ABI System | Full MultiversX ABI coverage (primitives, collections, structs, enums, special types) |
 | CLI & Codegen | Config-driven or one-off generation, ABI validation, watch mode, transfer services |
 | Tooling | 900+ tests, ready-to-run examples, GitHub Actions workflows |
@@ -37,7 +37,7 @@ Add `abidock_mvx` to your `pubspec.yaml`:
 
 ```yaml title="pubspec.yaml"
 dependencies:
-  abidock_mvx: ^1.0.1
+  abidock_mvx: ^1.1.0
 ```
 
 ### Step 2: Install packages

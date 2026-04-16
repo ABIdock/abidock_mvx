@@ -314,6 +314,7 @@ class EnumBinaryCodec with ValidationMixin {
   /// #### Returns
   /// `Uint8List` - Empty for unit variant 0, else discriminant+fields
   Uint8List encodeTopLevel(EnumValue value) {
+    _requireValidDiscriminant(value.discriminant);
     final bool hasFields = value.fields.isNotEmpty;
 
     final builder = BinaryBuilder();
@@ -337,6 +338,7 @@ class EnumBinaryCodec with ValidationMixin {
   /// #### Returns
   /// `Uint8List` - Discriminant byte followed by encoded fields
   Uint8List encodeNested(EnumValue value) {
+    _requireValidDiscriminant(value.discriminant);
     final builder = BinaryBuilder()..addByte(value.discriminant);
 
     for (final TypedValue fieldValue in value.fields) {
@@ -344,6 +346,14 @@ class EnumBinaryCodec with ValidationMixin {
     }
 
     return builder.toBytes();
+  }
+
+  static void _requireValidDiscriminant(int discriminant) {
+    if (discriminant < 0 || discriminant > 255) {
+      throw AbiBinaryCodecException(
+        'Enum discriminant $discriminant out of u8 range (0-255)',
+      );
+    }
   }
 }
 

@@ -261,21 +261,66 @@ class UserWallet {
     }
 
     final EncryptedData encryptedData = EncryptedData.fromJson(keyFileObject);
-    Uint8List text = Decryptor.decrypt(encryptedData, password);
+    final Uint8List text = Decryptor.decrypt(encryptedData, password);
     try {
-      while (text.length < 32) {
-        text = Uint8List.fromList(<int>[0x00, ...text]);
+      if (text.length != 32 && text.length != 64) {
+        throw FormatException(
+          'Decrypted keystore payload is ${text.length} bytes; '
+          'expected 32 (seed) or 64 (seed || pubkey).',
+        );
       }
-
-      final Uint8List seed = text.sublist(0, 32);
-      return UserSecretKey(seed);
+      return UserSecretKey(text.sublist(0, 32));
     } finally {
       text.fillRange(0, text.length, 0);
     }
   }
 
-  /// Decrypts mnemonic from keystore.
-  static Mnemonic _decryptMnemonic(
+  /// Loads and decrypts a mnemonic-kind keystore from a file on disk.
+  ///
+  /// Throws `ArgumentError` when the keystore's `kind` is not `"mnemonic"`.
+  /// The returned [Mnemonic] owns a zeroable internal buffer; call
+  /// `Mnemonic.dispose()` when you are done.
+  static Future<Mnemonic> loadMnemonic(String filePath, String password) async {
+    final String resolvedPath = path.isAbsolute(filePath)
+        ? filePath
+        : path.join(Directory.current.path, filePath);
+
+    final String keyFileJson = File(resolvedPath).readAsStringSync();
+    final Map<String, dynamic> keyFileObject = requireAs<Map<String, dynamic>>(
+      jsonDecode(keyFileJson),
+      'keyFileJson',
+    );
+    return decryptMnemonic(keyFileObject, password);
+  }
+
+  /// Decrypts a mnemonic-kind keystore to a [Mnemonic].
+  ///
+  /// The [Mnemonic] internally holds the decrypted bytes wrapped in a
+  /// zeroing `Finalizer`; callers should still invoke `dispose()` when
+  /// they are finished for deterministic clearing.
+  static Mnemonic decryptMnemonic(
+    Map<String, dynamic> keyFileObject,
+    String password,
+  ) {
+    final Uint8List bytes = decryptMnemonicBytes(keyFileObject, password);
+    try {
+      return Mnemonic.fromString(utf8.decode(bytes));
+    } finally {
+      bytes.fillRange(0, bytes.length, 0);
+    }
+  }
+
+  /// Decrypts a mnemonic-kind keystore to the raw UTF-8 bytes of the
+  /// mnemonic phrase.
+  ///
+  /// Use this when integrating with external consumers (other wallet
+  /// libraries, custom `Mnemonic`-like wrappers, test tooling) that need
+  /// the raw bytes. **The returned buffer contains sensitive material;
+  /// the caller is responsible for zeroing it via `fillRange(0, len, 0)`
+  /// as soon as the bytes have been consumed.**
+  ///
+  /// Throws `ArgumentError` when the keystore's `kind` is not `"mnemonic"`.
+  static Uint8List decryptMnemonicBytes(
     Map<String, dynamic> keyFileObject,
     String password,
   ) {
@@ -285,15 +330,14 @@ class UserWallet {
         'Expected keystore kind to be ${UserWalletKind.mnemonic.value}, but it was $kind',
       );
     }
-
     final EncryptedData encryptedData = EncryptedData.fromJson(keyFileObject);
-    final Uint8List data = Decryptor.decrypt(encryptedData, password);
-    try {
-      return Mnemonic.fromString(utf8.decode(data));
-    } finally {
-      data.fillRange(0, data.length, 0);
-    }
+    return Decryptor.decrypt(encryptedData, password);
   }
+
+  static Mnemonic _decryptMnemonic(
+    Map<String, dynamic> keyFileObject,
+    String password,
+  ) => decryptMnemonic(keyFileObject, password);
 
   /// Converts encrypted wallet to JSON.
   Map<String, dynamic> toJson({String? addressHrp}) {

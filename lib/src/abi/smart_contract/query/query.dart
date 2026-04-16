@@ -1,11 +1,14 @@
 /// Smart contract query input, response, execution, and exception classes.
 
+import 'dart:typed_data';
+
 import 'package:meta/meta.dart';
 
 import '../../../core/address.dart';
 import '../../../core/balance.dart';
 import '../../../utils/collection_utils.dart';
 import '../../../utils/helpers.dart';
+import '../../../utils/hex_utils.dart';
 import '../../abi.dart';
 
 /// Exception for smart contract query failures.
@@ -276,7 +279,23 @@ final class SmartContractQueryInput {
     }
     final ArgumentEncoder? encoder = argumentEncoder;
     if (encoder == null || !hasAbi) {
-      return arguments.map((arg) => arg.toString()).toList();
+      final BinaryCodec codec = BinaryCodec.withDefaults();
+      return arguments.map<String>((dynamic arg) {
+        if (arg is String) return arg;
+        if (arg is Uint8List) return HexUtils.bytesToHex(arg);
+        if (arg is List<int>) {
+          return HexUtils.bytesToHex(Uint8List.fromList(arg));
+        }
+        if (arg is TypedValue) {
+          return HexUtils.bytesToHex(codec.encodeTopLevel(arg));
+        }
+        throw ArgumentEncodingException(
+          'Non-ABI query argument must be String (hex), Uint8List, or '
+          'TypedValue; got ${arg.runtimeType}',
+          endpointName: function.name,
+          argumentValue: arg,
+        );
+      }).toList();
     }
     final AbiEndpoint? endpoint = abi!.getEndpoint(function);
     if (endpoint == null) {

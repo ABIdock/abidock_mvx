@@ -171,10 +171,10 @@ class NumericalBinaryCodec with ValidationMixin {
     _validateNumericalValue(value);
 
     if (value is BigUIntValue || value is BigIntValue) {
-      final List<int> valueBytes = value.toBytes();
+      final Uint8List valueBytes = encodeTopLevel(value);
       return (BinaryBuilder()
             ..addU32(valueBytes.length)
-            ..addBytes(Uint8List.fromList(valueBytes)))
+            ..addBytes(valueBytes))
           .toBytes();
     }
 

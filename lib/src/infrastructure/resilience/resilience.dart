@@ -25,4 +25,5 @@
 export 'circuit_breaker.dart';
 export 'circuit_breaker_exception.dart';
 export 'circuit_state.dart';
+export 'request_throttle.dart';
 export 'retry_helper.dart'; // includes RetryConfig

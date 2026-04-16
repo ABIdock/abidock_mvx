@@ -24,11 +24,16 @@ class Ed25519Crypto {
       throw ArgumentError('Seed must be 32 bytes, got ${seed.length}');
     }
     final secretKey = SecretKey(seed);
-    final seedBytes = await secretKey.extractBytes();
-    final keyPair = await _ed25519.newKeyPairFromSeed(seedBytes);
-    final publicKey = await keyPair.extractPublicKey();
-
-    return Uint8List.fromList(publicKey.bytes);
+    final Uint8List seedBytes = Uint8List.fromList(
+      await secretKey.extractBytes(),
+    );
+    try {
+      final keyPair = await _ed25519.newKeyPairFromSeed(seedBytes);
+      final publicKey = await keyPair.extractPublicKey();
+      return Uint8List.fromList(publicKey.bytes);
+    } finally {
+      zeroMemory(seedBytes);
+    }
   }
 
   /// Signs message using Ed25519.

@@ -32,6 +32,9 @@ class Signature {
   /// Creates empty Signature.
   const Signature.empty() : hex = '';
 
+  /// Length in bytes of a canonical Ed25519 signature.
+  static const int _signatureLength = 64;
+
   /// Creates Signature from bytes.
   ///
   /// #### Parameters
@@ -46,8 +49,16 @@ class Signature {
   /// final sig = Signature.fromBytes(bytes);
   /// print(sig.hex); // 'a1b2c3d4'
   /// ```
-  factory Signature.fromBytes(List<int> bytes) =>
-      Signature(convert.hex.encode(bytes));
+  factory Signature.fromBytes(List<int> bytes) {
+    if (bytes.isNotEmpty && bytes.length != _signatureLength) {
+      throw ArgumentError.value(
+        bytes.length,
+        'bytes.length',
+        'Ed25519 signatures must be 0 or $_signatureLength bytes',
+      );
+    }
+    return Signature(convert.hex.encode(bytes));
+  }
 
   /// Creates Signature from Uint8List.
   ///
@@ -62,8 +73,16 @@ class Signature {
   /// final bytes = Uint8List.fromList([161, 178, 195, 212]);
   /// final sig = Signature.fromUint8List(bytes);
   /// ```
-  factory Signature.fromUint8List(Uint8List bytes) =>
-      Signature(convert.hex.encode(bytes));
+  factory Signature.fromUint8List(Uint8List bytes) {
+    if (bytes.isNotEmpty && bytes.length != _signatureLength) {
+      throw ArgumentError.value(
+        bytes.length,
+        'bytes.length',
+        'Ed25519 signatures must be 0 or $_signatureLength bytes',
+      );
+    }
+    return Signature(convert.hex.encode(bytes));
+  }
 
   /// Hexadecimal representation of signature.
   final String hex;

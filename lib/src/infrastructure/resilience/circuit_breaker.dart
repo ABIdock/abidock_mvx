@@ -52,6 +52,9 @@ class CircuitBreaker {
   /// Consecutive success count in half-open state.
   int _halfOpenSuccessCount = 0;
 
+  /// Number of in-flight operations; used to limit half-open probes to one.
+  int _inflightProbes = 0;
+
   /// Callback when circuit opens.
   final void Function()? onOpen;
 
@@ -85,6 +88,15 @@ class CircuitBreaker {
       }
     }
 
+    if (_state == CircuitState.halfOpen && _inflightProbes >= 1) {
+      throw CircuitBreakerOpenException(
+        'Circuit breaker is probing; another caller holds the probe slot',
+        _lastFailureTime ?? DateTime.now(),
+        retryDelay,
+      );
+    }
+
+    _inflightProbes++;
     try {
       final T result = await operation().timeout(timeout);
       _onSuccess();
@@ -92,6 +104,8 @@ class CircuitBreaker {
     } catch (e) {
       _onFailure();
       rethrow;
+    } finally {
+      _inflightProbes--;
     }
   }
 

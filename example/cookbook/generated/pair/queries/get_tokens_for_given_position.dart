@@ -35,8 +35,8 @@ Future<(EsdtTokenPayment, EsdtTokenPayment)> getTokensForGivenPosition(
       );
 
       return (
-        infer<EsdtTokenPayment>(result[0]),
-        infer<EsdtTokenPayment>(result[1]),
+        EsdtTokenPayment.fromAbi(result.typedValues[0]),
+        EsdtTokenPayment.fromAbi(result.typedValues[1]),
       );
     },
   );

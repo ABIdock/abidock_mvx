@@ -8,3 +8,12 @@ scripts/
 
 # Generated examples (too large for package)
 example/cookbook/generated/
+
+# CI / dev infrastructure
+.github/
+.vscode/
+.idea/
+coverage/
+
+# Test suite and fixtures
+test/

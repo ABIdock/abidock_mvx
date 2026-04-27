@@ -492,7 +492,7 @@ final class EventsGenerator extends GeneratorBase {
     buffer.writeln('    _baseStream = controller.streamAllEvents(');
     buffer.writeln('      pollingInterval: pollingInterval,');
     buffer.writeln('      startFrom: startFrom,');
-    buffer.writeln('    ).asBroadcastStream();');
+    buffer.writeln('    ).asBroadcastStream(onCancel: (sub) => sub.cancel());');
     buffer.writeln('  }');
     buffer.writeln();
     buffer.writeln('  final SmartContractController controller;');

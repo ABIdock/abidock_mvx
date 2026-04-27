@@ -15,6 +15,7 @@ export 'crypto/encryptor.dart';
 export 'crypto/pubkey_decryptor.dart';
 export 'crypto/pubkey_encryptor.dart';
 export 'crypto/randomness.dart';
+export 'crypto/x25519_encrypted_data.dart';
 export 'mnemonic.dart';
 export 'pem.dart';
 export 'pem_entry.dart';

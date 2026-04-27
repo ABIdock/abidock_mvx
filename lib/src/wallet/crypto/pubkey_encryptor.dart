@@ -8,6 +8,7 @@ import 'package:pinenacl/x25519.dart' as x25519;
 
 import '../user_keys.dart';
 import 'constants.dart';
+import 'curve25519_conversion.dart';
 import 'x25519_encrypted_data.dart';
 
 /// Public key encryptor using X25519-XSalsa20-Poly1305 authenticated encryption.
@@ -16,6 +17,12 @@ class PubkeyEncryptor {
   PubkeyEncryptor._();
 
   /// Encrypts data for recipient using X25519-XSalsa20-Poly1305.
+  ///
+  /// Key conversion: the recipient's Ed25519 public key and the ephemeral
+  /// Ed25519 seed are converted to their X25519 counterparts before ECDH, per
+  /// RFC 7748 / libsodium's `crypto_sign_ed25519_*_to_curve25519`. The
+  /// ephemeral Ed25519 public key is what gets stored in the output
+  /// (matching mx-sdk-js-core); the decryptor converts it on the way in.
   ///
   /// #### Parameters
   /// - `data` - Plaintext data to encrypt
@@ -29,52 +36,84 @@ class PubkeyEncryptor {
     UserPublicKey recipientPubKey,
     UserSecretKey authSecretKey,
   ) async {
-    final ed25519Alg = Ed25519();
-    final edhKeyPair = await ed25519Alg.newKeyPair();
-    final edhPublicKey = await edhKeyPair.extractPublicKey();
-    final edhSecretBytes = await edhKeyPair.extractPrivateKeyBytes();
-    final edhX25519PrivateKey = x25519.PrivateKey(
-      Uint8List.fromList(edhSecretBytes),
-    );
-    final recipientX25519PubKey = x25519.PublicKey(recipientPubKey.bytes);
-    final sha256 = Sha256();
-    final dataHash = await sha256.hash(data);
-    final nonceDeterministic = Uint8List.fromList(
-      dataHash.bytes.sublist(0, pubKeyEncNonceLength ~/ 2),
-    );
-    final nonceRandom = Uint8List(pubKeyEncNonceLength ~/ 2);
-    final secureRandom = Random.secure();
-    for (int i = 0; i < nonceRandom.length; i++) {
-      nonceRandom[i] = secureRandom.nextInt(256);
-    }
-    final nonce = Uint8List(pubKeyEncNonceLength)
-      ..setRange(0, nonceDeterministic.length, nonceDeterministic)
-      ..setRange(nonceDeterministic.length, pubKeyEncNonceLength, nonceRandom);
-    final box = x25519.Box(
-      myPrivateKey: edhX25519PrivateKey,
-      theirPublicKey: recipientX25519PubKey,
-    );
-    final encryptedBox = box.encrypt(data, nonce: nonce);
-    final ciphertext = encryptedBox.cipherText;
-    final edhPubKeyBytes = Uint8List.fromList(edhPublicKey.bytes);
-    final authMessage = Uint8List.fromList([...ciphertext, ...edhPubKeyBytes]);
-    final authMessageHash = await sha256.hash(authMessage);
-    final signature = await authSecretKey.sign(
-      Uint8List.fromList(authMessageHash.bytes),
-    );
-    final originatorPubKey = await authSecretKey.generatePublicKey();
+    final Ed25519 ed25519Alg = Ed25519();
+    final SimpleKeyPair edhKeyPair = await ed25519Alg.newKeyPair();
+    final SimplePublicKey edhEdPublicKey = await edhKeyPair.extractPublicKey();
+    final List<int> edhEdSeed = await edhKeyPair.extractPrivateKeyBytes();
+    final Uint8List edhEdSeedBytes = Uint8List.fromList(edhEdSeed);
 
-    return X25519EncryptedData(
-      version: pubKeyEncVersion,
-      nonce: convert.hex.encode(nonce),
-      cipher: pubKeyEncCipher,
-      ciphertext: convert.hex.encode(ciphertext),
-      mac: convert.hex.encode(signature),
-      identities: X25519Identities(
-        recipient: recipientPubKey.hex,
-        ephemeralPubKey: convert.hex.encode(edhPubKeyBytes),
-        originatorPubKey: originatorPubKey.hex,
-      ),
+    final Uint8List edhX25519ScalarBytes = await ed25519SeedToX25519SecretKey(
+      edhEdSeedBytes,
     );
+    final Uint8List recipientX25519PubKeyBytes = ed25519PublicKeyToX25519(
+      recipientPubKey.bytes,
+    );
+
+    try {
+      final x25519.PrivateKey edhX25519PrivateKey = x25519.PrivateKey(
+        edhX25519ScalarBytes,
+      );
+      final x25519.PublicKey recipientX25519PubKey = x25519.PublicKey(
+        recipientX25519PubKeyBytes,
+      );
+
+      final Sha256 sha256 = Sha256();
+      final Hash dataHash = await sha256.hash(data);
+      final Uint8List nonceDeterministic = Uint8List.fromList(
+        dataHash.bytes.sublist(0, pubKeyEncNonceLength ~/ 2),
+      );
+      final Uint8List nonceRandom = Uint8List(pubKeyEncNonceLength ~/ 2);
+      final Random secureRandom = Random.secure();
+      for (int i = 0; i < nonceRandom.length; i++) {
+        nonceRandom[i] = secureRandom.nextInt(256);
+      }
+      final Uint8List nonce = Uint8List(pubKeyEncNonceLength)
+        ..setRange(0, nonceDeterministic.length, nonceDeterministic)
+        ..setRange(
+          nonceDeterministic.length,
+          pubKeyEncNonceLength,
+          nonceRandom,
+        );
+
+      final x25519.Box box = x25519.Box(
+        myPrivateKey: edhX25519PrivateKey,
+        theirPublicKey: recipientX25519PubKey,
+      );
+      final x25519.EncryptedMessage encryptedBox = box.encrypt(
+        data,
+        nonce: nonce,
+      );
+      final List<int> ciphertext = encryptedBox.cipherText;
+
+      final Uint8List edhEdPubKeyBytes = Uint8List.fromList(
+        edhEdPublicKey.bytes,
+      );
+      final Uint8List authMessage = Uint8List.fromList(<int>[
+        ...ciphertext,
+        ...edhEdPubKeyBytes,
+      ]);
+      final Hash authMessageHash = await sha256.hash(authMessage);
+      final Uint8List signature = await authSecretKey.sign(
+        Uint8List.fromList(authMessageHash.bytes),
+      );
+      final UserPublicKey originatorPubKey = await authSecretKey
+          .generatePublicKey();
+
+      return X25519EncryptedData(
+        version: pubKeyEncVersion,
+        nonce: convert.hex.encode(nonce),
+        cipher: pubKeyEncCipher,
+        ciphertext: convert.hex.encode(ciphertext),
+        mac: convert.hex.encode(signature),
+        identities: X25519Identities(
+          recipient: recipientPubKey.hex,
+          ephemeralPubKey: convert.hex.encode(edhEdPubKeyBytes),
+          originatorPubKey: originatorPubKey.hex,
+        ),
+      );
+    } finally {
+      edhEdSeedBytes.fillRange(0, edhEdSeedBytes.length, 0);
+      edhX25519ScalarBytes.fillRange(0, edhX25519ScalarBytes.length, 0);
+    }
   }
 }

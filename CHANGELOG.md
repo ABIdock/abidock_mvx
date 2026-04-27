@@ -2,6 +2,23 @@
 
 All notable changes to `abidock_mvx` are documented here. We follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and the structure recommended by [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.2.0] -- 2026-04-17
+
+### Public-key encryption now actually uses X25519
+
+`PubkeyEncryptor` and `PubkeyDecryptor` were feeding raw Ed25519 key bytes into X25519 APIs. The code round-tripped with itself (both sides made the same mistake), but the ciphertext couldn't be decrypted by anything else — mx-sdk-js-core, NaCl, libsodium, or any tool that does real X25519.
+
+This release adds the two standard Curve25519 key conversions, both exposed under `lib/src/wallet/crypto/curve25519_conversion.dart`:
+
+- `ed25519PublicKeyToX25519(edPub)` — the Bernstein/RFC-7748 birational map `u = (1 + y) / (1 - y) mod (2^255 - 19)`.
+- `ed25519SeedToX25519SecretKey(seed)` — `SHA-512(seed)[0:32]` followed by RFC 7748 clamping, matching libsodium's `crypto_sign_ed25519_sk_to_curve25519`.
+
+The encryptor and decryptor now call through these on both sides, so the wire format is real X25519-XSalsa20-Poly1305 and will interoperate with any standard implementation.
+
+### Breaking change
+
+Anything encrypted with 1.1.0 or earlier `PubkeyEncryptor` cannot be decrypted by 1.2.0, and vice versa. The serialized schema (`X25519EncryptedData`) is unchanged — only the math behind it is now correct.
+
 ## [1.1.0] -- 2026-04-16
 
 This release closes a pile of wire-format mismatches against the chain, fills in the protocol coverage that was missing (staking, governance, relayed-v3, SC lifecycle), and tightens the concurrency primitives that sit between the SDK and the network. There are a handful of breaking changes, all listed at the bottom — most projects won't notice them.
@@ -195,6 +212,7 @@ Three new public entry points for integrators that need to recover the mnemonic 
 - Cookbook examples and wallet walkthroughs demonstrating real integrations.
 - 900+ automated tests spanning core types, infrastructure, serializers, and integration scenarios.
 
+[1.2.0]: https://github.com/ABIdock/abidock_mvx/releases/tag/v1.2.0
 [1.1.0]: https://github.com/ABIdock/abidock_mvx/releases/tag/v1.1.0
 [1.0.1]: https://github.com/ABIdock/abidock_mvx/releases/tag/v1.0.1
 [1.0.0]: https://github.com/ABIdock/abidock_mvx/releases/tag/v1.0.0

@@ -43,7 +43,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dev_dependencies:
-  abidock_mvx: ^1.1.0
+  abidock_mvx: ^1.2.0
 ```
 
 Then run via:

@@ -20,7 +20,7 @@ final class MultiEventPollingStream {
   }) {
     _baseStream = controller
         .streamAllEvents(pollingInterval: pollingInterval, startFrom: startFrom)
-        .asBroadcastStream();
+        .asBroadcastStream(onCancel: (sub) => sub.cancel());
   }
 
   final SmartContractController controller;

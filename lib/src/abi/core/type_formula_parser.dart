@@ -118,18 +118,26 @@ class TypeFormulaLexer {
     }
   }
 
-  /// Reads identifier token (type name).
+  /// Reads an identifier token (type name).
+  ///
+  /// Type names in the ABI are delimited only by punctuation, so an identifier
+  /// is "anything that is not punctuation": consume characters until the next
+  /// `<`, `>`, or `,`, then trim surrounding whitespace from the captured
+  /// slice. This permits identifiers containing hyphens (e.g. `utf-8 string`),
+  /// digits, and inner whitespace (e.g. `Tuple<u32, utf-8 string>`).
   Token _readIdentifier() {
     final int start = _position;
     final StringBuffer buffer = StringBuffer();
 
     while (_currentChar != null &&
-        (_currentChar!.contains(RegExp(r'[a-zA-Z0-9_-]')))) {
+        _currentChar != '<' &&
+        _currentChar != '>' &&
+        _currentChar != ',') {
       buffer.write(_currentChar);
       _advance();
     }
 
-    final String value = buffer.toString();
+    final String value = buffer.toString().trim();
     if (value.isEmpty) {
       throw emptyTypeNameException();
     }
@@ -143,7 +151,7 @@ class TypeFormulaLexer {
   /// `Token` - Next token or EOF token at end
   ///
   /// #### Throws
-  /// - `AbiTypeFormulaParseException` - Unexpected character or empty type name
+  /// - `AbiTypeFormulaParseException` - Empty type name
   Token nextToken() {
     _skipWhitespace();
 
@@ -176,11 +184,7 @@ class TypeFormulaLexer {
         return Token(type: TokenType.comma, value: char, position: position);
 
       default:
-        if (char.contains(RegExp(r'[a-zA-Z_]'))) {
-          return _readIdentifier();
-        } else {
-          throw unexpectedCharacterException(char, position);
-        }
+        return _readIdentifier();
     }
   }
 
@@ -295,6 +299,10 @@ class TypeFormulaParser {
 
   /// Parses type formula string directly.
   ///
+  /// Supports the trailing `*metadata*` segment the ABI uses to attach a
+  /// scalar parameter to a type name, e.g. `ManagedDecimal<usize>*8*` -> name
+  /// `ManagedDecimal`, parameter `usize`, metadata `'8'`.
+  ///
   /// #### Parameters
   /// - `input` - Type formula string (e.g., "Option<Address>")
   ///
@@ -308,17 +316,23 @@ class TypeFormulaParser {
       throw const AbiTypeFormulaParseException('Type formula cannot be empty');
     }
 
-    if (!validateBrackets(input)) {
+    final (String coreInput, String? metadata) = _splitMetadata(input.trim());
+
+    if (!validateBrackets(coreInput)) {
       throw const AbiTypeFormulaParseException(
         'Unbalanced angle brackets in type formula',
       );
     }
 
     try {
-      final TypeFormulaLexer lexer = TypeFormulaLexer(input.trim());
+      final TypeFormulaLexer lexer = TypeFormulaLexer(coreInput);
       final List<Token> tokens = lexer.tokenize();
       final TypeFormulaParser parser = TypeFormulaParser(tokens);
-      return parser.parse();
+      final TypeFormula parsed = parser.parse();
+      if (metadata == null) {
+        return parsed;
+      }
+      return parsed.copyWith(metadata: metadata);
     } on AbiTypeFormulaParseException {
       rethrow;
     } catch (e) {
@@ -326,6 +340,33 @@ class TypeFormulaParser {
         'Failed to parse type formula "$input": $e',
       );
     }
+  }
+
+  /// Splits a trailing `*metadata*` segment off the input string.
+  ///
+  /// Only a balanced `*...*` suffix outside of any `<...>` is treated as
+  /// metadata. Returns the remaining core string and the captured metadata
+  /// (without the asterisks), or `null` when no suffix is present.
+  static (String, String?) _splitMetadata(String input) {
+    int depth = 0;
+    for (int i = 0; i < input.length; i++) {
+      final String char = input[i];
+      if (char == '<') {
+        depth++;
+      } else if (char == '>') {
+        depth--;
+      } else if (char == '*' && depth == 0) {
+        if (!input.endsWith('*')) {
+          throw AbiTypeFormulaParseException(
+            'Metadata segment must be terminated with "*" in "$input"',
+          );
+        }
+        final String core = input.substring(0, i).trimRight();
+        final String metadata = input.substring(i + 1, input.length - 1);
+        return (core, metadata);
+      }
+    }
+    return (input, null);
   }
 
   /// Validates that brackets are properly matched.

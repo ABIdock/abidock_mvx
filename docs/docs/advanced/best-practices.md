@@ -54,19 +54,81 @@ class SecureAccount {
 }
 ```
 
-### Use Hardware Wallets for Production
+### Keep Signing Behind an Interface
+
+Anything that can produce a signature over `tx.serializeForSigning()` can stand in for a local key:
+a hardware device, a remote signing service, a mobile secure enclave. `IAccount` is that seam --
+implement it and every controller keeps working unchanged.
 
 ```dart
-// For high-value operations, integrate with Ledger
-class LedgerSigner implements TransactionSigner {
+/// Signs on an external device instead of holding the key in this process.
+class RemoteSigningAccount implements IAccount {
+  RemoteSigningAccount(this.address, this._client);
+
   @override
-  Future<String> sign(Transaction tx) async {
-    // Send to Ledger for signing
-    // User confirms on device
-    throw UnimplementedError('Use @ledgerhq/hw-transport-webusb');
+  final Address address;
+  final ExternalSigningClient _client;
+
+  /// True when the device can only display short payloads and must sign the
+  /// Keccak-256 hash of the signing JSON instead of the JSON itself.
+  @override
+  bool get prefersHashSigning => true;
+
+  @override
+  Future<Uint8List> sign(Uint8List data) => _client.sign(data);
+
+  @override
+  Future<Uint8List> signTransaction(Transaction transaction) =>
+      _client.sign(transaction.serializeForSigning());
+
+  @override
+  Future<List<Uint8List>> signTransactions(List<Transaction> transactions) async {
+    final List<Uint8List> signatures = <Uint8List>[];
+    for (final Transaction transaction in transactions) {
+      signatures.add(await signTransaction(transaction));
+    }
+    return signatures;
+  }
+
+  // Guardian and relayer signatures cover exactly the same bytes as the
+  // sender's, so both delegate to signTransaction.
+  @override
+  Future<Uint8List> signAsGuardian(Transaction transaction) =>
+      signTransaction(transaction);
+
+  @override
+  Future<Uint8List> signAsRelayer(Transaction transaction) =>
+      signTransaction(transaction);
+
+  @override
+  Future<Uint8List> signMessage(Message message) =>
+      _client.sign(const MessageComputer().computeBytesForSigning(message));
+
+  @override
+  Future<bool> verifyTransactionSignature(
+    Transaction transaction,
+    Uint8List signature,
+  ) async {
+    return UserVerifier.fromAddress(address)
+        .verify(transaction.serializeForSigning(), signature);
+  }
+
+  @override
+  Future<bool> verifyMessageSignature(
+    Message message,
+    Uint8List signature,
+  ) async {
+    return UserVerifier.fromAddress(address).verify(
+      const MessageComputer().computeBytesForSigning(message),
+      signature,
+    );
   }
 }
 ```
+
+`prefersHashSigning` matters for devices with a small display: when it is `true`, apply
+`TransactionComputer.applyOptionsForHashSigning(tx)` before signing, or the chain rejects the
+result.
 
 ## Transaction Safety
 
@@ -145,6 +207,7 @@ Future<void> simulateTransaction(
       }
       throw GasEstimationException(
         'Simulation failed: $reason',
+        transactionType: 'call', // 'call' | 'deploy' | 'upgrade'
       );
     }
     
@@ -162,36 +225,33 @@ Future<void> simulateTransaction(
 
 ### Nonce Management
 
+Do not hand-roll a nonce counter -- the SDK ships `NonceManager`, which keeps a local counter ahead
+of the network, serialises concurrent callers, and can hand a reserved nonce back when a send falls
+through.
+
 ```dart
-/// Thread-safe nonce manager
-class NonceManager {
-  final GatewayNetworkProvider _provider;
-  final Map<String, int> _localNonces = {};
-  
-  NonceManager(this._provider);
-  
-  Future<Nonce> getNextNonce(Address address) async {
-    final key = address.bech32;
-    
-    // Get fresh nonce from network
-    final account = await _provider.getAccount(address);
-    final networkNonce = account.nonce.value;
-    
-    // Use higher of network or local
-    final localNonce = _localNonces[key] ?? 0;
-    final nextNonce = networkNonce > localNonce ? networkNonce : localNonce;
-    
-    // Increment local tracker
-    _localNonces[key] = nextNonce + 1;
-    
-    return Nonce(nextNonce);
-  }
-  
-  void reset(Address address) {
-    _localNonces.remove(address.bech32);
+final nonces = NonceManager(
+  address: sender.address,
+  networkProvider: provider,
+  resyncInterval: const Duration(minutes: 5), // Duration.zero disables it
+);
+
+Future<String> sendOne(Transaction draft, UserSigner signer) async {
+  final nonce = await nonces.next();          // reserves it
+  try {
+    final signed = await draft.copyWith(newNonce: nonce).signWith(signer);
+    final hash = await provider.sendTransaction(signed);
+    nonces.applyNonce(nonce);                 // broadcast succeeded
+    return hash;
+  } catch (_) {
+    nonces.release(nonce);                    // give it back for reuse
+    rethrow;
   }
 }
 ```
+
+`resync()` re-reads the account and moves the counter **forward only**, so a lagging network view
+can never rewind nonces you have already used.
 
 ## Network Resilience
 
@@ -289,18 +349,31 @@ class WalletService {
 }
 
 class TransactionService {
+  TransactionService(this._provider, IAccount account)
+      : _nonces = NonceManager(
+          address: account.address,
+          networkProvider: _provider,
+        ),
+        _transfers = TransfersController(chainId: _provider.chainId);
+
   final GatewayNetworkProvider _provider;
-  final NonceManager _nonceManager;
-  
-  TransactionService(this._provider)
-      : _nonceManager = NonceManager(_provider);
-  
+  final NonceManager _nonces;
+  final TransfersController _transfers;
+
   Future<String> sendEgld(
-    Wallet wallet,
+    IAccount account,
     Address recipient,
-    BigInt amount,
+    Balance amount,
   ) async {
-    // Implementation
+    final nonce = await _nonces.next();
+    final tx = await _transfers.createTransactionForNativeTransfer(
+      account,
+      nonce,
+      NativeTransferInput(receiver: recipient, amount: amount),
+    );
+    final hash = await _provider.sendTransaction(tx);
+    _nonces.applyNonce(nonce);
+    return hash;
   }
 }
 
@@ -334,29 +407,29 @@ class App {
     required this.txService,
   });
   
-  factory App.production() {
+  factory App.production(IAccount account) {
     final provider = GatewayNetworkProvider.mainnet();
     return App._(
       provider: provider,
       walletService: WalletService(provider),
-      txService: TransactionService(provider),
+      txService: TransactionService(provider, account),
     );
   }
-  
-  factory App.development() {
+
+  factory App.development(IAccount account) {
     final provider = GatewayNetworkProvider.devnet();
     return App._(
       provider: provider,
       walletService: WalletService(provider),
-      txService: TransactionService(provider),
+      txService: TransactionService(provider, account),
     );
   }
-  
-  factory App.test(GatewayNetworkProvider mockProvider) {
+
+  factory App.test(GatewayNetworkProvider mockProvider, IAccount account) {
     return App._(
       provider: mockProvider,
       walletService: WalletService(mockProvider),
-      txService: TransactionService(mockProvider),
+      txService: TransactionService(mockProvider, account),
     );
   }
 }
@@ -366,27 +439,43 @@ class App {
 
 ### Batch Operations
 
+A multi-transfer bundles **several tokens to one receiver** in a single transaction -- it does not
+fan out to many recipients. Use it when you would otherwise send the same receiver two or three
+transfers back to back:
+
 ```dart
-// Inefficient: Multiple transactions
-for (final recipient in recipients) {
-  await sendEgld(wallet, recipient, amount);
-}
+// Inefficient: one transaction per token, three nonces, three fees
+await sendToken(account, recipient, wegld);
+await sendToken(account, recipient, usdc);
+await sendToken(account, recipient, nft);
 
-// Efficient: Multi-transfer when possible
-final transfers = recipients.map((r) => 
-  TokenTransfer.fungible(
-    tokenIdentifier: 'WEGLD-bd4d79',
-    amount: amount,
-  )
-).toList();
-
-// Use TransfersController or TransferTransactionsFactory
-await controller.createTransactionForTokenTransfer(
+// Efficient: one MultiESDTNFTTransfer
+final tx = await transfersController.createTransactionForTokenTransfer(
   account,
   nonce,
-  TokenTransferInput(receiver: mainRecipient, transfers: transfers),
+  TokenTransferInput(
+    receiver: recipient,
+    transfers: <TokenTransfer>[
+      TokenTransfer.fungible(
+        tokenIdentifier: 'WEGLD-bd4d79',
+        amount: BigInt.parse('500000000000000000'),
+      ),
+      TokenTransfer.fungible(
+        tokenIdentifier: 'USDC-c76f1f',
+        amount: BigInt.from(500000000),
+      ),
+      TokenTransfer.nonFungible(
+        tokenIdentifier: 'MYNFT-abc123',
+        nonce: 42,
+        amount: BigInt.one,
+      ),
+    ],
+  ),
 );
 ```
+
+Different recipients still need one transaction each -- send them concurrently with `BatchHelper`
+and consecutive nonces rather than serially.
 
 ### Cache Network Config
 
@@ -420,11 +509,14 @@ class CachedNetworkConfig {
 
 ### Mock Providers
 
+Implement the `NetworkProvider` interface, not a concrete provider class. `noSuchMethod` supplies
+forwarders for the members your test does not care about, so you only write the ones it exercises:
+
 ```dart
-class MockNetworkProvider implements GatewayNetworkProvider {
-  final Map<String, AccountOnNetwork> _accounts = {};
-  final Map<String, String> _transactionHashes = {};
-  
+class MockNetworkProvider implements NetworkProvider {
+  final Map<String, AccountOnNetwork> _accounts = <String, AccountOnNetwork>{};
+  final Map<String, String> _transactionHashes = <String, String>{};
+
   void addAccount(Address address, BigInt balance, int nonce) {
     _accounts[address.bech32] = AccountOnNetwork(
       address: address,
@@ -432,60 +524,74 @@ class MockNetworkProvider implements GatewayNetworkProvider {
       nonce: Nonce(nonce),
     );
   }
-  
+
   @override
   Future<AccountOnNetwork> getAccount(Address address) async {
-    return _accounts[address.bech32] ?? 
-      AccountOnNetwork(address: address, balance: Balance.zero(), nonce: Nonce(0));
+    return _accounts[address.bech32] ??
+        AccountOnNetwork(
+          address: address,
+          balance: Balance.zero(),
+          nonce: const Nonce(0),
+        );
   }
-  
+
   @override
   Future<String> sendTransaction(Transaction tx) async {
-    // Generate mock hash
     final hash = 'mock_${DateTime.now().millisecondsSinceEpoch}';
     _transactionHashes[hash] = 'success';
     return hash;
   }
-  
-  // For testing, use TransactionOnNetwork.fromApiResponse to create mock responses:
-  // final mockTx = TransactionOnNetwork.fromApiResponse({
-  //   'txHash': hash,
-  //   'status': 'success',
-  //   'sender': senderAddress.bech32,
-  //   'receiver': receiverAddress.bech32,
-  //   'value': '1000000000000000000',
-  //   'nonce': 5,
-  //   'gasLimit': 50000,
-  //   'gasPrice': 1000000000,
-  //   'chainID': 'D',
-  // });
+
+  // Everything else throws NoSuchMethodError if a test touches it.
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
+```
+
+Build canned network responses with `TransactionOnNetwork.fromApiResponse(...)`:
+
+```dart
+final mockTx = TransactionOnNetwork.fromApiResponse(<String, dynamic>{
+  'txHash': 'abc123',
+  'status': 'success',
+  'sender': senderAddress.bech32,
+  'receiver': receiverAddress.bech32,
+  'value': '1000000000000000000',
+  'nonce': 5,
+  'gasLimit': 50000,
+  'gasPrice': 1000000000,
+  'chainID': 'D',
+});
 ```
 
 ## Logging
 
+The SDK takes a `Logger` on providers and controllers; `ConsoleLogger` is the built-in
+implementation. Keep secrets out of the context maps you hand it:
+
 ```dart
-class Logger {
-  static void transaction(String action, Map<String, dynamic> data) {
-    final sanitized = Map.from(data)
-      ..remove('privateKey')
-      ..remove('mnemonic');
-    
-    print('[TX] $action: $sanitized');
-  }
-  
-  static void error(String context, Object error, [StackTrace? stack]) {
-    print('[ERROR] $context: $error');
-    if (stack != null) {
-      print(stack);
-    }
-  }
-  
-  static void network(String method, String url, int statusCode) {
-    print('[NET] $method $url -> $statusCode');
-  }
+final logger = ConsoleLogger(
+  minLevel: LogLevel.warning, // debug during development
+  includeTimestamp: true,
+);
+
+final provider = GatewayNetworkProvider.devnet(logger: logger);
+
+/// Strips key material before anything is logged.
+Map<String, dynamic> sanitize(Map<String, dynamic> data) {
+  return Map<String, dynamic>.from(data)
+    ..remove('privateKey')
+    ..remove('mnemonic')
+    ..remove('password');
 }
+
+logger.info('Sending transaction', context: sanitize(<String, dynamic>{
+  'sender': account.address.bech32,
+  'nonce': nonce.value,
+}));
 ```
+
+Use `NullLogger()` to switch logging off entirely without changing call sites.
 
 ## Checklist
 

@@ -1,4 +1,5 @@
 import 'package:abidock_mvx/src/abi/abi.dart';
+import '../core/known_package_symbols.dart';
 import '../core/name_sanitizer.dart';
 import '../core/type_mapper.dart';
 import '../models/file_output.dart';
@@ -115,7 +116,15 @@ class ControllerGenerator extends GeneratorBase {
     buffer.writeln('class $controllerClassName {');
     buffer.writeln('  final SmartContractController _controller;');
     if (useLogger) {
-      buffer.writeln('  final ConsoleLogger logger;');
+      buffer.writeln('  /// Logger surface for this controller.');
+      buffer.writeln('  ///');
+      buffer.writeln(
+        '  /// Typed as the abstract [Logger] interface so any subtype passed',
+      );
+      buffer.writeln(
+        '  /// to [SmartContractController] flows through unchanged.',
+      );
+      buffer.writeln('  final Logger logger;');
     }
     buffer.writeln();
     buffer.writeln('  /// Creates controller with contract address.');
@@ -123,7 +132,7 @@ class ControllerGenerator extends GeneratorBase {
     buffer.writeln('    required dynamic contractAddress,');
     buffer.writeln('    required NetworkProvider networkProvider,');
     if (useLogger) {
-      buffer.writeln('    ConsoleLogger? logger,');
+      buffer.writeln('    Logger? logger,');
     }
     buffer.writeln('  }) : ');
     if (useLogger) {
@@ -156,7 +165,9 @@ class ControllerGenerator extends GeneratorBase {
     buffer.writeln();
     buffer.writeln('  $controllerClassName.withController(this._controller)');
     if (useLogger) {
-      buffer.writeln('    : logger = _controller.logger as ConsoleLogger;');
+      buffer.writeln(
+        '    : logger = _controller.logger ?? ConsoleLogger(minLevel: LogLevel.debug);',
+      );
     } else {
       buffer.writeln('    ;');
     }
@@ -181,7 +192,7 @@ class ControllerGenerator extends GeneratorBase {
 
     if (abi.endpoints.viewEndpoints.isNotEmpty) {
       for (final endpoint in abi.endpoints.viewEndpoints) {
-        final methodName = nameSanitizer.toCamelCase(endpoint.name);
+        final methodName = nameSanitizer.sanitizeParamName(endpoint.name);
         final snakeCaseName = nameSanitizer.toSnakeCase(endpoint.name);
 
         final hasOutput = endpoint.outputs.isNotEmpty;
@@ -192,7 +203,7 @@ class ControllerGenerator extends GeneratorBase {
         buffer.write('  $returnType $methodName(');
         final params = <String>[];
         for (final input in endpoint.inputs) {
-          final paramName = nameSanitizer.toCamelCase(input.name);
+          final paramName = nameSanitizer.sanitizeParamName(input.name);
           final dartType = typeMapper.mapToDartType(input.type);
           params.add('$dartType $paramName');
         }
@@ -216,7 +227,7 @@ class ControllerGenerator extends GeneratorBase {
 
     if (abi.endpoints.mutableEndpoints.isNotEmpty) {
       for (final endpoint in abi.endpoints.mutableEndpoints) {
-        final methodName = nameSanitizer.toCamelCase(endpoint.name);
+        final methodName = nameSanitizer.sanitizeParamName(endpoint.name);
         final snakeCaseName = nameSanitizer.toSnakeCase(endpoint.name);
 
         buffer.write('  Future<Transaction> $methodName(');
@@ -224,19 +235,10 @@ class ControllerGenerator extends GeneratorBase {
         buffer.writeln('    IAccount sender,');
         buffer.writeln('    Nonce nonce,');
 
+        final paramNames = <String>[];
         for (final input in endpoint.inputs) {
-          var paramName = nameSanitizer.toCamelCase(input.name);
-          if ({
-            'sender',
-            'nonce',
-            'gasLimit',
-            'value',
-            'relayer',
-            'guardian',
-            'controller',
-          }.contains(paramName)) {
-            paramName = '${paramName}Param';
-          }
+          final paramName = nameSanitizer.sanitizeParamName(input.name);
+          paramNames.add(paramName);
           final dartType = typeMapper.mapToDartType(input.type);
           buffer.writeln('    $dartType $paramName,');
         }
@@ -257,19 +259,7 @@ class ControllerGenerator extends GeneratorBase {
         buffer.write(
           '  ) => ${snakeCaseName}_call.$methodName(_controller, sender, nonce',
         );
-        for (final input in endpoint.inputs) {
-          var paramName = nameSanitizer.toCamelCase(input.name);
-          if ({
-            'sender',
-            'nonce',
-            'gasLimit',
-            'value',
-            'relayer',
-            'guardian',
-            'controller',
-          }.contains(paramName)) {
-            paramName = '${paramName}Param';
-          }
+        for (final paramName in paramNames) {
           buffer.write(', $paramName');
         }
         if (endpoint.payableInTokens.isNotEmpty) {
@@ -287,9 +277,8 @@ class ControllerGenerator extends GeneratorBase {
         buffer.writeln();
       }
 
-      // Generate unsigned versions for batch operations
       for (final endpoint in abi.endpoints.mutableEndpoints) {
-        final methodName = nameSanitizer.toCamelCase(endpoint.name);
+        final methodName = nameSanitizer.sanitizeParamName(endpoint.name);
         final snakeCaseName = nameSanitizer.toSnakeCase(endpoint.name);
 
         if (useAutoGas) {
@@ -301,18 +290,10 @@ class ControllerGenerator extends GeneratorBase {
         buffer.writeln('    Address sender,');
         buffer.writeln('    Nonce nonce,');
 
+        final paramNames = <String>[];
         for (final input in endpoint.inputs) {
-          var paramName = nameSanitizer.toCamelCase(input.name);
-          if ({
-            'sender',
-            'nonce',
-            'gasLimit',
-            'value',
-            'relayer',
-            'guardian',
-          }.contains(paramName)) {
-            paramName = '${paramName}Param';
-          }
+          final paramName = nameSanitizer.sanitizeParamName(input.name);
+          paramNames.add(paramName);
           final dartType = typeMapper.mapToDartType(input.type);
           buffer.writeln('    $dartType $paramName,');
         }
@@ -337,18 +318,7 @@ class ControllerGenerator extends GeneratorBase {
             '  ) => ${snakeCaseName}_call.${methodName}Unsigned(factory, sender, nonce',
           );
         }
-        for (final input in endpoint.inputs) {
-          var paramName = nameSanitizer.toCamelCase(input.name);
-          if ({
-            'sender',
-            'nonce',
-            'gasLimit',
-            'value',
-            'relayer',
-            'guardian',
-          }.contains(paramName)) {
-            paramName = '${paramName}Param';
-          }
+        for (final paramName in paramNames) {
           buffer.write(', $paramName');
         }
         if (endpoint.payableInTokens.isNotEmpty) {
@@ -418,7 +388,7 @@ class ControllerGenerator extends GeneratorBase {
       buffer.writeln('    Map<String, String> headers = const {},');
       buffer.writeln('    bool autoReconnect = true,');
       buffer.writeln(
-        '    Duration reconnectDelay = const Duration(milliseconds: 300),',
+        '    Duration reconnectDelay = const Duration(seconds: 1),',
       );
       buffer.writeln(
         '    Duration connectionTimeout = const Duration(seconds: 5),',
@@ -597,6 +567,10 @@ class ControllerGenerator extends GeneratorBase {
       for (final field in type.fieldTypes) {
         _extractCustomTypes(field, types);
       }
+    } else if (type is MultiValueType) {
+      for (final t in type.types) {
+        _extractCustomTypes(t, types);
+      }
     }
   }
 
@@ -620,6 +594,11 @@ class ControllerGenerator extends GeneratorBase {
     return false;
   }
 
+  /// Sorts imports into `dart:` / `package:` / relative groups and emits a
+  /// `hide` clause on `package:abidock_mvx/abidock_mvx.dart` for any
+  /// non-aliased local import whose filename collides with a public symbol
+  /// exported by the package. Aliased imports (`as X`) are skipped from
+  /// conflict detection because the alias prefix already disambiguates.
   void _writeSortedImports(StringBuffer buffer, List<String> imports) {
     final dartImports = <String>[];
     final packageImports = <String>[];
@@ -635,6 +614,16 @@ class ControllerGenerator extends GeneratorBase {
       }
     }
 
+    final localSymbols = <String>{};
+    for (final import in relativeImports) {
+      if (import.contains(' as ')) continue;
+      final match = RegExp(r"import '([^']+)';").firstMatch(import);
+      if (match == null) continue;
+      final filename = match.group(1)!.split('/').last.replaceAll('.dart', '');
+      localSymbols.add(nameSanitizer.toPascalCase(filename));
+    }
+    final conflicts = localSymbols.intersection(knownPackageSymbols);
+
     dartImports.sort();
     packageImports.sort();
     relativeImports.sort();
@@ -648,7 +637,16 @@ class ControllerGenerator extends GeneratorBase {
     }
 
     for (final import in packageImports) {
-      buffer.writeln(import);
+      if (conflicts.isNotEmpty &&
+          import.contains("'package:abidock_mvx/abidock_mvx.dart'")) {
+        final hideList = conflicts.toList()..sort();
+        buffer.writeln(
+          "import 'package:abidock_mvx/abidock_mvx.dart' "
+          "hide ${hideList.join(', ')};",
+        );
+      } else {
+        buffer.writeln(import);
+      }
     }
     if (packageImports.isNotEmpty && relativeImports.isNotEmpty) {
       buffer.writeln();

@@ -59,7 +59,7 @@ Future<void> main() async {
     endpointName: 'getAmountOut',
     arguments: [wegldToken, wegldAmount],
   );
-  final amountOut = infer<BigInt>(amountOutResult[0]);
+  final amountOut = amountOutResult.typedValues[0].nativeValue as BigInt;
   
   // 8. Calculate minimum with 1% slippage
   final minAmountOut = (amountOut * BigInt.from(9900)) ~/ BigInt.from(10000);
@@ -85,7 +85,7 @@ Future<void> main() async {
   // 11. Wait for completion
   final watcher = TransactionWatcher(networkProvider: provider);
   final result = await watcher.awaitCompleted(txHash);
-  print('Swap completed: $result');
+  print('Swap completed: ${result.status.status}');
 }
 ```
 
@@ -100,6 +100,9 @@ final amountOutResult = await controller.query(
   endpointName: 'getAmountOut',
   arguments: [wegldToken, wegldAmount],
 );
+
+// values[i] is the decoded native; typedValues[i] keeps the ABI type
+final amountOut = amountOutResult.typedValues[0].nativeValue as BigInt;
 ```
 
 ### Slippage Protection

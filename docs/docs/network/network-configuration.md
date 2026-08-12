@@ -1,7 +1,7 @@
 ---
 id: network-configuration
 title: Network Configuration
-sidebar_position: 2
+sidebar_position: 3
 description: Configure MultiversX network connections for Mainnet, Devnet, Testnet with chain IDs and custom endpoints.
 ---
 
@@ -68,19 +68,37 @@ print('Rounds per epoch: ${config.roundsPerEpoch}');
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `chainId` | `String` | Network identifier (1, D, T) |
-| `minGasPrice` | `int` | Minimum gas price per unit |
-| `minGasLimit` | `int` | Minimum gas limit for transactions |
-| `gasPerDataByte` | `int` | Gas cost per byte of data |
-| `gasCostPerMovedBalanceByte` | `int` | Gas for balance transfers |
+| `chainId` | `String` | Network identifier (`1`, `D`, `T`) |
+| `minGasPrice` | `int` | Minimum gas price per gas unit |
+| `minGasLimit` | `int` | Minimum gas limit for a transaction with no data |
+| `gasPerDataByte` | `int` | Gas cost per byte of the data field |
+| `minTransactionVersion` | `int` | Lowest transaction version the chain accepts |
+| `maxGasPerTransaction` | `int` | Per-transaction gas ceiling |
+| `extraGasLimitGuardedTx` | `int` | Extra gas charged for a guarded transaction |
+| `extraGasLimitRelayedTx` | `int` | Extra gas charged for a relayed transaction |
+| `gasPriceModifier` | `double` | Fraction of the gas price refunded on unused gas |
 | `numShards` | `int` | Number of shards in the network |
 | `roundDuration` | `int` | Duration of a round in milliseconds |
 | `roundsPerEpoch` | `int` | Rounds in each epoch |
 | `denomination` | `int` | Token denomination (18 for EGLD) |
 | `topUpFactor` | `double` | Top-up factor for staking rewards |
-| `gasPriceModifier` | `String` | Gas price adjustment modifier |
-| `adaptivity` | `bool` | Whether adaptivity is enabled |
-| `hysteresis` | `String` | Hysteresis value for consensus |
+| `adaptivity` | `bool` | Whether adaptive sharding is enabled |
+| `hysteresis` | `String` | Hysteresis value for shard rebalancing |
+| `latestTagSoftwareVersion` | `String?` | Node software version tag |
+| `numNodesInShard` | `int?` | Nodes per shard |
+| `numMetachainNodes` | `int?` | Nodes on the metachain |
+| `shardConsensusGroupSize` | `int?` | Consensus group size in a shard |
+| `metaConsensusGroupSize` | `int?` | Consensus group size on the metachain |
+| `rewardsTopUpGradientPoint` | `String?` | Top-up gradient point for rewards |
+| `startTime` | `int?` | Genesis timestamp in seconds |
+
+`gasPriceModifier` is a `double` (`0.01` by default), so it can be applied to a
+gas price directly:
+
+```dart
+final config = await provider.getNetworkConfig();
+final refundedPerUnit = config.minGasPrice * config.gasPriceModifier;
+```
 
 ## Environment-Based Configuration
 
@@ -142,40 +160,64 @@ GatewayNetworkProvider createProvider() {
 
 ## Gas Configuration
 
-### Default Gas Values
+### Factory Gas Schedule
+
+Transaction factories do not guess gas: they read it from
+`TransactionsFactoryConfig`, which carries the chain's gas schedule and is
+shared by every factory built from the same config (or the same
+[entrypoint](/docs/network/entrypoints)).
 
 ```dart
-class GasConfig {
-  static const egldTransfer = 50000;
-  static const esdtTransfer = 500000;
-  static const nftTransfer = 1000000;
-  static const multiTransfer = 1100000;
-  static const scCallBase = 5000000;
-  
-  static int forMultiTransfer(int tokenCount) {
-    return multiTransfer + (tokenCount * 100000);
-  }
-  
-  static int forScCall({
-    required int argumentCount,
-    int complexity = 1,
-  }) {
-    return scCallBase * complexity + (argumentCount * 50000);
-  }
-}
+const config = TransactionsFactoryConfig(chainId: ChainId.devnet());
+
+print(config.minGasLimit);          // 50000
+print(config.gasLimitPerByte);      // 1500
+print(config.gasLimitEsdtTransfer); // 200000
+print(config.gasLimitIssue);        // 60000000
 ```
 
-### Dynamic Gas Calculation
+Selected defaults:
+
+| Field | Default | Applies to |
+|-------|---------|------------|
+| `minGasLimit` | `50000` | Floor for every transaction |
+| `gasLimitPerByte` | `1500` | Each byte of the `data` field |
+| `gasLimitEsdtTransfer` | `200000` | `ESDTTransfer` |
+| `gasLimitEsdtNftTransfer` | `200000` | `ESDTNFTTransfer` |
+| `gasLimitMultiEsdtNftTransfer` | `200000` | `MultiESDTNFTTransfer` |
+| `gasLimitIssue` | `60000000` | Token issuance |
+| `gasLimitSetSpecialRole` | `60000000` | Role management |
+| `gasLimitStake` | `5000000` | Validator staking |
+| `gasLimitCreateDelegationContract` | `50000000` | Delegation contract creation |
+| `extraGasLimitForGuardedTransactions` | `50000` | Guarded transactions |
+| `extraGasLimitForRelayedTransactions` | `50000` | Relayed transactions |
+
+### How a factory computes a gas limit
+
+Every factory-built transaction pays for the bytes it moves **on top of** the
+endpoint's execution cost:
+
+```
+gasLimit = minGasLimit
+         + gasLimitPerByte * data.length
+         + <execution gas for the endpoint>
+```
+
+So an `ESDTTransfer` whose data field is 60 bytes costs
+`50000 + 1500 * 60 + 200000`. Override the whole calculation by passing an
+explicit `gasLimit` to the factory method.
+
+### Reading the live schedule
+
+The values above are the SDK's defaults. To read what the network currently
+enforces, ask the provider:
 
 ```dart
-int calculateGas({
-  required NetworkConfig config,
-  required String data,
-  required int baseGas,
-}) {
-  final dataGas = data.length * config.gasPerDataByte;
-  return baseGas + dataGas;
-}
+final networkConfig = await provider.getNetworkConfig();
+
+print(networkConfig.minGasLimit);
+print(networkConfig.gasPerDataByte);
+print(networkConfig.maxGasPerTransaction);
 ```
 
 ## Token Identifiers by Network

@@ -21,16 +21,21 @@ or racy.
 ```dart
 import 'package:abidock_mvx/abidock_mvx.dart';
 
-final nonces = NonceManager(
-  address: sender.address,
+final NonceManager nonces = NonceManager(
+  address: account.address,
   networkProvider: provider,
 );
 
-Future<String> sendOne(Transaction draft, Signer signer) async {
+Future<String> sendOne(Transaction draft, Account account) async {
   final Nonce nonce = await nonces.next();
   try {
-    final signed = await signer.sign(draft.copyWith(newNonce: nonce));
-    final hash = await provider.sendTransaction(signed);
+    final Transaction withNonce = draft.copyWith(newNonce: nonce);
+    final Uint8List signature = await account.signTransaction(withNonce);
+    final Transaction signed = withNonce.copyWith(
+      newSignature: Signature.fromUint8List(signature),
+    );
+
+    final String hash = await provider.sendTransaction(signed);
     nonces.applyNonce(nonce); // record successful broadcast
     return hash;
   } catch (_) {
@@ -51,7 +56,11 @@ subsequent `next()` calls stay local and immediately increment.
 | `applyNonce(nonce)` | Records that a nonce was successfully broadcast. Sets a floor for future `resync()` calls. |
 | `release(nonce)` | Returns a reserved nonce to the pool. If it was the last-reserved value, the counter rewinds; otherwise it is queued for reuse on the next `next()` call. |
 | `resync()` | Forces a fresh `getAccount` call. The counter only moves **forward** — if the network reports a lower nonce than the local counter, the local value stays. |
-| `peek` | Current locally-reserved counter, or `null` if never synced. |
+| `peek` | Current locally-reserved counter as a plain `int?` (not a `Nonce`), or `null` if never synced. |
+
+`applyNonce` also sets a floor for `release`: a nonce at or below the highest
+applied value is ignored rather than returned to the pool, so a successfully
+broadcast nonce can never be handed out twice.
 
 ## Periodic re-sync
 
@@ -62,9 +71,9 @@ address). The default cadence is 5 minutes; set `resyncInterval` to
 
 ```dart
 final nonces = NonceManager(
-  address: sender.address,
+  address: account.address,
   networkProvider: provider,
-  resyncInterval: Duration(minutes: 1),
+  resyncInterval: const Duration(minutes: 1),
 );
 ```
 

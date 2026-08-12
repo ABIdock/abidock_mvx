@@ -18,7 +18,9 @@ import '../types/primitives/string.dart';
 import '../types/special/code_metadata.dart';
 import '../types/special/composite.dart';
 import '../types/special/h256.dart';
+import '../types/special/managed_byte_array.dart';
 import '../types/special/managed_decimal.dart';
+import '../types/special/multi_value.dart';
 import '../types/special/nothing.dart';
 import '../types/special/optional.dart';
 import '../types/special/token_identifier.dart';
@@ -43,7 +45,9 @@ export '../types/primitives/string.dart';
 export '../types/special/code_metadata.dart';
 export '../types/special/composite.dart';
 export '../types/special/h256.dart';
+export '../types/special/managed_byte_array.dart';
 export '../types/special/managed_decimal.dart';
+export '../types/special/multi_value.dart';
 export '../types/special/nothing.dart';
 export '../types/special/optional.dart';
 export '../types/special/token_identifier.dart';
@@ -70,7 +74,7 @@ class _TypeSuggestion {
 }
 
 /// Factory for creating AbiType instances from type strings and formulas.
-class AbiTypeFactory {
+class AbiTypeFactory implements ExplicitEnumTypeRegistry {
   final Map<String, AbiType> _customTypes = <String, AbiType>{};
   final Map<String, bool> _registeredNames = <String, bool>{};
   final Set<String> _inResolution = <String>{};
@@ -128,9 +132,26 @@ class AbiTypeFactory {
     throw ArgumentError('Unknown type kind: $typeKind');
   }
 
+  /// Parses a struct definition with forward-reference support.
+  ///
+  /// Self-referential structs (`Node { children: List<Node> }`) are valid
+  /// because `List<Node>` is runtime-bounded — the cycle is bounded by the
+  /// data, not the type. To allow this we pre-register an empty struct in
+  /// `_customTypes` BEFORE descending into fields, so any recursive lookup
+  /// resolves to the same placeholder instance. The placeholder's
+  /// `fieldDefinitions` list is then populated in place as we parse — the
+  /// returned StructType is the same instance every reference points at.
   AbiType _parseStruct(String name, Map<String, dynamic> definition) {
     final fields = <FieldDefinition>[];
-    final fieldsList = requireAs<List<dynamic>>(definition['fields'], 'fields');
+    final StructType placeholder = StructType(
+      name: name,
+      fieldDefinitions: fields,
+    );
+    _customTypes[name] = placeholder;
+
+    final fieldsList =
+        optionalAs<List<dynamic>>(definition['fields'], 'fields') ??
+        const <dynamic>[];
 
     for (final fieldDef in fieldsList) {
       final fieldName = requireAs<String>(fieldDef['name'], 'name');
@@ -139,9 +160,17 @@ class AbiTypeFactory {
       fields.add(FieldDefinition(name: fieldName, type: fieldType));
     }
 
-    return StructType(name: name, fieldDefinitions: fields);
+    return placeholder;
   }
 
+  /// Parses an enum definition, including data-carrying variant payloads.
+  ///
+  /// A variant's optional `fields` array is the wire payload that follows the
+  /// discriminant byte: `[u8 discriminant][dep-encoded field 0][field 1]…`.
+  /// Declaration order **is** wire order, so the parsed list preserves it.
+  /// Field types are resolved through [fromString] so nested custom types
+  /// referenced by a variant resolve against the already-registered
+  /// dependencies.
   AbiType _parseEnum(String name, Map<String, dynamic> definition) {
     final variants = <EnumVariantDefinition>[];
     final variantsList = requireAs<List<dynamic>>(
@@ -150,6 +179,16 @@ class AbiTypeFactory {
     );
 
     for (final variantDef in variantsList) {
+      final List<dynamic>? fieldsList = optionalAs<List<dynamic>>(
+        variantDef['fields'],
+        'fields',
+      );
+      final List<AbiType>? fieldTypes = fieldsList == null
+          ? null
+          : <AbiType>[
+              for (final dynamic fieldDef in fieldsList)
+                fromString(requireAs<String>(fieldDef['type'], 'type')),
+            ];
       variants.add(
         EnumVariantDefinition(
           name: requireAs<String>(variantDef['name'], 'name'),
@@ -157,6 +196,7 @@ class AbiTypeFactory {
             variantDef['discriminant'],
             'discriminant',
           ),
+          fields: fieldTypes,
         ),
       );
     }
@@ -225,6 +265,9 @@ class AbiTypeFactory {
     return _customTypes[name];
   }
 
+  @override
+  Object? lookupType(String name) => _customTypes[name];
+
   /// Creates an AbiType from a string representation.
   ///
   /// #### Parameters
@@ -266,6 +309,13 @@ class AbiTypeFactory {
 
   /// Creates an AbiType from a TypeFormula.
   ///
+  /// A handful of built-in framework types are never emitted into the ABI's
+  /// `types` map, so they must be recognised intrinsically: `TokenId` shares
+  /// `TokenIdentifier`'s length-prefixed UTF-8 wire form, `NonZeroBigUint`
+  /// encodes and decodes byte for byte like `BigUint`, and `Payment` /
+  /// `FungiblePayment` are plain structs whose fields encode in declaration
+  /// order.
+  ///
   /// #### Parameters
   /// - `formula` - TypeFormula instance
   ///
@@ -286,8 +336,30 @@ class AbiTypeFactory {
       final sizeStr = typeName.substring(5);
       final size = int.tryParse(sizeStr);
       if (size != null && formula.typeParameters.isNotEmpty) {
-        return ArrayType(fromTypeFormula(formula.typeParameters[0]), size);
+        final AbiType elementType = fromTypeFormula(formula.typeParameters[0]);
+        if (elementType is U8Type) {
+          return ManagedByteArrayType(size);
+        }
+        return ArrayType(elementType, size);
       }
+    }
+
+    if (typeName == 'ManagedByteArray') {
+      final String? meta = formula.metadata;
+      final int? metaSize = meta == null ? null : int.tryParse(meta);
+      if (metaSize != null) {
+        return ManagedByteArrayType(metaSize);
+      }
+      if (formula.typeParameters.isNotEmpty) {
+        final int? paramSize = int.tryParse(formula.typeParameters.first.name);
+        if (paramSize != null) {
+          return ManagedByteArrayType(paramSize);
+        }
+      }
+      throw ArgumentError(
+        'ManagedByteArray requires a numeric length, e.g. '
+        'ManagedByteArray*48* or ManagedByteArray<48>',
+      );
     }
 
     switch (typeName) {
@@ -304,6 +376,7 @@ class AbiTypeFactory {
       case 'U128':
         return BigUIntType.type;
       case 'BigUint':
+      case 'NonZeroBigUint':
         return BigUIntType.type;
 
       case 'i8':
@@ -320,6 +393,9 @@ class AbiTypeFactory {
       case 'BigInt':
       case 'Bigint':
         return BigIntType.type;
+
+      case 'BigFloat':
+        return BigFloatType.type;
 
       case 'Address':
         return AddressType.type;
@@ -393,6 +469,17 @@ class AbiTypeFactory {
       case 'tuple6':
       case 'tuple7':
       case 'tuple8':
+        if (formula.typeParameters.isEmpty) {
+          throw ArgumentError(
+            'Tuple type requires at least one type parameter',
+          );
+        }
+        final List<AbiType> tupleElementTypes = formula.typeParameters
+            .map((TypeFormula param) => fromTypeFormula(param))
+            .toList();
+        return TupleType(tupleElementTypes);
+
+      case 'MultiValue':
       case 'MultiValue2':
       case 'MultiValue3':
       case 'MultiValue4':
@@ -402,13 +489,13 @@ class AbiTypeFactory {
       case 'MultiValue8':
         if (formula.typeParameters.isEmpty) {
           throw ArgumentError(
-            'Tuple type requires at least one type parameter',
+            'MultiValue type requires at least one type parameter',
           );
         }
-        final List<AbiType> elementTypes = formula.typeParameters
+        final List<AbiType> multiValueTypes = formula.typeParameters
             .map((TypeFormula param) => fromTypeFormula(param))
             .toList();
-        return TupleType(elementTypes);
+        return MultiValueType(multiValueTypes.length, multiValueTypes);
 
       case 'variadic':
       case 'Variadic':
@@ -425,7 +512,8 @@ class AbiTypeFactory {
         }
         final String scaleParam = formula.typeParameters.first.name;
         if (scaleParam == 'usize') {
-          return ManagedDecimalType.variable(0);
+          final int variableScale = int.tryParse(formula.metadata ?? '') ?? 0;
+          return ManagedDecimalType.variable(variableScale);
         }
         final int scale = int.parse(scaleParam);
         return ManagedDecimalType.of(scale);
@@ -436,12 +524,13 @@ class AbiTypeFactory {
             'ManagedDecimalSigned type requires scale parameter',
           );
         }
-        final String scaleParam = formula.typeParameters.first.name;
-        if (scaleParam == 'usize') {
-          return ManagedDecimalType.variable(0, isSigned: true);
+        final String signedScaleParam = formula.typeParameters.first.name;
+        if (signedScaleParam == 'usize') {
+          final int variableScale = int.tryParse(formula.metadata ?? '') ?? 0;
+          return ManagedDecimalType.variable(variableScale, isSigned: true);
         }
-        final int scale = int.parse(scaleParam);
-        return ManagedDecimalType.signed(scale);
+        final int signedScale = int.parse(signedScaleParam);
+        return ManagedDecimalType.signed(signedScale);
 
       case 'counted-variadic':
         if (formula.typeParameters.isEmpty) {
@@ -453,11 +542,22 @@ class AbiTypeFactory {
 
       case 'multi':
       case 'Multi':
+      case 'multivalue':
+        if (formula.typeParameters.isEmpty) {
+          throw ArgumentError(
+            'MultiValue type requires at least one type parameter',
+          );
+        }
+        final List<AbiType> multiTypes = formula.typeParameters
+            .map((TypeFormula param) => fromTypeFormula(param))
+            .toList();
+        return MultiValueType(multiTypes.length, multiTypes);
+
       case 'MultiArg':
       case 'MultiResult':
         if (formula.typeParameters.isEmpty) {
           throw ArgumentError(
-            'Composite (multi) type requires at least one type parameter',
+            'Composite type requires at least one type parameter',
           );
         }
         final List<AbiType> fieldTypes = formula.typeParameters
@@ -471,8 +571,22 @@ class AbiTypeFactory {
       case 'EsdtTokenIdentifier':
         return TokenIdentifierType.type;
 
+      case 'TokenId':
+        return TokenIdentifierType.type;
+
       case 'EgldOrEsdtTokenIdentifier':
         return EgldOrEsdtTokenIdentifierType.type;
+
+      case 'EsdtTokenPayment':
+        return _builtInEsdtTokenPayment();
+      case 'EgldOrEsdtTokenPayment':
+        return _builtInEgldOrEsdtTokenPayment();
+      case 'EgldOrMultiEsdtPayment':
+        return _builtInEgldOrMultiEsdtPayment();
+      case 'Payment':
+        return _builtInPayment();
+      case 'FungiblePayment':
+        return _builtInFungiblePayment();
 
       case 'Nothing':
       case 'nothing':
@@ -577,6 +691,10 @@ class AbiTypeFactory {
       'TokenIdentifier',
       'EsdtTokenIdentifier',
       'EgldOrEsdtTokenIdentifier',
+      'TokenId',
+      'NonZeroBigUint',
+      'Payment',
+      'FungiblePayment',
       'Nothing',
       'nothing',
       'AsyncCall',
@@ -667,6 +785,7 @@ class AbiTypeFactory {
       case 'u128':
         return BigUIntType.type;
       case 'BigUint':
+      case 'NonZeroBigUint':
         return BigUIntType.type;
 
       case 'i8':
@@ -681,6 +800,8 @@ class AbiTypeFactory {
         return BigIntType.type;
       case 'BigInt':
         return BigIntType.type;
+      case 'BigFloat':
+        return BigFloatType.type;
 
       case 'Address':
         return AddressType.type;
@@ -695,8 +816,20 @@ class AbiTypeFactory {
         return TokenIdentifierType.type;
       case 'EsdtTokenIdentifier':
         return TokenIdentifierType.type;
+      case 'TokenId':
+        return TokenIdentifierType.type;
       case 'EgldOrEsdtTokenIdentifier':
         return EgldOrEsdtTokenIdentifierType.type;
+      case 'EsdtTokenPayment':
+        return _builtInEsdtTokenPayment();
+      case 'EgldOrEsdtTokenPayment':
+        return _builtInEgldOrEsdtTokenPayment();
+      case 'EgldOrMultiEsdtPayment':
+        return _builtInEgldOrMultiEsdtPayment();
+      case 'Payment':
+        return _builtInPayment();
+      case 'FungiblePayment':
+        return _builtInFungiblePayment();
       case 'Nothing':
         return NothingType.type;
       case 'H256':
@@ -707,6 +840,107 @@ class AbiTypeFactory {
       default:
         throw ArgumentError(_buildUnknownTypeError(typeName));
     }
+  }
+
+  /// Cache for built-in struct singletons. Returning the same instance for
+  /// every lookup keeps `==`/`identical` behaviour consistent and lets
+  /// downstream consumers (codegen, codecs) memoise on type identity.
+  static final Map<String, StructType> _builtIns = <String, StructType>{};
+
+  /// `EsdtTokenPayment { token_identifier: TokenIdentifier, token_nonce: u64, amount: BigUint }`
+  /// — a built-in struct that never appears in the ABI's `types` map.
+  static StructType _builtInEsdtTokenPayment() {
+    return _builtIns.putIfAbsent(
+      'EsdtTokenPayment',
+      () => StructType(
+        name: 'EsdtTokenPayment',
+        fieldDefinitions: <FieldDefinition>[
+          FieldDefinition(
+            name: 'token_identifier',
+            type: TokenIdentifierType.type,
+          ),
+          FieldDefinition(name: 'token_nonce', type: U64Type.type),
+          FieldDefinition(name: 'amount', type: BigUIntType.type),
+        ],
+      ),
+    );
+  }
+
+  /// `EgldOrEsdtTokenPayment { token_identifier: EgldOrEsdtTokenIdentifier, token_nonce: u64, amount: BigUint }`.
+  static StructType _builtInEgldOrEsdtTokenPayment() {
+    return _builtIns.putIfAbsent(
+      'EgldOrEsdtTokenPayment',
+      () => StructType(
+        name: 'EgldOrEsdtTokenPayment',
+        fieldDefinitions: <FieldDefinition>[
+          FieldDefinition(
+            name: 'token_identifier',
+            type: EgldOrEsdtTokenIdentifierType.type,
+          ),
+          FieldDefinition(name: 'token_nonce', type: U64Type.type),
+          FieldDefinition(name: 'amount', type: BigUIntType.type),
+        ],
+      ),
+    );
+  }
+
+  /// `Payment { token_identifier: TokenId, token_nonce: u64, amount: NonZeroBigUint }`
+  /// — a built-in struct. `TokenId` and `NonZeroBigUint` share the wire form of
+  /// `TokenIdentifier` and `BigUint` respectively, so the nested layout is
+  /// `[u32 len][utf8 id][8-byte BE nonce][u32 len][magnitude]`.
+  static StructType _builtInPayment() {
+    return _builtIns.putIfAbsent(
+      'Payment',
+      () => StructType(
+        name: 'Payment',
+        fieldDefinitions: <FieldDefinition>[
+          FieldDefinition(
+            name: 'token_identifier',
+            type: TokenIdentifierType.type,
+          ),
+          FieldDefinition(name: 'token_nonce', type: U64Type.type),
+          FieldDefinition(name: 'amount', type: BigUIntType.type),
+        ],
+      ),
+    );
+  }
+
+  /// `FungiblePayment { token_identifier: TokenId, amount: NonZeroBigUint }`
+  /// — a built-in struct with no custom encoding, so top-level and nested share
+  /// the layout `[u32 len][utf8 id][u32 len][magnitude]`.
+  static StructType _builtInFungiblePayment() {
+    return _builtIns.putIfAbsent(
+      'FungiblePayment',
+      () => StructType(
+        name: 'FungiblePayment',
+        fieldDefinitions: <FieldDefinition>[
+          FieldDefinition(
+            name: 'token_identifier',
+            type: TokenIdentifierType.type,
+          ),
+          FieldDefinition(name: 'amount', type: BigUIntType.type),
+        ],
+      ),
+    );
+  }
+
+  /// `EgldOrMultiEsdtPayment { egld_amount: BigUint, multi_esdt: List<EsdtTokenPayment> }`
+  /// — a built-in struct. Both fields are always present on the wire; senders
+  /// that mean "EGLD only" leave `multi_esdt` empty and vice versa.
+  static StructType _builtInEgldOrMultiEsdtPayment() {
+    return _builtIns.putIfAbsent(
+      'EgldOrMultiEsdtPayment',
+      () => StructType(
+        name: 'EgldOrMultiEsdtPayment',
+        fieldDefinitions: <FieldDefinition>[
+          FieldDefinition(name: 'egld_amount', type: BigUIntType.type),
+          FieldDefinition(
+            name: 'multi_esdt',
+            type: ListType(_builtInEsdtTokenPayment()),
+          ),
+        ],
+      ),
+    );
   }
 }
 

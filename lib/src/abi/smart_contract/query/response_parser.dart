@@ -200,9 +200,7 @@ class ResponseParser {
 
     try {
       return Uint8List.fromList(base64.decode(data));
-    } catch (_) {
-      // Not valid base64, try hex
-    }
+    } catch (_) {}
     if (_isHexString(data)) {
       return HexUtils.hexToBytes(data);
     }

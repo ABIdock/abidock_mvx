@@ -1,9 +1,9 @@
 class NameSanitizer {
-  // Dart reserved keywords and soft/contextual keywords that could cause
-  // compilation errors if used as identifiers in generated code.
-  // Reference: https://dart.dev/language/keywords
+  /// Dart reserved keywords and soft/contextual keywords that could cause
+  /// compilation errors if used as identifiers in generated code.
+  ///
+  /// Reference: https://dart.dev/language/keywords
   static const _dartKeywords = {
-    // Reserved keywords
     'abstract',
     'as',
     'assert',
@@ -15,46 +15,46 @@ class NameSanitizer {
     'class',
     'const',
     'continue',
-    'covariant', // Added: soft keyword
+    'covariant',
     'default',
-    'deferred', // Added: soft keyword (import)
+    'deferred',
     'do',
-    'dynamic', // Added: built-in type
+    'dynamic',
     'else',
     'enum',
-    'export', // Added: library directive
+    'export',
     'extends',
-    'extension', // Added: Dart 2.7+
-    'external', // Added: soft keyword
-    'factory', // Added: soft keyword
+    'extension',
+    'external',
+    'factory',
     'false',
     'final',
     'finally',
     'for',
-    'function', // Added: built-in type (lowercase to match identifier comparison)
-    'get', // Added: soft keyword (getter)
-    'hide', // Added: soft keyword (import)
+    'function',
+    'get',
+    'hide',
     'if',
     'implements',
-    'import', // Added: library directive
+    'import',
     'in',
     'interface',
     'is',
-    'late', // Added: Dart 2.12+ (null safety)
-    'library', // Added: library directive
+    'late',
+    'library',
     'mixin',
     'new',
     'null',
-    'on', // Added: soft keyword (mixin)
-    'operator', // Added: soft keyword
-    'part', // Added: library directive
-    'required', // Added: Dart 2.12+ (null safety)
-    'rethrow', // Added: control flow
+    'on',
+    'operator',
+    'part',
+    'required',
+    'rethrow',
     'return',
-    'sealed', // Added: Dart 3+ (patterns)
-    'set', // Added: soft keyword (setter)
-    'show', // Added: soft keyword (import)
-    'static', // Added: soft keyword
+    'sealed',
+    'set',
+    'show',
+    'static',
     'super',
     'switch',
     'sync',
@@ -65,19 +65,27 @@ class NameSanitizer {
     'typedef',
     'var',
     'void',
-    'when', // Added: Dart 3+ (patterns)
+    'when',
     'while',
     'with',
     'yield',
   };
 
+  /// System-name conflicts injected by the call / controller scaffold.
+  /// Inputs matching any of these get a `Param` suffix to disambiguate.
   static const _commonConflicts = {
     'sender',
     'nonce',
     'gasLimit',
     'value',
     'controller',
+    'relayer',
+    'guardian',
+    'factory',
   };
+
+  /// Public read-only view of the canonical keyword set.
+  static Set<String> get dartKeywords => _dartKeywords;
 
   String sanitizeFieldName(String name) {
     if (name.isEmpty) return 'field';
@@ -107,6 +115,27 @@ class NameSanitizer {
 
     return result;
   }
+
+  /// Sanitizes an enum variant identifier. Appends `Value` on keyword collision.
+  String sanitizeEnumVariant(String name) {
+    final variant = toCamelCase(name);
+    if (_dartKeywords.contains(variant.toLowerCase())) {
+      return '${variant}Value';
+    }
+    return variant;
+  }
+
+  /// Sanitizes a class/type identifier. Appends `Type` on keyword collision.
+  String sanitizeClassName(String name) {
+    final pascal = toPascalCase(name);
+    if (_dartKeywords.contains(pascal.toLowerCase())) {
+      return '${pascal}Type';
+    }
+    return pascal;
+  }
+
+  /// True if [name] is a Dart reserved/contextual keyword.
+  bool isDartKeyword(String name) => _dartKeywords.contains(name.toLowerCase());
 
   String makeUnique(String name, Set<String> existingNames) {
     if (!existingNames.contains(name)) return name;
@@ -138,6 +167,8 @@ class NameSanitizer {
     return parts.map((p) => p[0].toUpperCase() + p.substring(1)).join();
   }
 
+  /// Converts [name] to `snake_case`, collapsing runs of underscores and
+  /// trimming any leading or trailing underscore.
   String toSnakeCase(String name) {
     final normalized = name.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
     return normalized
@@ -146,7 +177,7 @@ class NameSanitizer {
           (match) => '${match.group(1)}_${match.group(2)}',
         )
         .toLowerCase()
-        .replaceAll(RegExp(r'_+'), '_') // collapse multiple underscores
-        .replaceAll(RegExp(r'^_|_$'), ''); // trim leading/trailing underscores
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'^_|_$'), '');
   }
 }

@@ -21,13 +21,13 @@ abidock_mvx supports mnemonic, PEM, and keystore wallets.
 
 ```dart
 // From Mnemonic (recommended for users)
-final account = await Account.fromMnemonic('word1 word2 ... word24');
+final fromMnemonic = await Account.fromMnemonic('word1 word2 ... word24');
 
-// From PEM file (development)
-final account = await Account.fromPem(pemContent);
+// From PEM content (development) — pass the file's text, not its path
+final fromPem = await Account.fromPem(pemContent);
 
-// From Keystore (encrypted)
-final account = await Account.fromKeystore(keystoreJson, 'password');
+// From Keystore (encrypted) — pass the JSON text, not its path
+final fromKeystore = await Account.fromKeystore(keystoreJson, 'password');
 ```
 
 ## Account Properties

@@ -131,7 +131,11 @@ final defaultConfig = BatchConfig.defaultConfig;
 ### Batch Results
 
 ```dart
-final result = await helper.execute(...);
+final result = await helper.execute<Address, AccountOnNetwork>(
+  items: addresses,
+  operation: (address) => provider.getAccount(address),
+  getId: (address) => address.bech32,
+);
 
 // Summary
 print('Total: ${result.totalCount}');
@@ -231,11 +235,14 @@ void main() async {
   final paginator = Paginator<TokenOnNetwork>(
     initialParams: PaginationParams.offset(offset: 0, limit: 10),
     fetchPage: (params) async {
+      // Provider methods take plain from/size; PaginationParams exposes both
+      // as effectiveOffset / effectiveLimit whichever style you started from.
       final tokens = await provider.getFungibleTokensOfAccount(
         address,
-        params: params,
+        from: params.effectiveOffset,
+        size: params.effectiveLimit,
       );
-      return PagedResult.fromResponse(
+      return PagedResult<TokenOnNetwork>.fromResponse(
         items: tokens,
         params: params,
         totalCount: tokens.length,
@@ -287,7 +294,7 @@ final offsetParams = PaginationParams.offset(
   offset: 0,           // Starting offset
   limit: 25,           // Items per page
   sortBy: 'balance',   // Sort field
-  sortOrder: SortOrder.desc,
+  sortOrder: SortOrder.descending, // or SortOrder.ascending
 );
 
 // Page-based pagination
@@ -396,8 +403,11 @@ void main() async {
   }
 
   // Batch fetch with caching and resilience
-  final addresses = [...]; // Many addresses
-  final result = await batchHelper.execute(
+  final addresses = <Address>[
+    Address.fromBech32('erd1...'),
+    Address.fromBech32('erd1...'),
+  ];
+  final result = await batchHelper.execute<Address, AccountOnNetwork>(
     items: addresses,
     operation: getAccountCached,
     getId: (addr) => addr.bech32,

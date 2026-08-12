@@ -12,9 +12,11 @@ class TypeFormula {
   /// #### Parameters
   /// - `name` - Type name (e.g., 'List', 'Option', 'u32')
   /// - `typeParameters` - Generic type parameters (default: empty)
+  /// - `metadata` - Optional metadata captured between `*...*` (e.g. scale for ManagedDecimal)
   const TypeFormula({
     required this.name,
     this.typeParameters = const <TypeFormula>[],
+    this.metadata,
   });
 
   /// Creates primitive type formula without type parameters.
@@ -22,7 +24,8 @@ class TypeFormula {
   /// #### Parameters
   /// - `name` - Primitive type name (e.g., 'u32', 'Address')
   const TypeFormula.primitive(this.name)
-    : typeParameters = const <TypeFormula>[];
+    : typeParameters = const <TypeFormula>[],
+      metadata = null;
 
   /// Creates generic type formula with single type parameter.
   ///
@@ -30,14 +33,16 @@ class TypeFormula {
   /// - `name` - Generic type name (e.g., 'Option', 'List')
   /// - `parameter` - Type parameter formula
   TypeFormula.withSingleParameter(this.name, TypeFormula parameter)
-    : typeParameters = <TypeFormula>[parameter];
+    : typeParameters = <TypeFormula>[parameter],
+      metadata = null;
 
   /// Creates generic type formula with multiple type parameters.
   ///
   /// #### Parameters
   /// - `name` - Generic type name (e.g., 'Tuple')
   /// - `typeParameters` - List of type parameter formulas
-  const TypeFormula.withParameters(this.name, this.typeParameters);
+  const TypeFormula.withParameters(this.name, this.typeParameters)
+    : metadata = null;
 
   /// Creates from JSON map.
   ///
@@ -61,6 +66,7 @@ class TypeFormula {
               )
               .toList() ??
           const <TypeFormula>[],
+      metadata: json['metadata'] as String?,
     );
   }
 
@@ -69,6 +75,11 @@ class TypeFormula {
 
   /// Type parameters for generic types.
   final List<TypeFormula> typeParameters;
+
+  /// Optional metadata captured between `*...*` markers in the type string.
+  ///
+  /// Example: `ManagedDecimal<usize>*8*` parses to metadata = `'8'`.
+  final String? metadata;
 
   /// Whether primitive type (no type parameters).
   bool get isPrimitive => typeParameters.isEmpty;
@@ -145,14 +156,20 @@ class TypeFormula {
 
   @override
   String toString() {
-    if (isPrimitive) {
-      return name;
+    final StringBuffer buffer = StringBuffer(name);
+
+    if (isGeneric) {
+      final String parametersString = typeParameters
+          .map((TypeFormula p) => p.toString())
+          .join(', ');
+      buffer.write('<$parametersString>');
     }
 
-    final String parametersString = typeParameters
-        .map((TypeFormula p) => p.toString())
-        .join(', ');
-    return '$name<$parametersString>';
+    if (metadata != null) {
+      buffer.write('*$metadata*');
+    }
+
+    return buffer.toString();
   }
 
   /// Creates copy with optional modifications.
@@ -163,10 +180,15 @@ class TypeFormula {
   ///
   /// #### Returns
   /// `TypeFormula` - New type formula instance
-  TypeFormula copyWith({String? name, List<TypeFormula>? typeParameters}) {
+  TypeFormula copyWith({
+    String? name,
+    List<TypeFormula>? typeParameters,
+    String? metadata,
+  }) {
     return TypeFormula(
       name: name ?? this.name,
       typeParameters: typeParameters ?? this.typeParameters,
+      metadata: metadata ?? this.metadata,
     );
   }
 
@@ -176,10 +198,12 @@ class TypeFormula {
       other is TypeFormula &&
           runtimeType == other.runtimeType &&
           name == other.name &&
+          metadata == other.metadata &&
           CollectionUtils.listEquals(typeParameters, other.typeParameters);
 
   @override
-  int get hashCode => Object.hash(name, Object.hashAll(typeParameters));
+  int get hashCode =>
+      Object.hash(name, metadata, Object.hashAll(typeParameters));
 
   /// Converts to JSON map.
   Map<String, dynamic> toJson() => <String, dynamic>{
@@ -187,6 +211,7 @@ class TypeFormula {
     'typeParameters': typeParameters
         .map((TypeFormula p) => p.toJson())
         .toList(),
+    if (metadata != null) 'metadata': metadata,
   };
 
   /// Validates that type formula is well-formed.

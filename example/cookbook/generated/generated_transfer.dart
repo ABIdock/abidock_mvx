@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:abidock_mvx/abidock_mvx.dart';
 
 void main() async {
-  final alicePem = File('assets/alice.pem').readAsStringSync();
+  final alicePem = File('example/assets/alice.pem').readAsStringSync();
   final alice = await Account.fromPem(alicePem);
 
   final provider = GatewayNetworkProvider.devnet();

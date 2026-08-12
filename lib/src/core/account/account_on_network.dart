@@ -1,7 +1,9 @@
+import '../../infrastructure/network/network_status.dart';
 import '../../utils/helpers.dart';
 import '../address.dart';
 import '../balance.dart';
 import '../nonce.dart';
+import 'code_metadata.dart';
 
 /// Account state snapshot from the blockchain.
 /// Contains balance, nonce, smart contract data, guardians, and other on-chain state.
@@ -11,7 +13,7 @@ import '../nonce.dart';
 /// // From REST API
 /// final apiData = await httpClient.get('/accounts/$address');
 /// final account = AccountOnNetwork.fromApiResponse(apiData);
-/// print('Balance: ${account.balance.toEgld()} EGLD');
+/// print('Balance: ${account.balance.toDenominatedTrimmed} EGLD');
 /// print('Nonce: ${account.nonce.value}');
 /// print('Is contract: ${account.isContract}');
 /// print('Shard: ${account.shard}');
@@ -54,6 +56,8 @@ class AccountOnNetwork {
   /// - `deployTxHash` - Contract deployment transaction hash (optional)
   /// - `deployedAt` - Contract deployment timestamp (optional)
   /// - `isGuardedFlag` - Whether account is guarded flag from API (optional)
+  /// - `timestamp` - Indexed account timestamp in seconds (optional)
+  /// - `timestampMs` - Indexed account timestamp in milliseconds (optional)
   const AccountOnNetwork({
     required this.address,
     required this.nonce,
@@ -79,6 +83,8 @@ class AccountOnNetwork {
     this.deployTxHash,
     this.deployedAt,
     this.isGuardedFlag,
+    this.timestamp,
+    this.timestampMs,
   });
 
   /// Creates from REST API response.
@@ -109,6 +115,13 @@ class AccountOnNetwork {
   /// print('Contract owner: ${account.ownerAddress?.bech32}');
   /// ```
   factory AccountOnNetwork.fromApiResponse(Map<String, dynamic> data) {
+    final String? codeMetadataRaw = optionalAs<String>(
+      data['codeMetadata'],
+      'codeMetadata',
+    );
+    final CodeMetadata? decodedMetadata = CodeMetadata.tryParseBase64(
+      codeMetadataRaw,
+    );
     return AccountOnNetwork(
       address: Address.fromBech32(
         requireAs<String>(data['address'], 'address'),
@@ -122,7 +135,7 @@ class AccountOnNetwork {
       code: optionalAs<String>(data['code'], 'code'),
       codeHash: optionalAs<String>(data['codeHash'], 'codeHash'),
       rootHash: optionalAs<String>(data['rootHash'], 'rootHash'),
-      codeMetadata: optionalAs<String>(data['codeMetadata'], 'codeMetadata'),
+      codeMetadata: codeMetadataRaw,
       ownerAddress: data['ownerAddress'] != null
           ? Address.fromBech32(
               requireAs<String>(data['ownerAddress'], 'ownerAddress'),
@@ -133,29 +146,35 @@ class AccountOnNetwork {
               requireAs<String>(data['developerReward'], 'developerReward'),
             )
           : null,
-      activeGuardian: data['activeGuardian'] != null
-          ? GuardianData.fromApiResponse(
-              requireAs<Map<String, dynamic>>(
-                data['activeGuardian'],
-                'activeGuardian',
-              ),
-            )
-          : null,
-      pendingGuardian: data['pendingGuardian'] != null
-          ? GuardianData.fromApiResponse(
-              requireAs<Map<String, dynamic>>(
-                data['pendingGuardian'],
-                'pendingGuardian',
-              ),
-            )
-          : null,
-      isPayable: optionalAs<bool>(data['isPayable'], 'isPayable'),
-      isPayableBySmartContract: optionalAs<bool>(
-        data['isPayableBySmartContract'],
-        'isPayableBySmartContract',
+      activeGuardian: _guardianFromApi(
+        data,
+        addressKey: 'activeGuardianAddress',
+        epochKey: 'activeGuardianActivationEpoch',
+        serviceUidKey: 'activeGuardianServiceUid',
+        nested: data['activeGuardian'],
       ),
-      isUpgradeable: optionalAs<bool>(data['isUpgradeable'], 'isUpgradeable'),
-      isReadable: optionalAs<bool>(data['isReadable'], 'isReadable'),
+      pendingGuardian: _guardianFromApi(
+        data,
+        addressKey: 'pendingGuardianAddress',
+        epochKey: 'pendingGuardianActivationEpoch',
+        serviceUidKey: 'pendingGuardianServiceUid',
+        nested: data['pendingGuardian'],
+      ),
+      isPayable:
+          optionalAs<bool>(data['isPayable'], 'isPayable') ??
+          decodedMetadata?.isPayable,
+      isPayableBySmartContract:
+          optionalAs<bool>(
+            data['isPayableBySmartContract'],
+            'isPayableBySmartContract',
+          ) ??
+          decodedMetadata?.isPayableBySmartContract,
+      isUpgradeable:
+          optionalAs<bool>(data['isUpgradeable'], 'isUpgradeable') ??
+          decodedMetadata?.isUpgradeable,
+      isReadable:
+          optionalAs<bool>(data['isReadable'], 'isReadable') ??
+          decodedMetadata?.isReadable,
       scamInfo: optionalAs<Map<String, dynamic>>(data['scamInfo'], 'scamInfo'),
       assets: optionalAs<Map<String, dynamic>>(data['assets'], 'assets'),
       txCount: (data['txCount'] as num?)?.toInt(),
@@ -163,6 +182,8 @@ class AccountOnNetwork {
       deployTxHash: optionalAs<String>(data['deployTxHash'], 'deployTxHash'),
       deployedAt: (data['deployedAt'] as num?)?.toInt(),
       isGuardedFlag: optionalAs<bool>(data['isGuarded'], 'isGuarded'),
+      timestamp: optionalInt(data['timestamp'], 'timestamp'),
+      timestampMs: optionalInt(data['timestampMs'], 'timestampMs'),
     );
   }
 
@@ -187,6 +208,13 @@ class AccountOnNetwork {
   /// print('Nonce: ${account.nonce.value}');
   /// ```
   factory AccountOnNetwork.fromProxyResponse(Map<String, dynamic> data) {
+    final String? codeMetadataRaw = optionalAs<String>(
+      data['codeMetadata'],
+      'codeMetadata',
+    );
+    final CodeMetadata? decodedMetadata = CodeMetadata.tryParseBase64(
+      codeMetadataRaw,
+    );
     return AccountOnNetwork(
       address: Address.fromBech32(
         requireAs<String>(data['address'], 'address'),
@@ -200,7 +228,7 @@ class AccountOnNetwork {
       code: optionalAs<String>(data['code'], 'code'),
       codeHash: optionalAs<String>(data['codeHash'], 'codeHash'),
       rootHash: optionalAs<String>(data['rootHash'], 'rootHash'),
-      codeMetadata: optionalAs<String>(data['codeMetadata'], 'codeMetadata'),
+      codeMetadata: codeMetadataRaw,
       ownerAddress:
           data['ownerAddress'] != null &&
               (requireAs<String>(
@@ -217,7 +245,7 @@ class AccountOnNetwork {
             )
           : null,
       activeGuardian: data['activeGuardian'] != null
-          ? GuardianData.fromProxyResponse(
+          ? AccountGuardian.fromProxyResponse(
               requireAs<Map<String, dynamic>>(
                 data['activeGuardian'],
                 'activeGuardian',
@@ -225,20 +253,28 @@ class AccountOnNetwork {
             )
           : null,
       pendingGuardian: data['pendingGuardian'] != null
-          ? GuardianData.fromProxyResponse(
+          ? AccountGuardian.fromProxyResponse(
               requireAs<Map<String, dynamic>>(
                 data['pendingGuardian'],
                 'pendingGuardian',
               ),
             )
           : null,
-      isPayable: optionalAs<bool>(data['isPayable'], 'isPayable'),
-      isPayableBySmartContract: optionalAs<bool>(
-        data['isPayableBySmartContract'],
-        'isPayableBySmartContract',
-      ),
-      isUpgradeable: optionalAs<bool>(data['isUpgradeable'], 'isUpgradeable'),
-      isReadable: optionalAs<bool>(data['isReadable'], 'isReadable'),
+      isPayable:
+          optionalAs<bool>(data['isPayable'], 'isPayable') ??
+          decodedMetadata?.isPayable,
+      isPayableBySmartContract:
+          optionalAs<bool>(
+            data['isPayableBySmartContract'],
+            'isPayableBySmartContract',
+          ) ??
+          decodedMetadata?.isPayableBySmartContract,
+      isUpgradeable:
+          optionalAs<bool>(data['isUpgradeable'], 'isUpgradeable') ??
+          decodedMetadata?.isUpgradeable,
+      isReadable:
+          optionalAs<bool>(data['isReadable'], 'isReadable') ??
+          decodedMetadata?.isReadable,
       scamInfo: optionalAs<Map<String, dynamic>>(data['scamInfo'], 'scamInfo'),
       assets: optionalAs<Map<String, dynamic>>(data['assets'], 'assets'),
       txCount: (data['txCount'] as num?)?.toInt(),
@@ -246,6 +282,8 @@ class AccountOnNetwork {
       deployTxHash: optionalAs<String>(data['deployTxHash'], 'deployTxHash'),
       deployedAt: (data['deployedAt'] as num?)?.toInt(),
       isGuardedFlag: optionalAs<bool>(data['isGuarded'], 'isGuarded'),
+      timestamp: optionalInt(data['timestamp'], 'timestamp'),
+      timestampMs: optionalInt(data['timestampMs'], 'timestampMs'),
     );
   }
 
@@ -283,10 +321,10 @@ class AccountOnNetwork {
   final Balance? developerReward;
 
   /// Active guardian.
-  final GuardianData? activeGuardian;
+  final AccountGuardian? activeGuardian;
 
   /// Pending guardian.
-  final GuardianData? pendingGuardian;
+  final AccountGuardian? pendingGuardian;
 
   /// Whether smart contract is payable (accepts EGLD).
   final bool? isPayable;
@@ -321,6 +359,38 @@ class AccountOnNetwork {
 
   /// Whether account is guarded (from API flag).
   final bool? isGuardedFlag;
+
+  /// Indexed account timestamp in seconds, if reported.
+  ///
+  /// The API reports it only when the account is requested with
+  /// `withTimestamp=true`; without that flag the key is absent and this stays
+  /// `null`. The gateway's account route does not carry it at all. Prefer
+  /// [indexedAt], which does not depend on the reported unit.
+  final int? timestamp;
+
+  /// Indexed account timestamp in milliseconds, if reported.
+  ///
+  /// Gated behind the same `withTimestamp=true` request flag as [timestamp],
+  /// and additionally absent for accounts whose indexed record predates
+  /// millisecond granularity — in that case only [timestamp] is reported.
+  final int? timestampMs;
+
+  /// Instant of the account's indexed state, normalised to UTC.
+  ///
+  /// Prefers [timestampMs] and falls back to [timestamp], deciding the unit of
+  /// whichever value it uses by magnitude via [ChainTimestamp].
+  ///
+  /// #### Returns
+  /// `DateTime?` - UTC instant, or `null` when neither timestamp was reported,
+  /// which is the case for every account fetched without `withTimestamp=true`
+  ///
+  /// #### Example
+  /// ```dart
+  /// final AccountOnNetwork account = await provider.getAccount(address);
+  /// print(account.indexedAt);
+  /// ```
+  DateTime? get indexedAt =>
+      ChainTimestamp.toDateTime(timestampMs ?? timestamp);
 
   /// Checks if account is a smart contract.
   ///
@@ -385,7 +455,9 @@ class AccountOnNetwork {
         other.scrCount == scrCount &&
         other.deployTxHash == deployTxHash &&
         other.deployedAt == deployedAt &&
-        other.isGuardedFlag == isGuardedFlag;
+        other.isGuardedFlag == isGuardedFlag &&
+        other.timestamp == timestamp &&
+        other.timestampMs == timestampMs;
   }
 
   @override
@@ -414,7 +486,40 @@ class AccountOnNetwork {
     deployTxHash,
     deployedAt,
     isGuardedFlag,
+    timestamp,
+    timestampMs,
   ]);
+
+  /// Builds a guardian from the API's flat `*GuardianAddress` /
+  /// `*GuardianActivationEpoch` / `*GuardianServiceUid` scalars.
+  ///
+  /// `GET /accounts/:address?withGuardianInfo=true` returns those fields flat
+  /// on the account object rather than as nested guardian objects. `nested` is
+  /// still honoured as a fallback so gateway-shaped payloads keep parsing.
+  /// Returns `null` when neither carries a guardian address.
+  static AccountGuardian? _guardianFromApi(
+    Map<String, dynamic> data, {
+    required String addressKey,
+    required String epochKey,
+    required String serviceUidKey,
+    required dynamic nested,
+  }) {
+    final String? flatAddress = optionalAs<String>(
+      data[addressKey],
+      addressKey,
+    );
+    if (flatAddress != null && flatAddress.isNotEmpty) {
+      return AccountGuardian(
+        address: Address.fromBech32(flatAddress),
+        activationEpoch: optionalInt(data[epochKey], epochKey) ?? 0,
+        serviceUID: optionalAs<String>(data[serviceUidKey], serviceUidKey),
+      );
+    }
+    if (nested is Map<String, dynamic> && nested['address'] != null) {
+      return AccountGuardian.fromApiResponse(nested);
+    }
+    return null;
+  }
 }
 
 /// Guardian information for account security.
@@ -422,24 +527,24 @@ class AccountOnNetwork {
 ///
 /// #### Example
 /// ```dart
-/// final guardian = GuardianData(
+/// final guardian = AccountGuardian(
 ///   address: Address.fromBech32('erd1guardian...'),
 ///   activationEpoch: 1234,
 ///   serviceUID: 'guardian-service-123',
 /// );
 ///
 /// // From API
-/// final guardianFromApi = GuardianData.fromApiResponse(apiData['activeGuardian']);
+/// final guardianFromApi = AccountGuardian.fromApiResponse(apiData['activeGuardian']);
 /// print('Guardian active since epoch: ${guardianFromApi.activationEpoch}');
 /// ```
-class GuardianData {
+class AccountGuardian {
   /// Creates guardian data.
   ///
   /// #### Parameters
   /// - `address` - Guardian address
   /// - `activationEpoch` - Epoch when guardian becomes/became active
   /// - `serviceUID` - Guardian service identifier (optional)
-  const GuardianData({
+  const AccountGuardian({
     required this.address,
     required this.activationEpoch,
     this.serviceUID,
@@ -447,11 +552,14 @@ class GuardianData {
 
   /// Creates from API response.
   ///
+  /// Accepts both the gateway spelling `serviceUID` and the API spelling
+  /// `serviceUid`.
+  ///
   /// #### Parameters
   /// - `data` - JSON map from REST API guardian data
   ///
   /// #### Returns
-  /// `GuardianData` - Parsed GuardianData instance
+  /// `AccountGuardian` - Parsed AccountGuardian instance
   ///
   /// #### Example
   /// ```dart
@@ -460,10 +568,10 @@ class GuardianData {
   ///   'activationEpoch': 1234,
   ///   'serviceUID': 'service-123',
   /// };
-  /// final guardian = GuardianData.fromApiResponse(guardianData);
+  /// final guardian = AccountGuardian.fromApiResponse(guardianData);
   /// ```
-  factory GuardianData.fromApiResponse(Map<String, dynamic> data) {
-    return GuardianData(
+  factory AccountGuardian.fromApiResponse(Map<String, dynamic> data) {
+    return AccountGuardian(
       address: Address.fromBech32(
         requireAs<String>(data['address'], 'address'),
       ),
@@ -471,7 +579,9 @@ class GuardianData {
         data['activationEpoch'],
         'activationEpoch',
       ),
-      serviceUID: optionalAs<String>(data['serviceUID'], 'serviceUID'),
+      serviceUID:
+          optionalAs<String>(data['serviceUID'], 'serviceUID') ??
+          optionalAs<String>(data['serviceUid'], 'serviceUid'),
     );
   }
 
@@ -481,19 +591,19 @@ class GuardianData {
   /// - `data` - JSON map from Gateway guardian data
   ///
   /// #### Returns
-  /// `GuardianData` - Parsed GuardianData instance
+  /// `AccountGuardian` - Parsed AccountGuardian instance
   ///
   /// #### Example
   /// ```dart
-  /// final proxyGuardianData = {
+  /// final proxyAccountGuardian = {
   ///   'address': 'erd1guardian...',
   ///   'activationEpoch': '1234', // String in Proxy
   ///   'serviceUID': 'service-123',
   /// };
-  /// final guardian = GuardianData.fromProxyResponse(proxyGuardianData);
+  /// final guardian = AccountGuardian.fromProxyResponse(proxyAccountGuardian);
   /// ```
-  factory GuardianData.fromProxyResponse(Map<String, dynamic> data) {
-    return GuardianData(
+  factory AccountGuardian.fromProxyResponse(Map<String, dynamic> data) {
+    return AccountGuardian(
       address: Address.fromBech32(
         requireAs<String>(data['address'], 'address'),
       ),
@@ -513,7 +623,7 @@ class GuardianData {
 
   @override
   String toString() =>
-      'GuardianData('
+      'AccountGuardian('
       'address: ${address.bech32}, '
       'activationEpoch: $activationEpoch, '
       'serviceUID: $serviceUID)';
@@ -521,7 +631,7 @@ class GuardianData {
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is GuardianData &&
+    return other is AccountGuardian &&
         other.address == address &&
         other.activationEpoch == activationEpoch &&
         other.serviceUID == serviceUID;

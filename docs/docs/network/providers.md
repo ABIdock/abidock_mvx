@@ -1,13 +1,19 @@
 ---
 id: providers
 title: Network Providers
-sidebar_position: 1
+sidebar_position: 2
 description: Connect to MultiversX blockchain using Gateway or API network providers for transactions and data queries.
 ---
 
 # Network Providers
 
 Network providers connect your application to the MultiversX blockchain. Two providers are available for different use cases.
+
+:::tip
+If you only need "give me Devnet, wired up", an
+[entrypoint](/docs/network/entrypoints) builds the provider for you and caches
+it alongside matching factories and controllers.
+:::
 
 ## Provider Comparison
 
@@ -19,7 +25,9 @@ Network providers connect your application to the MultiversX blockchain. Two pro
 | **Token metadata** | Basic token data | Extended metadata (price, supply, etc.) |
 | **Account data** | Core fields | Extended fields (shard, txCount, etc.) |
 | **Transaction data** | Core fields | Extended fields (action, operations, etc.) |
-| **Economics data** | ❌ Not supported | ✅ Full support |
+| **Economics data** | Chain metrics via `getGatewayEconomics()` | Market data via `getNetworkEconomics()` |
+| **Token definitions** | ❌ Not exposed | ✅ `/tokens`, `/collections` |
+| **Hyperblocks** | ✅ `getHyperblock()` | ❌ Not exposed |
 
 ## GatewayNetworkProvider
 
@@ -137,7 +145,7 @@ final collection = await api.getDefinitionOfTokenCollection('APES-abcdef');
 print('Type: ${collection.type}  owner: ${collection.owner}');
 
 final nft = await api.getNonFungibleToken('APES-abcdef', 42);
-print('Owner: ${nft.owner}  uris: ${nft.uris.length}');
+print('Owner: ${nft.owner}  uris: ${nft.uris?.length ?? 0}');
 ```
 
 ### Block Queries
@@ -180,8 +188,17 @@ print('APR: ${(economics.apr * 100).toStringAsFixed(2)}%');
 ```
 
 :::note
-The `getNetworkEconomics()` method is only available on `ApiNetworkProvider`. 
-Gateway does not support this endpoint and will throw `UnsupportedError`.
+`getNetworkEconomics()` is API-only: price, market cap, APR, and circulating
+supply are computed by the indexer and have no source on the Gateway, so the
+Gateway implementation throws `UnsupportedError`. The Gateway does expose the
+metachain's own metrics — supply, fees, inflation, developer rewards, staked
+and top-up values, all as `BigInt` atomic amounts:
+
+```dart
+final gateway = GatewayNetworkProvider.mainnet();
+final chainEconomics = await gateway.getGatewayEconomics();
+print('Total supply: ${chainEconomics.totalSupply}');
+```
 :::
 
 ### Smart Contract Queries
@@ -204,25 +221,66 @@ final result = await controller.query(
 
 ## Provider Configuration
 
+Both providers accept the same optional arguments: a `Dio` client, a `Logger`,
+a circuit-breaker switch, and a `NetworkProviderConfig`.
+
 ### Custom HTTP Client
 
-```dart
-import 'package:http/http.dart' as http;
+Requests go through [Dio](https://pub.dev/packages/dio), so any pre-configured
+client (interceptors, proxies, custom adapters) can be injected:
 
-final customClient = http.Client();
+```dart
+import 'package:dio/dio.dart';
+
+final client = Dio(BaseOptions(
+  connectTimeout: const Duration(seconds: 30),
+  receiveTimeout: const Duration(seconds: 30),
+));
 
 final provider = GatewayNetworkProvider(
   baseUrl: 'https://devnet-gateway.multiversx.com',
-  chainId: ChainId('D'),
+  chainId: const ChainId('D'),
+  client: client,
 );
 ```
 
-### Timeout Configuration
+### NetworkProviderConfig
+
+`NetworkProviderConfig` covers the behaviour the SDK layers on top of the HTTP
+client: headers, per-request timeout, retries, throttling, and response caching.
+
+```dart
+final provider = ApiNetworkProvider(
+  baseUrl: 'https://api.multiversx.com',
+  chainId: const ChainId('1'),
+  config: const NetworkProviderConfig(
+    clientName: 'my-dapp',
+    requestTimeout: Duration(seconds: 20),
+    headers: {'X-Trace': 'checkout-flow'},
+  ),
+);
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `clientName` | `String?` | Suffix added to the `User-Agent` header |
+| `headers` | `Map<String, String>?` | Extra headers sent with every request |
+| `requestTimeout` | `Duration?` | Maps onto the Dio connect/receive/send timeouts |
+| `baseUrl` | `String?` | Overrides the base URL passed to the constructor |
+| `retryPolicy` | `RetryPolicy` | Automatic retries; disabled by default |
+| `throttlePolicy` | `ThrottlePolicy` | Client-side rate limiting; disabled by default |
+| `cachePolicy` | `ResponseCachePolicy` | In-process `GET` cache; disabled by default |
+
+### Circuit Breaker
+
+Both providers can trip a circuit breaker after repeated failures instead of
+hammering an unhealthy host:
 
 ```dart
 final provider = GatewayNetworkProvider(
   baseUrl: 'https://gateway.multiversx.com',
-  chainId: ChainId('1'),
+  chainId: const ChainId('1'),
+  enableCircuitBreaker: true,
 );
 ```
 
@@ -272,24 +330,45 @@ final account = await multi.query((p) => p.getAccount(address));
 | Operation | Endpoint |
 |-----------|----------|
 | Get account | `/address/{address}` |
+| Get account storage | `/address/{address}/keys` |
 | Get tokens | `/address/{address}/esdt` |
-| Get NFTs | `/address/{address}/nft` |
+| Get NFTs | `/address/{address}/esdt` |
+| Get one NFT | `/address/{address}/nft/{collection}/nonce/{nonce}` |
+| Guardian data | `/address/{address}/guardian-data` |
 | Send transaction | `/transaction/send` |
-| Get transaction | `/transaction/{hash}` |
+| Send many | `/transaction/send-multiple` |
+| Get transaction | `/transaction/{hash}?withResults=true` |
+| Transaction status | `/transaction/{hash}/process-status` |
 | Network config | `/network/config` |
+| Network status | `/network/status/{shard}` |
+| Network economics | `/network/economics` |
+| Block by nonce | `/block/{shard}/by-nonce/{nonce}` |
+| Hyperblock | `/hyperblock/by-nonce/{nonce}` |
 | VM query | `/vm-values/query` |
 
 ### API Endpoints
 
 | Operation | Endpoint |
 |-----------|----------|
-| Get account | `/accounts/{address}` |
+| Get account | `/accounts/{address}?withGuardianInfo=true` |
 | Get tokens | `/accounts/{address}/tokens` |
 | Get NFTs | `/accounts/{address}/nfts` |
 | Send transaction | `/transactions` |
 | Get transaction | `/transactions/{hash}` |
-| Network config | `/economics` + `/constants` |
+| Transaction status | `/transactions/{hash}?fields=status` |
+| Network config | `/network/config` |
+| Network status | `/network/status/{shard}` |
 | Network economics | `/economics` |
+| Token definition | `/tokens/{identifier}` |
+| Collection definition | `/collections/{collection}` |
+| Block by hash | `/blocks/{hash}` |
+| VM query | `/query` |
+
+:::note
+The Gateway lists both fungible and non-fungible holdings from
+`/address/{address}/esdt`; the split into `getFungibleTokensOfAccount()` and
+`getNonFungibleTokensOfAccount()` happens client-side.
+:::
 
 ## Response Models
 
@@ -300,14 +379,23 @@ Account information returned by `getAccount()`:
 | Field | Type | Description |
 |-------|------|-------------|
 | `address` | `Address` | Account address |
-| `balance` | `Balance` | EGLD balance |
 | `nonce` | `Nonce` | Transaction counter |
-| `shard` | `int` | Account's shard (API only) |
+| `balance` | `Balance` | EGLD balance |
+| `shard` | `int?` | Account's shard (API only) |
+| `username` | `String` | Herotag, empty when unset |
+| `code` | `String?` | Deployed contract code |
+| `codeHash` | `String?` | Hash of the deployed code |
+| `codeMetadata` | `String?` | Upgradeable / readable / payable flags |
+| `rootHash` | `String?` | Account trie root hash |
+| `ownerAddress` | `Address?` | Contract owner (for smart contracts) |
+| `developerReward` | `Balance?` | Accrued developer rewards |
+| `activeGuardian` | `AccountGuardian?` | Guardian currently enforcing 2FA |
+| `pendingGuardian` | `AccountGuardian?` | Guardian awaiting activation |
 | `txCount` | `int?` | Total transaction count (API only) |
 | `scrCount` | `int?` | Smart contract result count (API only) |
-| `ownerAddress` | `String?` | Contract owner (for smart contracts) |
+| `deployTxHash` | `String?` | Deployment transaction (for smart contracts) |
 | `deployedAt` | `int?` | Deployment timestamp (for smart contracts) |
-| `assets` | `Map?` | Account assets/metadata (API only) |
+| `assets` | `Map<String, dynamic>?` | Account assets/metadata (API only) |
 
 ### TransactionOnNetwork
 
@@ -318,34 +406,50 @@ Transaction information returned by `getTransaction()`:
 | `txHash` | `String` | Transaction hash |
 | `transaction` | `Transaction` | Original transaction details |
 | `status` | `TransactionStatus` | Current status |
-| `timestamp` | `int` | Unix timestamp |
-| `gasUsed` | `int` | Gas consumed |
-| `fee` | `String` | Total fee paid |
+| `timestamp` | `int?` | Unix timestamp (seconds) |
+| `timestampMs` | `int?` | Unix timestamp (milliseconds) |
+| `gasUsed` | `int?` | Gas consumed |
+| `fee` | `String?` | Total fee paid |
+| `initiallyPaidFee` | `String?` | Fee locked before execution |
 | `senderShard` | `int?` | Sender's shard |
 | `receiverShard` | `int?` | Receiver's shard |
-| `logs` | `TransactionLogs?` | Event logs |
-| `smartContractResults` | `List?` | SC execution results |
-| `action` | `Map?` | Parsed action details (API only) |
-| `operations` | `List?` | Token operations (API only) |
+| `blockNonce` | `int?` | Nonce of the including block |
+| `blockHash` | `String?` | Hash of the including block |
 | `hyperblockNonce` | `int?` | Hyperblock nonce |
 | `hyperblockHash` | `String?` | Hyperblock hash |
+| `logs` | `TransactionLogs?` | Event logs |
+| `smartContractResults` | `List<SmartContractResult>?` | SC execution results |
+| `function` | `String?` | Called endpoint name |
+| `isRelayed` | `bool?` | Whether the transaction was relayed |
+| `relayer` | `String?` | Relayer address |
+| `relayerSignature` | `String?` | Relayer signature |
+| `relayedVersion` | `String?` | Relayed protocol version reported by the network |
+| `guardianAddress` | `String?` | Guardian that co-signed |
+| `guardianSignature` | `String?` | Guardian signature |
+| `action` | `Map<String, dynamic>?` | Parsed action details (API only) |
+| `operations` | `List<Map<String, dynamic>>?` | Token operations (API only) |
+| `price` | `double?` | EGLD price at execution time (API only) |
 
 ### TokenOnNetwork
 
-Token information returned by `getFungibleTokensOfAccount()`:
+Token information returned by `getFungibleTokensOfAccount()`. The three fields
+are always present; the rest are convenience getters that read the untouched
+`raw` payload, so anything the host returned is still reachable.
 
-| Field | Type | Description |
-|-------|------|-------------|
+| Member | Type | Description |
+|--------|------|-------------|
 | `identifier` | `String` | Token identifier |
-| `balance` | `String` | Token balance |
-| `decimals` | `int` | Token decimals |
-| `type` | `String?` | Token type (FungibleESDT, etc.) |
+| `balance` | `String` | Token balance, atomic units |
+| `nonce` | `int` | Token nonce (`0` for fungible tokens) |
+| `raw` | `Map<String, dynamic>` | Full untouched payload |
 | `name` | `String?` | Token name |
 | `ticker` | `String?` | Token ticker |
+| `decimals` | `int` | Token decimals, defaults to `18` |
+| `type` | `String?` | Token type (`FungibleESDT`, `NonFungibleESDT`, ...) |
 | `owner` | `String?` | Token owner address |
-| `price` | `double?` | Current price USD (API only) |
-| `marketCap` | `double?` | Market capitalization (API only) |
-| `supply` | `String?` | Total supply (API only) |
+| `collection` | `String?` | Parent collection (NFT/SFT) |
+| `timestamp` | `int?` | Creation timestamp (seconds) |
+| `timestampMs` | `int?` | Creation timestamp (milliseconds) |
 
 ### NetworkEconomics
 
@@ -422,6 +526,7 @@ void main() async {
 
 ## Next Steps
 
+- [Entrypoints](/docs/network/entrypoints) - Provider, factories, and controllers in one object
 - [Network Configuration](/docs/network/network-configuration) - Detailed config
 - [WebSocket Events](/docs/network/websocket-events) - Real-time updates
 - [Transactions](/docs/transactions/overview) - Sending transactions

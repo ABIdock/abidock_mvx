@@ -37,10 +37,10 @@ import '../nonce.dart';
 ///   networkProvider: provider,
 /// );
 ///
-/// Future<String> sendOne(Transaction draft, Signer signer) async {
+/// Future<String> sendOne(Transaction draft, UserSigner signer) async {
 ///   final nonce = await nonces.next();
 ///   try {
-///     final signed = await signer.sign(draft.copyWith(newNonce: nonce));
+///     final signed = await draft.copyWith(newNonce: nonce).signWith(signer);
 ///     final hash = await provider.sendTransaction(signed);
 ///     nonces.applyNonce(nonce);
 ///     return hash;

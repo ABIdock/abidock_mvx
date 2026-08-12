@@ -1,4 +1,4 @@
-import 'dart:typed_data';
+import 'dart:convert';
 
 import 'package:meta/meta.dart';
 
@@ -100,6 +100,36 @@ final class ExplicitEnumType extends CustomType {
   ///   ],
   /// );
   /// ```
+  /// Looks up `name` in the supplied registry and returns it as an
+  /// `ExplicitEnumType`, so an explicit-enum type can be built from a bare
+  /// type name plus a registry.
+  ///
+  /// #### Parameters
+  /// - `name` - The explicit-enum type name registered in `registry`
+  /// - `registry` - Type registry (e.g. an `AbiTypeFactory`) implementing
+  ///   `lookupType(String)`
+  ///
+  /// #### Returns
+  /// `ExplicitEnumType` - The resolved type
+  ///
+  /// #### Throws
+  /// - `ArgumentError` - If `name` is not registered or is not an ExplicitEnum
+  static ExplicitEnumType fromRegistry(
+    String name,
+    ExplicitEnumTypeRegistry registry,
+  ) {
+    final dynamic resolved = registry.lookupType(name);
+    if (resolved is ExplicitEnumType) {
+      return resolved;
+    }
+    throw ArgumentError.value(
+      name,
+      'name',
+      'No ExplicitEnumType registered for "$name" '
+          '(got ${resolved?.runtimeType})',
+    );
+  }
+
   ExplicitEnumType({
     required super.name,
     required this.variants,
@@ -108,6 +138,20 @@ final class ExplicitEnumType extends CustomType {
     if (variants.isEmpty) {
       throw ArgumentError('ExplicitEnum must have at least one variant');
     }
+    _validateUniqueness();
+  }
+
+  /// Creates an empty placeholder explicit-enum used during two-phase ABI
+  /// dependency resolution. Real variants are populated in the second pass
+  /// before any encode/decode operation runs.
+  ///
+  /// #### Parameters
+  /// - `name` - Custom type name registered in Phase 1.
+  ExplicitEnumType.placeholder(String name)
+    : variants = const <ExplicitEnumVariantDefinition>[],
+      super(name: name, cardinality: TypeCardinalityExtension.singular());
+
+  void _validateUniqueness() {
     final Set<String> names = variants
         .map((ExplicitEnumVariantDefinition v) => v.name)
         .toSet();
@@ -310,24 +354,28 @@ final class ExplicitEnumValue extends TypedValue {
   /// Discriminant of the selected variant.
   int get discriminant => variant.discriminant;
 
-  /// Encodes enum discriminant as a single byte (u8).
+  /// Encodes the variant NAME as UTF-8 — the explicit-enum top-level wire form.
   ///
-  /// Enum discriminants are encoded as 1-byte unsigned integers,
-  /// consistent with [EnumValue.toBytes].
+  /// An `explicit-enum` puts the raw UTF-8 bytes of the variant name on the
+  /// wire — never a discriminant. `OperationCompletionStatus`
+  /// (`completed` / `interrupted`) is the only such type in practice. ABI JSON
+  /// for `explicit-enum` carries no `discriminant` key at all; [discriminant]
+  /// here is synthesised from the variant's array index and has no meaning on
+  /// the wire.
   ///
   /// #### Returns
-  /// Single-byte array representing the discriminant as u8
+  /// `List<int>` - UTF-8 bytes of [variantName]
   ///
   /// #### Example
   /// ```dart
-  /// final ok = statusEnum.createValue(1); // discriminant 1
-  /// final bytes = ok.toBytes();
-  /// print(bytes); // [1]
+  /// final status = statusEnum.createValue('interrupted');
+  /// final bytes = status.toBytes();
+  /// print(bytes); // [105, 110, 116, 101, 114, 114, 117, 112, 116, 101, 100]
   /// ```
   @pragma('vm:prefer-inline')
   @override
   List<int> toBytes() {
-    return Uint8List(1)..[0] = discriminant;
+    return utf8.encode(variantName);
   }
 
   /// Checks if this enum value is the specified variant.
@@ -353,4 +401,13 @@ final class ExplicitEnumValue extends TypedValue {
 
   @override
   String toString() => '${type.name}::${variant.name}';
+}
+
+/// Minimal registry interface for [ExplicitEnumType.fromRegistry].
+///
+/// Implemented by anything that exposes registered ABI types by name
+/// (e.g. `AbiTypeFactory.getCustomType` via a thin adapter).
+abstract class ExplicitEnumTypeRegistry {
+  /// Returns the registered type with `name`, or `null` if absent.
+  Object? lookupType(String name);
 }

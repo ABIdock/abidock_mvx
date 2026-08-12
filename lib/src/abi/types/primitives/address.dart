@@ -27,9 +27,12 @@ const Bech32Encoder _bech32Encoder = Bech32Encoder(hrp: 'erd');
 /// print(addr2.toHex()); // 0139472eff6886771a982f3083da5d421f24c29181e63888228dc81ca60d69e1
 ///
 /// // Use in struct definitions
-/// final structType = StructType(fields: [
-///   StructField('owner', AddressType.type),
-/// ]);
+/// final structType = StructType(
+///   name: 'Ownership',
+///   fieldDefinitions: [
+///     FieldDefinition(name: 'owner', type: AddressType.type),
+///   ],
+/// );
 /// ```
 @immutable
 final class AddressType extends PrimitiveType {

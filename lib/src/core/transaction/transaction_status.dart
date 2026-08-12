@@ -51,198 +51,143 @@ class TransactionStatus {
   }
 
   /// Transaction is pending execution.
-  ///
-  /// #### Example
-  /// ```dart
-  /// if (txStatus == TransactionStatus.pending) {
-  ///   print('Waiting for validators to process...');
-  /// }
-  /// ```
   static const TransactionStatus pending = TransactionStatus('pending');
 
-  /// Transaction was successfully executed.
+  /// Transaction was received by the network (mempool); not yet executed.
   ///
-  /// #### Example
-  /// ```dart
-  /// if (txStatus == TransactionStatus.executed) {
-  ///   print('Transaction executed successfully');
-  /// }
-  /// ```
+  /// Treated as pending for the watcher.
+  static const TransactionStatus received = TransactionStatus('received');
+
+  /// Transaction was successfully executed.
   static const TransactionStatus executed = TransactionStatus('executed');
 
-  /// Transaction is invalid.
-  ///
-  /// #### Example
-  /// ```dart
-  /// if (txStatus == TransactionStatus.invalid) {
-  ///   print('Transaction has invalid fields or signature');
-  /// }
-  /// ```
-  static const TransactionStatus invalid = TransactionStatus('invalid');
-
-  /// Transaction execution failed.
-  ///
-  /// #### Example
-  /// ```dart
-  /// if (txStatus == TransactionStatus.failed) {
-  ///   print('Transaction execution failed');
-  ///   // Check logs for error details
-  /// }
-  /// ```
-  static const TransactionStatus failed = TransactionStatus('failed');
-
-  /// Transaction succeeded.
-  ///
-  /// #### Example
-  /// ```dart
-  /// if (txStatus == TransactionStatus.success) {
-  ///   print('Transaction completed successfully');
-  /// }
-  /// ```
+  /// Transaction succeeded (alias of `executed`).
   static const TransactionStatus success = TransactionStatus('success');
 
-  /// Transaction was not executable in its block.
+  /// Transaction was successful (Gateway/Proxy variant).
+  static const TransactionStatus successful = TransactionStatus('successful');
+
+  /// Transaction execution failed (short variant emitted by some endpoints).
+  static const TransactionStatus fail = TransactionStatus('fail');
+
+  /// Transaction execution failed.
+  static const TransactionStatus failed = TransactionStatus('failed');
+
+  /// Transaction was unsuccessful (Gateway variant; equivalent to `failed`).
+  static const TransactionStatus unsuccessful = TransactionStatus(
+    'unsuccessful',
+  );
+
+  /// Transaction is invalid — rejected by the node before execution.
+  static const TransactionStatus invalid = TransactionStatus('invalid');
+
+  /// Transaction was not executed as part of the block it was proposed in.
   ///
-  /// Indicates the transaction was proposed but could not be executed.
-  /// This is NOT a final state — the transaction may be retried in a
-  /// subsequent block.
-  ///
-  /// #### Example
-  /// ```dart
-  /// if (txStatus == TransactionStatus.notExecutable) {
-  ///   print('Transaction not executable in this block, will be retried');
-  /// }
-  /// ```
-  static const TransactionStatus notExecutable = TransactionStatus(
+  /// Supernova-only status: the node emits it when a transaction appears in a
+  /// proposed block but is absent from that block's execution result. Neither
+  /// successful nor failed — see [isNotExecutableInBlock].
+  static const TransactionStatus notExecutableInBlock = TransactionStatus(
     'not-executable-in-block',
   );
 
-  /// Transaction was recalled (relayed v3 / future protocol support).
-  ///
-  /// #### Example
-  /// ```dart
-  /// if (txStatus == TransactionStatus.recalled) {
-  ///   print('Transaction was recalled by relayer');
-  /// }
-  /// ```
-  static const TransactionStatus recalled = TransactionStatus('recalled');
+  /// Reward transaction was reverted.
+  static const TransactionStatus rewardReverted = TransactionStatus(
+    'reward-reverted',
+  );
+
+  /// Proxy could not determine the status from any observer.
+  static const TransactionStatus unknown = TransactionStatus('unknown');
 
   /// Raw status string from blockchain.
   final String status;
 
   /// Checks if transaction is pending.
   ///
-  /// #### Returns
-  /// `bool` - True if status is 'pending'
+  /// True while the transaction has not reached a final state: `pending` and
+  /// `received` (mempool intake) are both non-final wire strings.
   ///
-  /// #### Example
-  /// ```dart
-  /// if (status.isPending) {
-  ///   print('Transaction not yet processed');
-  ///   await Future.delayed(Duration(seconds: 1));
-  /// }
-  /// ```
-  bool get isPending => status.toLowerCase() == 'pending';
+  /// #### Returns
+  /// `bool` - True if status is `pending` or `received`
+  bool get isPending {
+    final String lowered = status.toLowerCase();
+    return lowered == 'pending' || lowered == 'received';
+  }
 
-  /// Checks if transaction was executed.
+  /// Checks if transaction was executed successfully.
+  ///
+  /// `executed`, `success` and `successful` are the three success strings
+  /// used across node, Gateway and Proxy responses.
   ///
   /// #### Returns
-  /// `bool` - True if status is 'executed' or 'success'
-  ///
-  /// #### Example
-  /// ```dart
-  /// if (status.isExecuted) {
-  ///   print('Transaction executed in block');
-  ///   // Process results
-  /// }
-  /// ```
+  /// `bool` - True if status is `executed`, `success` or `successful`
   bool get isExecuted {
-    final String lowerStatus = status.toLowerCase();
-    return lowerStatus == 'executed' || lowerStatus == 'success';
+    final String lowered = status.toLowerCase();
+    return lowered == 'executed' ||
+        lowered == 'success' ||
+        lowered == 'successful';
   }
 
   /// Checks if transaction failed.
   ///
-  /// #### Returns
-  /// `bool` - True if status is 'failed'
+  /// `fail`, `failed` and `unsuccessful` are the failure strings emitted
+  /// across node, Gateway and Proxy responses. `invalid` — a transaction the
+  /// node rejected before execution — counts as a failure too, so a watcher
+  /// does not stall on it.
   ///
-  /// #### Example
-  /// ```dart
-  /// if (status.isFailed) {
-  ///   print('Transaction execution failed');
-  ///   // Check transaction logs for error message
-  ///   final logs = txOnNetwork.logs;
-  ///   if (logs != null) {
-  ///     for (final event in logs.events) {
-  ///       if (event.identifier == 'signalError') {
-  ///         print('Error: ${event.topics}');
-  ///       }
-  ///     }
-  ///   }
-  /// }
-  /// ```
-  bool get isFailed => status.toLowerCase() == 'failed';
+  /// #### Returns
+  /// `bool` - True if status is `fail`, `failed`, `unsuccessful` or `invalid`
+  bool get isFailed {
+    final String lowered = status.toLowerCase();
+    return lowered == 'fail' ||
+        lowered == 'failed' ||
+        lowered == 'unsuccessful' ||
+        isInvalid;
+  }
 
   /// Checks if transaction is invalid.
   ///
   /// #### Returns
-  /// `bool` - True if status is 'invalid'
-  ///
-  /// #### Example
-  /// ```dart
-  /// if (status.isInvalid) {
-  ///   print('Transaction rejected - check signature and fields');
-  /// }
-  /// ```
+  /// `bool` - True if status is `invalid`
   bool get isInvalid => status.toLowerCase() == 'invalid';
 
   /// Checks if transaction was not executable in its block.
   ///
-  /// This is NOT a final state. The transaction may be retried in a
-  /// subsequent block by the protocol.
+  /// Reported for a transaction that was part of a proposed block but missing
+  /// from that block's execution result. It is neither a success nor a
+  /// failure, so it is excluded from [isCompleted]; [isFinal] still covers it
+  /// because the status itself will not change again.
   ///
   /// #### Returns
-  /// `bool` - True if status is 'not-executable-in-block'
+  /// `bool` - True if status is `not-executable-in-block`
   bool get isNotExecutableInBlock =>
       status.toLowerCase() == 'not-executable-in-block';
 
-  /// Checks if transaction was recalled.
+  /// Checks if transaction has reached any terminal state.
+  ///
+  /// Terminal = `isExecuted || isFailed || isNotExecutableInBlock`.
+  /// `isInvalid` is covered transitively through `isFailed`. Broader than
+  /// [isCompleted], which stops at success or failure.
   ///
   /// #### Returns
-  /// `bool` - True if status is 'recalled'
-  bool get isRecalled => status.toLowerCase() == 'recalled';
+  /// `bool` - True if transaction will not change status again
+  bool get isFinal => isExecuted || isFailed || isNotExecutableInBlock;
 
-  /// Checks if transaction has completed.
+  /// Checks if transaction reached a completed state.
+  ///
+  /// Completion means the transaction was executed by the chain and produced
+  /// an outcome: success or failure only. `not-executable-in-block` is
+  /// deliberately excluded — such a transaction carries no logs and no smart
+  /// contract results. Check [isNotExecutableInBlock] separately, or use
+  /// [isFinal] for the broader "will not change again" predicate.
   ///
   /// #### Returns
-  /// `bool` - True if transaction reached final state
-  ///
-  /// #### Example
-  /// ```dart
-  /// while (!status.isFinal) {
-  ///   await Future.delayed(Duration(seconds: 1));
-  ///   final tx = await networkProvider.getTransaction(txHash);
-  ///   status = tx.status;
-  /// }
-  /// print('Transaction finalized');
-  /// ```
-  bool get isFinal => isExecuted || isFailed || isInvalid || isRecalled;
+  /// `bool` - True if status is a success or a failure string
+  bool get isCompleted => isExecuted || isFailed;
 
   /// Checks if transaction completed successfully.
   ///
   /// #### Returns
   /// `bool` - True if transaction executed successfully
-  ///
-  /// #### Example
-  /// ```dart
-  /// if (status.isSuccessful) {
-  ///   print('Transaction succeeded!');
-  ///   // Parse smart contract results
-  ///   final results = txOnNetwork.smartContractResults;
-  /// } else {
-  ///   print('Transaction did not succeed');
-  /// }
-  /// ```
   bool get isSuccessful => isExecuted;
 
   @override

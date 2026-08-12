@@ -65,7 +65,7 @@ class Account implements IAccount {
   ///
   /// #### Example
   /// ```dart
-  /// final secretKey = UserSecretKey.fromBytes([...]);
+  /// final secretKey = UserSecretKey(seedBytes); // 32-byte Ed25519 seed
   /// final account = await Account.fromSecretKey(secretKey);
   /// ```
   static Future<Account> fromSecretKey(UserSecretKey secretKey) async {
@@ -99,7 +99,7 @@ class Account implements IAccount {
       final UserSecretKey secretKey = await mnemonicObj.deriveKey(
         addressIndex: addressIndex,
       );
-      return fromSecretKey(secretKey);
+      return await fromSecretKey(secretKey);
     } finally {
       mnemonicObj.dispose();
     }
@@ -235,7 +235,8 @@ class Account implements IAccount {
 
   @override
   Future<Uint8List> signMessage(Message message) async {
-    return secretKey.sign(Uint8List.fromList(message.bytes));
+    const MessageComputer computer = MessageComputer();
+    return secretKey.sign(computer.computeBytesForSigning(message));
   }
 
   @override
@@ -243,7 +244,11 @@ class Account implements IAccount {
     Message message,
     Uint8List signature,
   ) async {
-    return publicKey.verify(Uint8List.fromList(message.bytes), signature);
+    const MessageComputer computer = MessageComputer();
+    return publicKey.verify(
+      computer.computeBytesForVerifying(message),
+      signature,
+    );
   }
 
   /// Verifies raw signature.

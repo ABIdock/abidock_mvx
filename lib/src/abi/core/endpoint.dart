@@ -25,6 +25,7 @@ final class AbiEndpoint {
   /// - `labels` - Labels for contract variants (optional)
   /// - `allowMultipleVarArgs` - Whether multiple variadic args allowed (default: false)
   /// - `documentation` - Optional docs
+  /// - `internalMethodName` - Method name inside the contract source (optional)
   const AbiEndpoint({
     required this.name,
     this.inputs = const InputParameters.empty(),
@@ -38,6 +39,7 @@ final class AbiEndpoint {
     this.allowMultipleVarArgs = false,
     this.documentation,
     this.mutability,
+    this.internalMethodName,
   });
 
   /// Creates endpoint from JSON-like map.
@@ -94,6 +96,11 @@ final class AbiEndpoint {
 
     final String? title = optionalAs<String>(data['title'], 'title');
 
+    final String? internalMethodName = optionalAs<String>(
+      data['rustMethodName'],
+      'rustMethodName',
+    );
+
     final List<dynamic>? labelsList = optionalAs<List<dynamic>>(
       data['labels'],
       'labels',
@@ -138,6 +145,7 @@ final class AbiEndpoint {
       allowMultipleVarArgs: allowMultipleVarArgs,
       documentation: docs,
       mutability: mutability.isEmpty ? null : mutability,
+      internalMethodName: internalMethodName,
     );
   }
 
@@ -219,12 +227,13 @@ final class AbiEndpoint {
 
   /// Labels for contract variant generation.
   ///
-  /// Used by the Rust SDK for build-time contract splitting.
+  /// Declared in the ABI to drive build-time splitting of one contract source
+  /// into several deployable variants.
   final List<String> labels;
 
   /// Whether this endpoint allows multiple variadic arguments.
   ///
-  /// Used as a validation hint in the Rust SDK.
+  /// Declared in the ABI as a validation hint for the endpoint's argument list.
   final bool allowMultipleVarArgs;
 
   /// Documentation.
@@ -235,6 +244,15 @@ final class AbiEndpoint {
   /// Distinguishes `pure` (no state reads) from `readonly` (may read state).
   /// Null when endpoint was not constructed from ABI JSON.
   final String? mutability;
+
+  /// Method name this endpoint carries inside the contract's own source.
+  ///
+  /// The chain dispatches on [name], but a contract author may spell the
+  /// implementing method differently in the contract source. The ABI records
+  /// that internal spelling only when the two differ, so this is null whenever
+  /// the endpoint's internal method name is identical to [name] or the ABI
+  /// omits it.
+  final String? internalMethodName;
 
   /// Whether endpoint is declared as pure (no state reads).
   bool get isPure => mutability == 'pure';
@@ -310,6 +328,10 @@ final class AbiEndpoint {
       'outputs': outputs.toMaps(),
     };
 
+    if (internalMethodName != null) {
+      result['rustMethodName'] = internalMethodName;
+    }
+
     if (isPayable) {
       result['payableInTokens'] = payableInTokens;
     }
@@ -362,7 +384,8 @@ final class AbiEndpoint {
           title == other.title &&
           CollectionUtils.listEquals(labels, other.labels) &&
           allowMultipleVarArgs == other.allowMultipleVarArgs &&
-          documentation == other.documentation;
+          documentation == other.documentation &&
+          internalMethodName == other.internalMethodName;
 
   @override
   int get hashCode => Object.hash(
@@ -377,6 +400,7 @@ final class AbiEndpoint {
     Object.hashAll(labels),
     allowMultipleVarArgs,
     documentation,
+    internalMethodName,
   );
 
   @override

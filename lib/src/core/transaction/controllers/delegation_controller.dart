@@ -222,7 +222,7 @@ class WithdrawInput {
 /// #### Example
 /// ```dart
 /// final controller = DelegationController(
-///   chainId: '1',
+///   chainId: const ChainId.mainnet(),
 ///   gasLimitEstimator: estimator,
 /// );
 /// ```

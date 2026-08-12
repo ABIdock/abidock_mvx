@@ -54,11 +54,9 @@ void main() {
   group('Configuration & Options', () {
     test('handles configuration options', () {
       const defaultOptions = AccountAwaitingOptions();
-      expect(defaultOptions.timeout, equals(const Duration(seconds: 60)));
-      expect(
-        defaultOptions.pollingInterval,
-        equals(const Duration(milliseconds: 500)),
-      );
+      expect(defaultOptions.timeout.inMilliseconds, equals(9000));
+      expect(defaultOptions.pollingInterval.inMilliseconds, equals(600));
+      expect(defaultOptions.patience, equals(Duration.zero));
 
       const customOptions = AccountAwaitingOptions(
         timeout: Duration(minutes: 5),

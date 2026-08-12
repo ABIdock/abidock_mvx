@@ -175,9 +175,7 @@ try {
   print('Value: ${result.first}');
 } on SmartContractQueryException catch (e) {
   print('Contract query error: ${e.message}');
-  if (e.returnCode != null) {
-    print('Return code: ${e.returnCode}');
-  }
+  print('Return code: ${e.code}');  // e.g. 'user error', 'network_error'
 } on NetworkException catch (e) {
   print('Network error: ${e.message}');
 } on ArgumentEncodingException catch (e) {
@@ -284,7 +282,7 @@ void main() async {
     final codec = BinaryCodec.withDefaults();
     final balanceValue = codec.decodeTopLevel(
       balanceBytes,
-      BigUIntType(),
+      BigUIntType.type,
     ) as BigUIntValue;
     print('Balance: ${balanceValue.value}');
   }
@@ -377,10 +375,11 @@ void main() async {
       tokenPaymentType,
     ) as StructValue;
     
-    // Access struct fields
-    final tokenId = paymentValue.getField('token_identifier').nativeValue as String;
-    final nonce = paymentValue.getField('token_nonce').nativeValue as BigInt;
-    final amount = paymentValue.getField('amount').nativeValue as BigInt;
+    // Access struct fields (getFieldValue returns the TypedValue)
+    final tokenId =
+        paymentValue.getFieldValue('token_identifier').nativeValue as String;
+    final nonce = paymentValue.getFieldValue('token_nonce').nativeValue as BigInt;
+    final amount = paymentValue.getFieldValue('amount').nativeValue as BigInt;
     
     print('Token: $tokenId, Nonce: $nonce, Amount: $amount');
   }
@@ -413,10 +412,10 @@ if (result.isSuccess && !result.isEmpty) {
   ) as ListValue;
   
   // Iterate over the list
-  for (final item in listValue.items) {
+  for (final item in listValue.elements) {
     final payment = item as StructValue;
-    final tokenId = payment.getField('token_identifier').nativeValue;
-    final amount = payment.getField('amount').nativeValue;
+    final tokenId = payment.getFieldValue('token_identifier').nativeValue;
+    final amount = payment.getFieldValue('amount').nativeValue;
     print('Token: $tokenId, Amount: $amount');
   }
 }
@@ -443,8 +442,8 @@ if (result.isSuccess && !result.isEmpty) {
   if (optionValue.isNone) {
     print('No payment found');
   } else {
-    final payment = optionValue.value as StructValue;
-    print('Found: ${payment.getField('amount').nativeValue}');
+    final payment = optionValue.unwrap() as StructValue;
+    print('Found: ${payment.getFieldValue('amount').nativeValue}');
   }
 }
 ```
@@ -479,12 +478,12 @@ if (result.isSuccess && !result.isEmpty) {
   ) as StructValue;
   
   // Access outer struct fields
-  final userAddress = userValue.getField('user_address').nativeValue;
-  final userId = userValue.getField('user_id').nativeValue;
+  final userAddress = userValue.getFieldValue('user_address').nativeValue;
+  final userId = userValue.getFieldValue('user_id').nativeValue;
   
   // Access nested struct
-  final lastPayment = userValue.getField('last_payment') as StructValue;
-  final paymentAmount = lastPayment.getField('amount').nativeValue;
+  final lastPayment = userValue.getFieldValue('last_payment') as StructValue;
+  final paymentAmount = lastPayment.getFieldValue('amount').nativeValue;
   
   print('User: $userAddress, Last payment: $paymentAmount');
 }
@@ -529,7 +528,7 @@ final userType = StructBuilder('User')
     .u64Field('id')                // U64Type
     .stringField('name')           // StringType
     .boolField('is_active')        // BooleanType
-    .bigUintField('balance')       // BigUIntType
+    .bigUIntField('balance')       // BigUIntType
     .field('custom', ListType(U32Type.type)) // Any type
     .build();
 ```

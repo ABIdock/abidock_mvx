@@ -25,7 +25,8 @@ import 'user_wallet.dart';
 ///
 /// // Sign message
 /// final message = Message(utf8.encode('Hello'));
-/// final msgSignature = await signer.sign(message.bytes);
+/// final msgBytes = const MessageComputer().computeBytesForSigning(message);
+/// final msgSignature = await signer.sign(msgBytes);
 ///
 /// // Get address
 /// final address = await signer.getAddress();
@@ -89,7 +90,7 @@ class UserSigner {
   ///
   /// #### Example
   /// ```dart
-  /// final secretKey = UserSecretKey.fromBytes([...]);
+  /// final secretKey = UserSecretKey(seedBytes); // 32-byte Ed25519 seed
   /// final signer = UserSigner.fromSecretKey(secretKey);
   /// ```
   factory UserSigner.fromSecretKey(UserSecretKey secretKey) {
@@ -183,8 +184,8 @@ class UserSigner {
   /// );
   ///
   /// // Sign message
-  /// final message = SignableMessage.fromPlainText('Hello World');
-  /// final msgBytes = message.serializeForSigning();
+  /// final message = Message(utf8.encode('Hello World'));
+  /// final msgBytes = const MessageComputer().computeBytesForSigning(message);
   /// final msgSignature = await signer.sign(msgBytes);
   ///
   /// // Sign arbitrary data

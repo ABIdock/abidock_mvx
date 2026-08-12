@@ -26,6 +26,13 @@ final devnet = GatewayNetworkProvider.devnet();
 final testnet = GatewayNetworkProvider.testnet();
 ```
 
+:::tip
+To configure a provider **and** the factories and controllers that go with it
+in one step, use an [entrypoint](/docs/network/entrypoints):
+`DevnetEntrypoint()`, `MainnetEntrypoint()`, `TestnetEntrypoint()`, or their
+`*ProxyEntrypoint` Gateway counterparts.
+:::
+
 ### Custom Network
 
 Connect to a custom gateway:
@@ -90,22 +97,29 @@ final transaction = await controller.call(
 
 ### Automatic Gas Estimation
 
-Use `simulateGas` helper to estimate gas:
+Use `simulateGas` helper to estimate gas. Build an **unsigned** probe so the
+final signed transaction is signed exactly once -- mutating `gasLimit` on a
+signed transaction invalidates its signature.
 
 ```dart
-// Create transaction with max gas for simulation
-final simulationTx = await controller.call(
-  account: account,
+// Build an unsigned probe via the factory.
+final factory = SmartContractCallFactory(
+  contractAddress: controller.contractAddress,
+  abi: controller.abi,
+  chainId: controller.networkProvider.chainId,
+);
+final probeTx = factory.createCall(
+  sender: account.address,
   nonce: networkAccount.nonce,
   endpointName: 'myFunction',
   arguments: [arg1, arg2],
-  options: BaseControllerInput(gasLimit: const GasLimit(600000000)),
+  gasLimit: const GasLimit(600000000),
 );
 
-// Estimate gas using simulation
-final gasLimit = await simulateGas(simulationTx, provider);
+// Estimate gas using simulation.
+final gasLimit = await simulateGas(probeTx, provider);
 
-// Create final transaction with estimated gas
+// Sign once with the final gas limit.
 final transaction = await controller.call(
   account: account,
   nonce: networkAccount.nonce,
@@ -117,31 +131,53 @@ final transaction = await controller.call(
 
 ### Gas Constants
 
-Common gas values:
+Transfer factories compute the limit as
+`minGasLimit + gasLimitPerByte * data.length + execution gas`, using the
+defaults on `TransactionsFactoryConfig`:
 
-| Operation | Typical Gas |
-|-----------|-------------|
-| EGLD Transfer | 50,000 |
-| ESDT Transfer | 500,000 |
-| NFT Transfer | 1,000,000 |
-| Simple Contract Call | 5,000,000 - 10,000,000 |
-| Complex Contract Call | 10,000,000 - 50,000,000 |
+| Component | Default | Applies to |
+|-----------|---------|------------|
+| `minGasLimit` | 50,000 | Every transaction |
+| `gasLimitPerByte` | 1,500 | Each byte of the `data` field |
+| `gasLimitEsdtTransfer` | 200,000 | `ESDTTransfer` |
+| `gasLimitEsdtNftTransfer` | 200,000 | `ESDTNFTTransfer` |
+| `gasLimitMultiEsdtNftTransfer` | 200,000 | `MultiESDTNFTTransfer` |
+
+So a plain EGLD transfer with no data costs 50,000, and an ESDT transfer with
+a 60-byte data field costs `50,000 + 1,500 * 60 + 200,000`.
+
+Contract calls have no fixed number — estimate them with `simulateGas`, or set
+a limit you know covers the endpoint.
 
 ## Timeout Configuration
 
-Configure request timeouts via the Dio client:
+The short path is `NetworkProviderConfig.requestTimeout`, which maps onto the
+Dio connect, receive, and send timeouts at once:
+
+```dart
+final provider = GatewayNetworkProvider(
+  baseUrl: 'https://devnet-gateway.multiversx.com',
+  chainId: const ChainId('D'),
+  config: const NetworkProviderConfig(
+    requestTimeout: Duration(seconds: 30),
+  ),
+);
+```
+
+Need finer control (interceptors, proxies, a custom adapter)? Pass your own
+`Dio` client instead:
 
 ```dart
 import 'package:dio/dio.dart';
 
 final dio = Dio(BaseOptions(
-  connectTimeout: Duration(seconds: 30),
-  receiveTimeout: Duration(seconds: 30),
+  connectTimeout: const Duration(seconds: 30),
+  receiveTimeout: const Duration(seconds: 30),
 ));
 
 final provider = GatewayNetworkProvider(
   baseUrl: 'https://devnet-gateway.multiversx.com',
-  chainId: ChainId('D'),
+  chainId: const ChainId('D'),
   client: dio,
 );
 ```

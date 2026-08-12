@@ -19,7 +19,7 @@ import '../../core/type_system.dart';
 /// print(value.toString()); // "Nothing"
 ///
 /// // Common in function signatures with no return value
-/// final endpoint = AbiEndpoint('transfer', [], NothingType.type);
+/// const endpoint = AbiEndpoint(name: 'transfer');
 /// ```
 @immutable
 final class NothingType extends PrimitiveType {

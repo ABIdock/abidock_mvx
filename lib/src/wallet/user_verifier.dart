@@ -77,12 +77,12 @@ class UserVerifier {
   /// final txBytes = tx.serializeForSigning();
   /// final isValid = await verifier.verify(
   ///   txBytes,
-  ///   tx.signature.bytes,
+  ///   Uint8List.fromList(tx.signature.bytes),
   /// );
   ///
   /// // Verify message
-  /// final message = SignableMessage.fromPlainText('Hello');
-  /// final msgBytes = message.serializeForSigning();
+  /// final message = Message(utf8.encode('Hello'));
+  /// final msgBytes = const MessageComputer().computeBytesForVerifying(message);
   /// final valid = await verifier.verify(msgBytes, signature);
   ///
   /// // Authentication check

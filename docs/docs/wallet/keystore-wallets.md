@@ -20,19 +20,28 @@ Example structure:
 ```json
 {
   "version": 4,
+  "kind": "secretKey",
   "id": "uuid...",
-  "address": "erd1...",
+  "address": "8049d639e5a6980d1cd2392abcce41029cda74a1563523a202f09641cc2618f8",
   "bech32": "erd1...",
   "crypto": {
-    "cipher": "aes-128-ctr",
-    "cipherparams": { "iv": "..." },
     "ciphertext": "...",
+    "cipherparams": { "iv": "..." },
+    "cipher": "aes-128-ctr",
     "kdf": "scrypt",
-    "kdfparams": { ... },
+    "kdfparams": { "dklen": 32, "salt": "...", "n": 4096, "r": 8, "p": 1 },
     "mac": "..."
   }
 }
 ```
+
+Two details are easy to get wrong when reading these files by hand:
+
+- `address` holds the **public key as hex**, not a bech32 string. The bech32
+  form lives in the separate `bech32` field.
+- `kind` distinguishes the two payloads: `"secretKey"` encrypts a derived key
+  (and carries `address`/`bech32`), while `"mnemonic"` encrypts the seed
+  phrase itself and carries neither.
 
 ## Load Account from Keystore
 
@@ -145,10 +154,23 @@ The keystore uses scrypt KDF with AES-128-CTR encryption:
 |-----------|---------|-------------|
 | Cipher | AES-128-CTR | Symmetric encryption |
 | KDF | scrypt | Key derivation function |
-| N | 8192 | CPU/memory cost |
-| r | 8 | Block size |
-| p | 1 | Parallelization |
-| dkLen | 32 | Derived key length |
+| n | 4096 | CPU/memory cost (power of 2, minimum 4096) |
+| r | 8 | Block size (minimum 8) |
+| p | 1 | Parallelization (minimum 1) |
+| dklen | 32 | Derived key length (fixed at 32) |
+
+`n = 4096` is the value carried by MultiversX keystore files, so wallets
+written with it load anywhere the format is supported.
+
+### Raising the KDF cost
+
+`ScryptKeyDerivationParams.strict()` defaults to `n = 16384`. Because `n` is
+stored in the file's `kdfparams` header, a raised cost travels with the
+keystore and readers pick it up automatically:
+
+```dart
+final params = ScryptKeyDerivationParams.strict(); // n = 16384
+```
 
 ## Web Wallet Compatibility
 

@@ -12,7 +12,6 @@ String _hex(List<int> bytes) =>
 void main() {
   group('SmartContractResult.fromJson', () {
     test('parses a successful "@ok" payload (hex-encoded)', () {
-      // "ok" ASCII == 0x6f6b
       const String payload = '@6f6b@01@02';
       final json = <String, dynamic>{
         'hash': 'abcd',

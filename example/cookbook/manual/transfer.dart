@@ -10,7 +10,7 @@ void main() async {
     useColors: true,
   );
 
-  final alicePem = File('assets/alice.pem').readAsStringSync();
+  final alicePem = File('example/assets/alice.pem').readAsStringSync();
   final alice = await Account.fromPem(alicePem);
 
   final provider = GatewayNetworkProvider.devnet(logger: logger);

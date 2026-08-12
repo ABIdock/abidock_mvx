@@ -108,9 +108,7 @@ final class Transaction {
     this.guardianSignature = const Signature.empty(),
     this.relayer,
     this.relayerSignature = const Signature.empty(),
-    List<Transaction> innerTransactions = const <Transaction>[],
   }) : _data = data,
-       innerTransactions = List<Transaction>.unmodifiable(innerTransactions),
        value = value ?? Balance.zero();
 
   /// Creates transaction from JSON.
@@ -156,10 +154,6 @@ final class Transaction {
   final Signature guardianSignature;
   final Address? relayer;
   final Signature relayerSignature;
-
-  /// Inner pre-signed transactions wrapped by a relayed-v3 outer transaction.
-  /// Empty for non-relayed-v3 flows.
-  final List<Transaction> innerTransactions;
 
   /// Transaction data (cached).
   final Uint8List _data;
@@ -243,7 +237,6 @@ final class Transaction {
     Signature? newGuardianSignature,
     Address? newRelayer,
     Signature? newRelayerSignature,
-    List<Transaction>? newInnerTransactions,
   }) {
     return Transaction(
       nonce: newNonce ?? nonce,
@@ -263,7 +256,6 @@ final class Transaction {
       guardianSignature: newGuardianSignature ?? guardianSignature,
       relayer: newRelayer ?? relayer,
       relayerSignature: newRelayerSignature ?? relayerSignature,
-      innerTransactions: newInnerTransactions ?? innerTransactions,
     );
   }
 
@@ -276,10 +268,14 @@ final class Transaction {
 
   /// Serializes transaction for signing.
   ///
-  /// Uses TransactionComputer to serialize according to protocol.
+  /// Uses TransactionComputer to serialize according to protocol. When the
+  /// `hashSign` option bit is set the chain verifies the signature against the
+  /// Keccak-256 digest of the signing JSON, so the digest is returned instead
+  /// of the raw JSON bytes.
   ///
   /// #### Returns
-  /// `Uint8List` - UTF-8 encoded JSON representation for signing
+  /// `Uint8List` - UTF-8 encoded JSON representation for signing, or its
+  /// 32-byte Keccak-256 digest for hash-signed transactions
   ///
   /// #### Example
   /// ```dart
@@ -291,7 +287,9 @@ final class Transaction {
   /// ```
   Uint8List serializeForSigning() {
     const TransactionComputer computer = TransactionComputer();
-    return computer.computeBytesForSigning(this);
+    return computer.hasOptionsSetForHashSigning(this)
+        ? computer.computeHashForSigning(this)
+        : computer.computeBytesForSigning(this);
   }
 
   @override
@@ -327,17 +325,7 @@ final class Transaction {
           guardianSignature == other.guardianSignature &&
           relayer == other.relayer &&
           relayerSignature == other.relayerSignature &&
-          _listEquals(innerTransactions, other.innerTransactions) &&
           CollectionUtils.bytesEquals(_data, other._data);
-
-  static bool _listEquals(List<Transaction> a, List<Transaction> b) {
-    if (identical(a, b)) return true;
-    if (a.length != b.length) return false;
-    for (int i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) return false;
-    }
-    return true;
-  }
 
   @override
   int get hashCode => Object.hash(
@@ -358,7 +346,6 @@ final class Transaction {
     relayer,
     relayerSignature,
     Object.hashAll(_data),
-    Object.hashAll(innerTransactions),
   );
 
   /// Checks if transaction is guarded.

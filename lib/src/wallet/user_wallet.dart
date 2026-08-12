@@ -1,5 +1,6 @@
 /// User wallet for keystore encryption and decryption with password-based security.
-/// Uses Scrypt KDF and AES-128-CTR encryption, compatible with MultiversX Web Wallet and CLI.
+/// The MultiversX keystore file format pairs a Scrypt KDF with AES-128-CTR
+/// encryption and an HMAC-SHA256 integrity tag.
 
 import 'dart:convert';
 import 'dart:io';
@@ -60,7 +61,13 @@ class UserWallet {
     this.publicKeyWhenKindIsSecretKey,
   });
 
-  /// Creates encrypted wallet from secret key.
+  /// Creates encrypted wallet from secret key using a UTF-8 password string.
+  ///
+  /// Security-conscious callers that need to zero the password after use
+  /// should prefer [fromSecretKeyWithBytes], which accepts a `Uint8List`
+  /// they can clear with `fillRange(0, len, 0)` once the wallet has been
+  /// produced. Strings are immutable in Dart and cannot be wiped from
+  /// memory deterministically.
   ///
   /// #### Parameters
   /// - `secretKey` - Secret key to encrypt
@@ -92,22 +99,68 @@ class UserWallet {
     required String password,
     Randomness? randomness,
   }) async {
+    final Uint8List passwordBytes = Uint8List.fromList(utf8.encode(password));
+    try {
+      return await fromSecretKeyWithBytes(
+        secretKey: secretKey,
+        passwordBytes: passwordBytes,
+        randomness: randomness,
+      );
+    } finally {
+      passwordBytes.fillRange(0, passwordBytes.length, 0);
+    }
+  }
+
+  /// Creates encrypted wallet from secret key using a mutable password
+  /// buffer (`Uint8List`).
+  ///
+  /// Use this overload when you need to zero the password after the
+  /// keystore has been produced. After this call returns, you can
+  /// `passwordBytes.fillRange(0, passwordBytes.length, 0)` to wipe the
+  /// secret from memory; the function itself does not mutate the caller's
+  /// buffer.
+  ///
+  /// The temporary plaintext buffer (secretKey || publicKey) constructed
+  /// internally is zeroed in a `try/finally` after encryption completes
+  /// (M2-10).
+  ///
+  /// #### Parameters
+  /// - `secretKey` - Secret key to encrypt
+  /// - `passwordBytes` - Password as UTF-8 bytes (caller owns and may zero)
+  /// - `randomness` - Optional randomness source for testing
+  ///
+  /// #### Returns
+  /// `Future<UserWallet>` - Encrypted wallet ready to save
+  static Future<UserWallet> fromSecretKeyWithBytes({
+    required UserSecretKey secretKey,
+    required Uint8List passwordBytes,
+    Randomness? randomness,
+  }) async {
     randomness ??= Randomness();
 
-    final publicKey = await secretKey.generatePublicKey();
-    final data = Uint8List.fromList([...secretKey.bytes, ...publicKey.bytes]);
+    final UserPublicKey publicKey = await secretKey.generatePublicKey();
+    final Uint8List data = Uint8List.fromList(<int>[
+      ...secretKey.bytes,
+      ...publicKey.bytes,
+    ]);
 
-    final encryptedData = Encryptor.encrypt(
-      data,
-      password,
-      randomness: randomness,
-    );
-
-    return UserWallet._(
-      kind: UserWalletKind.secretKey,
-      encryptedData: encryptedData,
-      publicKeyWhenKindIsSecretKey: publicKey,
-    );
+    try {
+      final EncryptedData encryptedData = Encryptor.encryptWithBytes(
+        data,
+        passwordBytes,
+        randomness: randomness,
+      );
+      return UserWallet._(
+        kind: UserWalletKind.secretKey,
+        encryptedData: encryptedData,
+        publicKeyWhenKindIsSecretKey: publicKey,
+      );
+    } finally {
+      /// M2-10: zero the (secretKey || publicKey) plaintext buffer
+      /// AFTER encryption completes so the seed never lingers in
+      /// reachable memory.
+      data.fillRange(0, data.length, 0);
+    }
   }
 
   /// Creates encrypted wallet from mnemonic phrase.
@@ -151,20 +204,53 @@ class UserWallet {
     required String password,
     Randomness? randomness,
   }) {
+    final Uint8List passwordBytes = Uint8List.fromList(utf8.encode(password));
+    try {
+      return UserWallet.fromMnemonicWithBytes(
+        mnemonic: mnemonic,
+        passwordBytes: passwordBytes,
+        randomness: randomness,
+      );
+    } finally {
+      passwordBytes.fillRange(0, passwordBytes.length, 0);
+    }
+  }
+
+  /// Creates encrypted wallet from a mnemonic phrase using a mutable
+  /// password buffer (`Uint8List`) so callers can zero the password
+  /// after use (M2-9). The mnemonic plaintext buffer is also zeroed in
+  /// a `try/finally` after encryption (M2-10).
+  ///
+  /// #### Parameters
+  /// - `mnemonic` - BIP39 mnemonic phrase (12 or 24 words)
+  /// - `passwordBytes` - Password as UTF-8 bytes (caller owns and may zero)
+  /// - `randomness` - Optional randomness source for testing
+  ///
+  /// #### Returns
+  /// `UserWallet` - Encrypted wallet ready to save
+  factory UserWallet.fromMnemonicWithBytes({
+    required String mnemonic,
+    required Uint8List passwordBytes,
+    Randomness? randomness,
+  }) {
     randomness ??= Randomness();
 
     Mnemonic.assertTextIsValid(mnemonic);
-    final data = Uint8List.fromList(utf8.encode(mnemonic));
-    final encryptedData = Encryptor.encrypt(
-      data,
-      password,
-      randomness: randomness,
-    );
+    final Uint8List data = Uint8List.fromList(utf8.encode(mnemonic));
+    try {
+      final EncryptedData encryptedData = Encryptor.encryptWithBytes(
+        data,
+        passwordBytes,
+        randomness: randomness,
+      );
 
-    return UserWallet._(
-      kind: UserWalletKind.mnemonic,
-      encryptedData: encryptedData,
-    );
+      return UserWallet._(
+        kind: UserWalletKind.mnemonic,
+        encryptedData: encryptedData,
+      );
+    } finally {
+      data.fillRange(0, data.length, 0);
+    }
   }
   final UserWalletKind kind;
   final EncryptedData encryptedData;
@@ -221,9 +307,36 @@ class UserWallet {
   }
 
   /// Decrypts keystore file and returns secret key.
+  ///
+  /// Security-conscious callers that hold the password as a mutable
+  /// buffer should prefer [decryptWithBytes] (M2-9).
   static Future<UserSecretKey> decrypt(
     Map<String, dynamic> keyFileObject,
     String password, {
+    int? addressIndex,
+  }) async {
+    final Uint8List passwordBytes = Uint8List.fromList(utf8.encode(password));
+    try {
+      return await decryptWithBytes(
+        keyFileObject,
+        passwordBytes,
+        addressIndex: addressIndex,
+      );
+    } finally {
+      passwordBytes.fillRange(0, passwordBytes.length, 0);
+    }
+  }
+
+  /// Decrypts a keystore using a mutable password buffer that the caller
+  /// can zero after use (M2-9).
+  ///
+  /// #### Parameters
+  /// - `keyFileObject` - Parsed keystore JSON
+  /// - `passwordBytes` - Password as UTF-8 bytes (caller owns and may zero)
+  /// - `addressIndex` - Account index for mnemonic-kind keystores
+  static Future<UserSecretKey> decryptWithBytes(
+    Map<String, dynamic> keyFileObject,
+    Uint8List passwordBytes, {
     int? addressIndex,
   }) async {
     final String kindStr =
@@ -237,21 +350,23 @@ class UserWallet {
           'addressIndex must not be provided when kind == "secretKey"',
         );
       }
-      return _decryptSecretKey(keyFileObject, password);
+      return _decryptSecretKeyWithBytes(keyFileObject, passwordBytes);
     }
 
     if (kind == UserWalletKind.mnemonic) {
-      final Mnemonic mnemonic = _decryptMnemonic(keyFileObject, password);
+      final Mnemonic mnemonic = _decryptMnemonicWithBytes(
+        keyFileObject,
+        passwordBytes,
+      );
       return mnemonic.deriveKey(addressIndex: addressIndex ?? 0);
     }
 
     throw ArgumentError('Unknown kind: $kindStr');
   }
 
-  /// Decrypts secret key from keystore.
-  static UserSecretKey _decryptSecretKey(
+  static UserSecretKey _decryptSecretKeyWithBytes(
     Map<String, dynamic> keyFileObject,
-    String password,
+    Uint8List passwordBytes,
   ) {
     final String? kind = optionalAs<String>(keyFileObject['kind'], 'kind');
     if (kind != null && kind != UserWalletKind.secretKey.value) {
@@ -261,7 +376,10 @@ class UserWallet {
     }
 
     final EncryptedData encryptedData = EncryptedData.fromJson(keyFileObject);
-    final Uint8List text = Decryptor.decrypt(encryptedData, password);
+    final Uint8List text = Decryptor.decryptWithBytes(
+      encryptedData,
+      passwordBytes,
+    );
     try {
       if (text.length != 32 && text.length != 64) {
         throw FormatException(
@@ -334,10 +452,27 @@ class UserWallet {
     return Decryptor.decrypt(encryptedData, password);
   }
 
-  static Mnemonic _decryptMnemonic(
+  static Mnemonic _decryptMnemonicWithBytes(
     Map<String, dynamic> keyFileObject,
-    String password,
-  ) => decryptMnemonic(keyFileObject, password);
+    Uint8List passwordBytes,
+  ) {
+    final String? kind = optionalAs<String>(keyFileObject['kind'], 'kind');
+    if (kind != UserWalletKind.mnemonic.value) {
+      throw ArgumentError(
+        'Expected keystore kind to be ${UserWalletKind.mnemonic.value}, but it was $kind',
+      );
+    }
+    final EncryptedData encryptedData = EncryptedData.fromJson(keyFileObject);
+    final Uint8List bytes = Decryptor.decryptWithBytes(
+      encryptedData,
+      passwordBytes,
+    );
+    try {
+      return Mnemonic.fromString(utf8.decode(bytes));
+    } finally {
+      bytes.fillRange(0, bytes.length, 0);
+    }
+  }
 
   /// Converts encrypted wallet to JSON.
   Map<String, dynamic> toJson({String? addressHrp}) {

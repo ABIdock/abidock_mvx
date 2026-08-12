@@ -26,7 +26,7 @@ Future<void> main() async {
     useColors: true,
   );
 
-  final pem = File('assets/alice.pem').readAsStringSync();
+  final pem = File('example/assets/alice.pem').readAsStringSync();
   final account = await Account.fromPem(pem);
   final aliceAddress = account.address;
 

@@ -157,14 +157,22 @@ final class TokenIdentifierValue extends TypedValue {
       );
     }
 
-    if (!RegExp(r'^[A-Za-z0-9]+-[a-f0-9]{6}$').hasMatch(identifier)) {
+    if (!_identifierPattern.hasMatch(identifier)) {
       throw ArgumentError.value(
         identifier,
         'identifier',
-        'TokenIdentifier must match format: TICKER-hexrandom (6-char hex suffix, use EgldOrEsdtTokenIdentifierType for EGLD)',
+        'TokenIdentifier must match format: TICKER-hexrandom (3-10 upper-case alnum ticker, 6-char hex random, optional NFT/SFT nonce suffix; use EgldOrEsdtTokenIdentifierType for EGLD)',
       );
     }
   }
+
+  /// Accepts: `TICKER-hexrandom` (ESDT) and `TICKER-hexrandom-hexnonce`
+  /// (NFT / SFT / MetaESDT). Tickers must be upper-case, 3–10 alnum chars
+  /// starting with a letter; the random part is lower-case hex of exactly
+  /// 6 chars; the optional nonce part is lower-case hex of arbitrary length.
+  static final RegExp _identifierPattern = RegExp(
+    r'^[A-Z][A-Z0-9]{2,9}-[a-f0-9]{6}(-[0-9a-f]+)?$',
+  );
 
   @override
   String get className => 'TokenIdentifierValue';
@@ -347,14 +355,20 @@ final class EgldOrEsdtTokenIdentifierValue extends TypedValue {
       return;
     }
 
-    if (!RegExp(r'^[A-Za-z0-9]+-[a-f0-9]{6}$').hasMatch(identifier)) {
+    if (!_identifierPattern.hasMatch(identifier)) {
       throw ArgumentError.value(
         identifier,
         'identifier',
-        'EgldOrEsdtTokenIdentifier must be either "EGLD" or match format: TICKER-hexrandom (6-char hex suffix)',
+        'EgldOrEsdtTokenIdentifier must be either "EGLD" or match format: TICKER-hexrandom with optional NFT/SFT nonce (3-10 upper-case alnum ticker, 6-char hex random)',
       );
     }
   }
+
+  /// Accepts the same format as `TokenIdentifierValue` plus the optional
+  /// NFT/SFT/MetaESDT trailing nonce segment.
+  static final RegExp _identifierPattern = RegExp(
+    r'^[A-Z][A-Z0-9]{2,9}-[a-f0-9]{6}(-[0-9a-f]+)?$',
+  );
 
   /// Indicates if the identifier represents the EGLD native token.
   bool get isEgld => identifier == 'EGLD' || identifier == 'EGLD-000000';

@@ -3,6 +3,7 @@
 import 'dart:typed_data';
 
 import '../../address.dart';
+import '../smart_contract_result.dart';
 import '../transaction_event.dart';
 import '../transaction_logs.dart';
 import '../transaction_on_network.dart';
@@ -494,9 +495,9 @@ class TokenManagementOutcomeParser {
   List<IssueFungibleResult> parseIssueFungible(
     TransactionOnNetwork transaction,
   ) {
-    _ensureNoError(transaction.logs);
+    _ensureNoError(transaction);
 
-    final List<TransactionEvent> events = transaction.logs!.findEvents('issue');
+    final List<TransactionEvent> events = _findEvents(transaction, 'issue');
     return events.map((TransactionEvent event) {
       return IssueFungibleResult(
         tokenIdentifier: _extractTokenIdentifier(event),
@@ -508,9 +509,10 @@ class TokenManagementOutcomeParser {
   List<IssueNonFungibleResult> parseIssueNonFungible(
     TransactionOnNetwork transaction,
   ) {
-    _ensureNoError(transaction.logs);
+    _ensureNoError(transaction);
 
-    final List<TransactionEvent> events = transaction.logs!.findEvents(
+    final List<TransactionEvent> events = _findEvents(
+      transaction,
       'issueNonFungible',
     );
     return events.map((TransactionEvent event) {
@@ -524,9 +526,10 @@ class TokenManagementOutcomeParser {
   List<IssueSemiFungibleResult> parseIssueSemiFungible(
     TransactionOnNetwork transaction,
   ) {
-    _ensureNoError(transaction.logs);
+    _ensureNoError(transaction);
 
-    final List<TransactionEvent> events = transaction.logs!.findEvents(
+    final List<TransactionEvent> events = _findEvents(
+      transaction,
       'issueSemiFungible',
     );
     return events.map((TransactionEvent event) {
@@ -546,9 +549,10 @@ class TokenManagementOutcomeParser {
   List<RegisterMetaEsdtResult> parseRegisterMetaEsdt(
     TransactionOnNetwork transaction,
   ) {
-    _ensureNoError(transaction.logs);
+    _ensureNoError(transaction);
 
-    final List<TransactionEvent> events = transaction.logs!.findEvents(
+    final List<TransactionEvent> events = _findEvents(
+      transaction,
       'registerMetaESDT',
     );
     return events.map((TransactionEvent event) {
@@ -568,12 +572,14 @@ class TokenManagementOutcomeParser {
   List<RegisterAndSetAllRolesResult> parseRegisterAndSetAllRoles(
     TransactionOnNetwork transaction,
   ) {
-    _ensureNoError(transaction.logs);
+    _ensureNoError(transaction);
 
-    final List<TransactionEvent> registerEvents = transaction.logs!.findEvents(
+    final List<TransactionEvent> registerEvents = _findEvents(
+      transaction,
       'registerAndSetAllRoles',
     );
-    final List<TransactionEvent> setRoleEvents = transaction.logs!.findEvents(
+    final List<TransactionEvent> setRoleEvents = _findEvents(
+      transaction,
       'ESDTSetRole',
     );
 
@@ -608,7 +614,7 @@ class TokenManagementOutcomeParser {
   /// #### Throws
   /// - `TokenManagementParseException` - If transaction has errors
   void parseSetBurnRoleGlobally(TransactionOnNetwork transaction) {
-    _ensureNoError(transaction.logs);
+    _ensureNoError(transaction);
   }
 
   /// Parses the result of unset burn role globally operation.
@@ -616,7 +622,7 @@ class TokenManagementOutcomeParser {
   /// #### Throws
   /// - `TokenManagementParseException` - If transaction has errors
   void parseUnsetBurnRoleGlobally(TransactionOnNetwork transaction) {
-    _ensureNoError(transaction.logs);
+    _ensureNoError(transaction);
   }
 
   /// Parses the result of setting special roles.
@@ -629,9 +635,10 @@ class TokenManagementOutcomeParser {
   List<SetSpecialRoleResult> parseSetSpecialRole(
     TransactionOnNetwork transaction,
   ) {
-    _ensureNoError(transaction.logs);
+    _ensureNoError(transaction);
 
-    final List<TransactionEvent> events = transaction.logs!.findEvents(
+    final List<TransactionEvent> events = _findEvents(
+      transaction,
       'ESDTSetRole',
     );
     return events.map((TransactionEvent event) {
@@ -647,9 +654,10 @@ class TokenManagementOutcomeParser {
   /// #### Throws
   /// - `TokenManagementParseException` - If transaction has errors
   List<NftCreateResult> parseNftCreate(TransactionOnNetwork transaction) {
-    _ensureNoError(transaction.logs);
+    _ensureNoError(transaction);
 
-    final List<TransactionEvent> events = transaction.logs!.findEvents(
+    final List<TransactionEvent> events = _findEvents(
+      transaction,
       'ESDTNFTCreate',
     );
     return events.map((TransactionEvent event) {
@@ -665,9 +673,10 @@ class TokenManagementOutcomeParser {
   /// #### Throws
   /// - `TokenManagementParseException` - If transaction has errors
   List<LocalMintResult> parseLocalMint(TransactionOnNetwork transaction) {
-    _ensureNoError(transaction.logs);
+    _ensureNoError(transaction);
 
-    final List<TransactionEvent> events = transaction.logs!.findEvents(
+    final List<TransactionEvent> events = _findEvents(
+      transaction,
       'ESDTLocalMint',
     );
     return events.map((TransactionEvent event) {
@@ -683,9 +692,10 @@ class TokenManagementOutcomeParser {
   /// #### Throws
   /// - `TokenManagementParseException` - If transaction has errors
   List<LocalBurnResult> parseLocalBurn(TransactionOnNetwork transaction) {
-    _ensureNoError(transaction.logs);
+    _ensureNoError(transaction);
 
-    final List<TransactionEvent> events = transaction.logs!.findEvents(
+    final List<TransactionEvent> events = _findEvents(
+      transaction,
       'ESDTLocalBurn',
     );
     return events.map((TransactionEvent event) {
@@ -701,11 +711,9 @@ class TokenManagementOutcomeParser {
   /// #### Throws
   /// - `TokenManagementParseException` - If transaction has errors
   List<PauseResult> parsePause(TransactionOnNetwork transaction) {
-    _ensureNoError(transaction.logs);
+    _ensureNoError(transaction);
 
-    final List<TransactionEvent> events = transaction.logs!.findEvents(
-      'ESDTPause',
-    );
+    final List<TransactionEvent> events = _findEvents(transaction, 'ESDTPause');
     return events.map((TransactionEvent event) {
       return PauseResult(tokenIdentifier: _extractTokenIdentifier(event));
     }).toList();
@@ -719,9 +727,10 @@ class TokenManagementOutcomeParser {
   /// #### Throws
   /// - `TokenManagementParseException` - If transaction has errors
   List<UnpauseResult> parseUnpause(TransactionOnNetwork transaction) {
-    _ensureNoError(transaction.logs);
+    _ensureNoError(transaction);
 
-    final List<TransactionEvent> events = transaction.logs!.findEvents(
+    final List<TransactionEvent> events = _findEvents(
+      transaction,
       'ESDTUnPause',
     );
     return events.map((TransactionEvent event) {
@@ -737,9 +746,10 @@ class TokenManagementOutcomeParser {
   /// #### Throws
   /// - `TokenManagementParseException` - If transaction has errors
   List<FreezeResult> parseFreeze(TransactionOnNetwork transaction) {
-    _ensureNoError(transaction.logs);
+    _ensureNoError(transaction);
 
-    final List<TransactionEvent> events = transaction.logs!.findEvents(
+    final List<TransactionEvent> events = _findEvents(
+      transaction,
       'ESDTFreeze',
     );
     return events.map((TransactionEvent event) {
@@ -755,9 +765,10 @@ class TokenManagementOutcomeParser {
   /// #### Throws
   /// - `TokenManagementParseException` - If transaction has errors
   List<UnfreezeResult> parseUnfreeze(TransactionOnNetwork transaction) {
-    _ensureNoError(transaction.logs);
+    _ensureNoError(transaction);
 
-    final List<TransactionEvent> events = transaction.logs!.findEvents(
+    final List<TransactionEvent> events = _findEvents(
+      transaction,
       'ESDTUnFreeze',
     );
     return events.map((TransactionEvent event) {
@@ -773,11 +784,9 @@ class TokenManagementOutcomeParser {
   /// #### Throws
   /// - `TokenManagementParseException` - If transaction has errors
   List<WipeResult> parseWipe(TransactionOnNetwork transaction) {
-    _ensureNoError(transaction.logs);
+    _ensureNoError(transaction);
 
-    final List<TransactionEvent> events = transaction.logs!.findEvents(
-      'ESDTWipe',
-    );
+    final List<TransactionEvent> events = _findEvents(transaction, 'ESDTWipe');
     return events.map((TransactionEvent event) {
       return _getOutputForWipeEvent(event);
     }).toList();
@@ -793,9 +802,10 @@ class TokenManagementOutcomeParser {
   List<UpdateAttributesResult> parseUpdateAttributes(
     TransactionOnNetwork transaction,
   ) {
-    _ensureNoError(transaction.logs);
+    _ensureNoError(transaction);
 
-    final List<TransactionEvent> events = transaction.logs!.findEvents(
+    final List<TransactionEvent> events = _findEvents(
+      transaction,
       'ESDTNFTUpdateAttributes',
     );
     return events.map((TransactionEvent event) {
@@ -811,9 +821,10 @@ class TokenManagementOutcomeParser {
   /// #### Throws
   /// - `TokenManagementParseException` - If transaction has errors
   List<AddQuantityResult> parseAddQuantity(TransactionOnNetwork transaction) {
-    _ensureNoError(transaction.logs);
+    _ensureNoError(transaction);
 
-    final List<TransactionEvent> events = transaction.logs!.findEvents(
+    final List<TransactionEvent> events = _findEvents(
+      transaction,
       'ESDTNFTAddQuantity',
     );
     return events.map((TransactionEvent event) {
@@ -829,9 +840,10 @@ class TokenManagementOutcomeParser {
   /// #### Throws
   /// - `TokenManagementParseException` - If transaction has errors
   List<BurnQuantityResult> parseBurnQuantity(TransactionOnNetwork transaction) {
-    _ensureNoError(transaction.logs);
+    _ensureNoError(transaction);
 
-    final List<TransactionEvent> events = transaction.logs!.findEvents(
+    final List<TransactionEvent> events = _findEvents(
+      transaction,
       'ESDTNFTBurn',
     );
     return events.map((TransactionEvent event) {
@@ -849,9 +861,10 @@ class TokenManagementOutcomeParser {
   List<ModifyRoyaltiesResult> parseModifyRoyalties(
     TransactionOnNetwork transaction,
   ) {
-    _ensureNoError(transaction.logs);
+    _ensureNoError(transaction);
 
-    final List<TransactionEvent> events = transaction.logs!.findEvents(
+    final List<TransactionEvent> events = _findEvents(
+      transaction,
       'ESDTModifyRoyalties',
     );
     return events.map((TransactionEvent event) {
@@ -867,9 +880,10 @@ class TokenManagementOutcomeParser {
   /// #### Throws
   /// - `TokenManagementParseException` - If transaction has errors
   List<SetNewUrisResult> parseSetNewUris(TransactionOnNetwork transaction) {
-    _ensureNoError(transaction.logs);
+    _ensureNoError(transaction);
 
-    final List<TransactionEvent> events = transaction.logs!.findEvents(
+    final List<TransactionEvent> events = _findEvents(
+      transaction,
       'ESDTSetNewURIs',
     );
     return events.map((TransactionEvent event) {
@@ -887,9 +901,10 @@ class TokenManagementOutcomeParser {
   List<ModifyCreatorResult> parseModifyCreator(
     TransactionOnNetwork transaction,
   ) {
-    _ensureNoError(transaction.logs);
+    _ensureNoError(transaction);
 
-    final List<TransactionEvent> events = transaction.logs!.findEvents(
+    final List<TransactionEvent> events = _findEvents(
+      transaction,
       'ESDTModifyCreator',
     );
     return events.map((TransactionEvent event) {
@@ -907,9 +922,10 @@ class TokenManagementOutcomeParser {
   List<UpdateMetadataResult> parseUpdateMetadata(
     TransactionOnNetwork transaction,
   ) {
-    _ensureNoError(transaction.logs);
+    _ensureNoError(transaction);
 
-    final List<TransactionEvent> events = transaction.logs!.findEvents(
+    final List<TransactionEvent> events = _findEvents(
+      transaction,
       'ESDTMetaDataUpdate',
     );
     return events.map((TransactionEvent event) {
@@ -927,9 +943,10 @@ class TokenManagementOutcomeParser {
   List<MetadataRecreateResult> parseMetadataRecreate(
     TransactionOnNetwork transaction,
   ) {
-    _ensureNoError(transaction.logs);
+    _ensureNoError(transaction);
 
-    final List<TransactionEvent> events = transaction.logs!.findEvents(
+    final List<TransactionEvent> events = _findEvents(
+      transaction,
       'ESDTMetaDataRecreate',
     );
     return events.map((TransactionEvent event) {
@@ -947,9 +964,10 @@ class TokenManagementOutcomeParser {
   List<ChangeToDynamicResult> parseChangeTokenToDynamic(
     TransactionOnNetwork transaction,
   ) {
-    _ensureNoError(transaction.logs);
+    _ensureNoError(transaction);
 
-    final List<TransactionEvent> events = transaction.logs!.findEvents(
+    final List<TransactionEvent> events = _findEvents(
+      transaction,
       'changeToDynamic',
     );
     return events.map((TransactionEvent event) {
@@ -967,9 +985,10 @@ class TokenManagementOutcomeParser {
   List<RegisterDynamicResult> parseRegisterDynamicToken(
     TransactionOnNetwork transaction,
   ) {
-    _ensureNoError(transaction.logs);
+    _ensureNoError(transaction);
 
-    final List<TransactionEvent> events = transaction.logs!.findEvents(
+    final List<TransactionEvent> events = _findEvents(
+      transaction,
       'registerDynamic',
     );
     return events.map((TransactionEvent event) {
@@ -987,9 +1006,10 @@ class TokenManagementOutcomeParser {
   List<RegisterDynamicResult> parseRegisterDynamicTokenAndSettingRoles(
     TransactionOnNetwork transaction,
   ) {
-    _ensureNoError(transaction.logs);
+    _ensureNoError(transaction);
 
-    final List<TransactionEvent> events = transaction.logs!.findEvents(
+    final List<TransactionEvent> events = _findEvents(
+      transaction,
       'registerAndSetAllRolesDynamic',
     );
     return events.map((TransactionEvent event) {
@@ -997,25 +1017,88 @@ class TokenManagementOutcomeParser {
     }).toList();
   }
 
-  void _ensureNoError(TransactionLogs? logs) {
-    if (logs == null) {
+  /// Collects the transaction's own logs together with the logs of every
+  /// smart-contract result it produced.
+  ///
+  /// Token-management endpoints that act on another account — `freeze`,
+  /// `unFreeze`, `wipe`, `setSpecialRole`, `unSetSpecialRole` and the local
+  /// mint/burn pair — are executed by the system contract forwarding a
+  /// built-in call to the target address. That call runs on the target's
+  /// shard, so its events are reported on the resulting smart-contract result
+  /// rather than on the original transaction.
+  ///
+  /// #### Parameters
+  /// - `transaction` - Transaction to collect logs from
+  ///
+  /// #### Returns
+  /// `List<TransactionLogs>` - Every log container attached to the
+  /// transaction, in transaction-first order.
+  List<TransactionLogs> _allLogs(TransactionOnNetwork transaction) {
+    final List<TransactionLogs> logs = <TransactionLogs>[];
+    final TransactionLogs? transactionLogs = transaction.logs;
+    if (transactionLogs != null) {
+      logs.add(transactionLogs);
+    }
+    for (final SmartContractResult result
+        in transaction.smartContractResults ?? const <SmartContractResult>[]) {
+      final TransactionLogs? resultLogs = result.logs;
+      if (resultLogs != null) {
+        logs.add(resultLogs);
+      }
+    }
+    return logs;
+  }
+
+  /// Finds every event named [identifier] across the transaction and its
+  /// smart-contract results.
+  ///
+  /// #### Parameters
+  /// - `transaction` - Transaction to search
+  /// - `identifier` - Event identifier to match
+  ///
+  /// #### Returns
+  /// `List<TransactionEvent>` - Matching events, in transaction-first order.
+  List<TransactionEvent> _findEvents(
+    TransactionOnNetwork transaction,
+    String identifier,
+  ) {
+    return <TransactionEvent>[
+      for (final TransactionLogs logs in _allLogs(transaction))
+        ...logs.findEvents(identifier),
+    ];
+  }
+
+  /// Throws when the transaction reported a `signalError` anywhere.
+  ///
+  /// #### Parameters
+  /// - `transaction` - Transaction to inspect
+  ///
+  /// #### Throws
+  /// - `TokenManagementParseException` - If no logs are present at all, or if
+  ///   a `signalError` event was emitted by the transaction or by any of its
+  ///   smart-contract results.
+  void _ensureNoError(TransactionOnNetwork transaction) {
+    final List<TransactionLogs> allLogs = _allLogs(transaction);
+    if (allLogs.isEmpty) {
       throw const TokenManagementParseException(
         'Transaction has no logs - cannot parse token management outcome',
       );
     }
 
-    for (final TransactionEvent event in logs.events) {
-      if (event.identifier == 'signalError') {
-        final String data = event.additionalData.isNotEmpty
-            ? event.additionalData[0].toString()
-            : '';
-        final String message = event.topics.length > 1
-            ? _decodeTopicAsString(event.topics[1])
-            : '';
+    for (final TransactionLogs logs in allLogs) {
+      for (final TransactionEvent event in logs.events) {
+        if (event.identifier == 'signalError') {
+          final String data = event.additionalData.isNotEmpty
+              ? _decodeTopicAsString(event.additionalData[0])
+              : '';
+          final String message = event.topics.length > 1
+              ? _decodeTopicAsString(event.topics[1])
+              : '';
 
-        throw TokenManagementParseException(
-          'encountered signalError: $message ($data)',
-        );
+          throw TokenManagementParseException(
+            'encountered signalError: $message ($data)',
+          );
+        }
       }
     }
   }

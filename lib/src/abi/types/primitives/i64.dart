@@ -22,9 +22,12 @@ import 'numerical.dart';
 /// print(max.toBytes().length); // 8 bytes
 ///
 /// // Use in struct definitions
-/// final structType = StructType(fields: [
-///   StructField('timestamp', I64Type.type),
-/// ]);
+/// final structType = StructType(
+///   name: 'TimestampedEntry',
+///   fieldDefinitions: [
+///     FieldDefinition(name: 'timestamp', type: I64Type.type),
+///   ],
+/// );
 /// ```
 @immutable
 final class I64Type extends NumericalType {

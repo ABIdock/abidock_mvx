@@ -34,9 +34,12 @@ Save arbitrary data to your account's on-chain storage:
 
 ```dart
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
-final account = await Account.fromPem('wallet.pem');
+// Account.fromPem takes the PEM *content*, not a file path.
+final pemContent = await File('wallet.pem').readAsString();
+final account = await Account.fromPem(pemContent);
 final accountInfo = await provider.getAccount(account.address);
 
 // Prepare key-value pairs
@@ -248,12 +251,11 @@ void main() async {
 
 ## Guardian Service Providers
 
-Guardian services handle the 2FA authentication:
-
-| Service | Description |
-|---------|-------------|
-| `twikey-2fa` | Twikey 2FA service |
-| Custom | Your own guardian service |
+`serviceId` is a free-form string carried in the `SetGuardian` call. It
+identifies which 2FA service the guardian address belongs to, so a wallet can
+route the co-signing request to the right backend. The chain does not validate
+it against a registry -- pick the identifier your guardian service expects, or
+your own label when you operate the guardian yourself.
 
 ## Best Practices
 

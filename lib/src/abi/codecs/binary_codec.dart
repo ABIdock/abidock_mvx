@@ -19,7 +19,9 @@ import '../types/primitives/string.dart';
 import '../types/special/code_metadata.dart';
 import '../types/special/composite.dart';
 import '../types/special/h256.dart';
+import '../types/special/managed_byte_array.dart';
 import '../types/special/managed_decimal.dart';
+import '../types/special/multi_value.dart';
 import '../types/special/nothing.dart';
 import '../types/special/optional.dart';
 import '../types/special/token_identifier.dart';
@@ -90,7 +92,9 @@ class BinaryCodec with ValidationMixin implements IBinaryCodec, ICodec {
     required this.enumCodec,
     required this.explicitEnumCodec,
     required this.managedDecimalCodec,
+    required this.managedByteArrayCodec,
     required this.variadicCodec,
+    required this.multiValueCodec,
   });
 
   factory BinaryCodec.withDefaults() {
@@ -120,7 +124,10 @@ class BinaryCodec with ValidationMixin implements IBinaryCodec, ICodec {
 
     final ManagedDecimalBinaryCodec managedDecimalCodec =
         ManagedDecimalBinaryCodec(stub);
+    const ManagedByteArrayBinaryCodec managedByteArrayCodec =
+        ManagedByteArrayBinaryCodec();
     final VariadicBinaryCodec variadicCodec = VariadicBinaryCodec(stub);
+    final MultiValueBinaryCodec multiValueCodec = MultiValueBinaryCodec(stub);
 
     final BinaryCodec codec = BinaryCodec(
       primitiveCodec: primitiveCodec,
@@ -133,7 +140,9 @@ class BinaryCodec with ValidationMixin implements IBinaryCodec, ICodec {
       enumCodec: enumCodec,
       explicitEnumCodec: explicitEnumCodec,
       managedDecimalCodec: managedDecimalCodec,
+      managedByteArrayCodec: managedByteArrayCodec,
       variadicCodec: variadicCodec,
+      multiValueCodec: multiValueCodec,
     );
 
     stub._codec = codec;
@@ -171,8 +180,14 @@ class BinaryCodec with ValidationMixin implements IBinaryCodec, ICodec {
   /// Codec for ManagedDecimal types.
   final ManagedDecimalBinaryCodec managedDecimalCodec;
 
+  /// Codec for `ManagedByteArray<N>` types.
+  final ManagedByteArrayBinaryCodec managedByteArrayCodec;
+
   /// Codec for variadic types.
   final VariadicBinaryCodec variadicCodec;
+
+  /// Codec for `MultiValue<...>` types.
+  final MultiValueBinaryCodec multiValueCodec;
 
   /// Decodes top-level value from buffer.
   ///
@@ -207,6 +222,8 @@ class BinaryCodec with ValidationMixin implements IBinaryCodec, ICodec {
       return primitiveCodec.decodeTopLevel(buffer, type);
     } else if (type is H256Type) {
       return primitiveCodec.decodeTopLevel(buffer, type);
+    } else if (type is ManagedByteArrayType) {
+      return managedByteArrayCodec.decodeTopLevel(buffer, type);
     } else if (type is CodeMetadataType) {
       return primitiveCodec.decodeTopLevel(buffer, type);
     } else if (type is OptionType) {
@@ -229,6 +246,8 @@ class BinaryCodec with ValidationMixin implements IBinaryCodec, ICodec {
       return managedDecimalCodec.decodeTopLevel(buffer, type);
     } else if (type is VariadicType) {
       return variadicCodec.decodeTopLevel(buffer, type);
+    } else if (type is MultiValueType) {
+      return multiValueCodec.decodeTopLevel(buffer, type);
     } else if (type is CompositeType) {
       return _decodeCompositeTopLevel(buffer, type);
     } else {
@@ -278,6 +297,11 @@ class BinaryCodec with ValidationMixin implements IBinaryCodec, ICodec {
         type,
         offset,
       ),
+      ManagedByteArrayType() => managedByteArrayCodec.decodeNested(
+        buffer,
+        type,
+        offset,
+      ),
       H256Type() => primitiveCodec.decodeNested(buffer, type, offset),
       CodeMetadataType() => primitiveCodec.decodeNested(buffer, type, offset),
       OptionType() => optionCodec.decodeNested(buffer, type, offset),
@@ -298,6 +322,7 @@ class BinaryCodec with ValidationMixin implements IBinaryCodec, ICodec {
         offset,
       ),
       VariadicType() => variadicCodec.decodeNested(buffer, type, offset),
+      MultiValueType() => multiValueCodec.decodeNested(buffer, type, offset),
       CompositeType() => _decodeCompositeNested(buffer, type, offset),
       _ => throw AbiBinaryCodecException(
         'Unsupported type for decoding: ${type.fullyQualifiedName}',
@@ -356,6 +381,8 @@ class BinaryCodec with ValidationMixin implements IBinaryCodec, ICodec {
       return primitiveCodec.encodeTopLevel(value);
     } else if (value is H256Value) {
       return primitiveCodec.encodeTopLevel(value);
+    } else if (value is ManagedByteArrayValue) {
+      return managedByteArrayCodec.encodeTopLevel(value);
     } else if (value is CodeMetadataValue) {
       return primitiveCodec.encodeTopLevel(value);
     } else if (value is OptionalValue) {
@@ -378,6 +405,8 @@ class BinaryCodec with ValidationMixin implements IBinaryCodec, ICodec {
       return managedDecimalCodec.encodeTopLevel(value);
     } else if (value is VariadicValue) {
       return variadicCodec.encodeTopLevel(value);
+    } else if (value is MultiValueValue) {
+      return multiValueCodec.encodeTopLevel(value);
     } else if (value is CompositeValue) {
       return _encodeCompositeTopLevel(value);
     } else {
@@ -420,6 +449,8 @@ class BinaryCodec with ValidationMixin implements IBinaryCodec, ICodec {
       return primitiveCodec.encodeNested(value);
     } else if (value is H256Value) {
       return primitiveCodec.encodeNested(value);
+    } else if (value is ManagedByteArrayValue) {
+      return managedByteArrayCodec.encodeNested(value);
     } else if (value is CodeMetadataValue) {
       return primitiveCodec.encodeNested(value);
     } else if (value is OptionalValue) {
@@ -442,6 +473,8 @@ class BinaryCodec with ValidationMixin implements IBinaryCodec, ICodec {
       return managedDecimalCodec.encodeNested(value);
     } else if (value is VariadicValue) {
       return variadicCodec.encodeNested(value);
+    } else if (value is MultiValueValue) {
+      return multiValueCodec.encodeNested(value);
     } else if (value is CompositeValue) {
       return _encodeCompositeNested(value, depth: depth);
     } else {

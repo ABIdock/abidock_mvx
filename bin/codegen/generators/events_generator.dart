@@ -37,19 +37,35 @@ final class EventsGenerator extends GeneratorBase {
   }
 
   String _normalizeEventClassName(String identifier) {
-    String normalized = identifier;
-    if (normalized.endsWith('_event')) {
-      normalized = normalized.substring(0, normalized.length - 6);
+    final base = _stripEventSuffix(identifier);
+    final candidate = '${nameSanitizer.toPascalCase(base)}Event';
+    if (_hasStructConflict(candidate)) {
+      return '${candidate}Data';
     }
-    return '${nameSanitizer.toPascalCase(normalized)}Event';
+    return candidate;
   }
 
   String _normalizeEventFileName(String identifier) {
-    String normalized = identifier;
-    if (normalized.endsWith('_event')) {
-      normalized = normalized.substring(0, normalized.length - 6);
+    final base = _stripEventSuffix(identifier);
+    final candidate = '${nameSanitizer.toSnakeCase(base)}_event';
+    final className = '${nameSanitizer.toPascalCase(base)}Event';
+    if (_hasStructConflict(className)) {
+      return '${candidate}_data';
     }
-    return '${nameSanitizer.toSnakeCase(normalized)}_event';
+    return candidate;
+  }
+
+  String _stripEventSuffix(String identifier) {
+    if (identifier.endsWith('_event')) {
+      return identifier.substring(0, identifier.length - 6);
+    }
+    return identifier;
+  }
+
+  bool _hasStructConflict(String candidateClassName) {
+    return abi.types.keys.any(
+      (typeName) => nameSanitizer.toPascalCase(typeName) == candidateClassName,
+    );
   }
 
   FileOutput _generateControllerStream(EventDefinition event) {
@@ -82,7 +98,7 @@ final class EventsGenerator extends GeneratorBase {
         if (line.trim().isEmpty) {
           buffer.writeln('///');
         } else {
-          buffer.writeln('/// $line');
+          buffer.writeln('/// ${escapeDocLine(line)}');
         }
       }
     }
@@ -111,9 +127,6 @@ final class EventsGenerator extends GeneratorBase {
     );
     buffer.writeln('    String? startFrom,');
     buffer.writeln('  }) {');
-    final eventStructName = event.identifier.endsWith('_event')
-        ? event.identifier
-        : '${event.identifier}_event';
 
     buffer.writeln('    return controller.streamEvents(');
     buffer.writeln('      eventIdentifier: \'${event.identifier}\',');
@@ -121,14 +134,18 @@ final class EventsGenerator extends GeneratorBase {
     buffer.writeln('      startFrom: startFrom,');
     buffer.writeln('    ).map((parsedEvent) {');
     buffer.writeln(
-      '      final eventStruct = parsedEvent.getValueByName(\'$eventStructName\');',
+      '      final decoded = EventConverter.convertEvent<$eventClassName>(',
     );
-    buffer.writeln('      if (eventStruct == null) {');
+    buffer.writeln('        parsedEvent,');
+    buffer.writeln('        $eventClassName.fromAbi,');
+    buffer.writeln('        $eventClassName.type,');
+    buffer.writeln('      );');
+    buffer.writeln('      if (decoded == null) {');
     buffer.writeln(
-      '        throw StateError(\'Event struct not found in parsed event\');',
+      '        throw StateError(\'Failed to decode ${event.identifier} event\');',
     );
     buffer.writeln('      }');
-    buffer.writeln('      return $eventClassName.fromAbi(eventStruct);');
+    buffer.writeln('      return decoded;');
     buffer.writeln('    });');
     buffer.writeln('  }');
     buffer.writeln('}');
@@ -171,7 +188,7 @@ final class EventsGenerator extends GeneratorBase {
         if (line.trim().isEmpty) {
           buffer.writeln('///');
         } else {
-          buffer.writeln('/// $line');
+          buffer.writeln('/// ${escapeDocLine(line)}');
         }
       }
     }
@@ -194,9 +211,7 @@ final class EventsGenerator extends GeneratorBase {
     buffer.writeln('    required String websocketUrl,');
     buffer.writeln('    Map<String, String>? headers,');
     buffer.writeln('    bool autoReconnect = true,');
-    buffer.writeln(
-      '    Duration reconnectDelay = const Duration(milliseconds: 300),',
-    );
+    buffer.writeln('    Duration reconnectDelay = const Duration(seconds: 1),');
     buffer.writeln(
       '    Duration connectionTimeout = const Duration(seconds: 5),',
     );
@@ -301,9 +316,7 @@ final class EventsGenerator extends GeneratorBase {
     buffer.writeln('    required String websocketUrl,');
     buffer.writeln('    Map<String, String> headers = const {},');
     buffer.writeln('    bool autoReconnect = true,');
-    buffer.writeln(
-      '    Duration reconnectDelay = const Duration(milliseconds: 300),',
-    );
+    buffer.writeln('    Duration reconnectDelay = const Duration(seconds: 1),');
     buffer.writeln(
       '    Duration connectionTimeout = const Duration(seconds: 5),',
     );
@@ -336,13 +349,6 @@ final class EventsGenerator extends GeneratorBase {
     for (final event in events) {
       final eventClassName = _normalizeEventClassName(event.identifier);
       final streamName = nameSanitizer.toCamelCase(event.identifier);
-      String normalizedIdentifier = event.identifier;
-      if (normalizedIdentifier.endsWith('_event')) {
-        normalizedIdentifier = normalizedIdentifier.substring(
-          0,
-          normalizedIdentifier.length - 6,
-        );
-      }
 
       buffer.writeln('  /// Stream of ${event.identifier} events.');
       buffer.writeln('  Stream<$eventClassName> get $streamName =>');
@@ -502,9 +508,6 @@ final class EventsGenerator extends GeneratorBase {
     for (final event in events) {
       final eventName = nameSanitizer.toCamelCase(event.identifier);
       final eventClass = _normalizeEventClassName(event.identifier);
-      final pollingStructName = event.identifier.endsWith('_event')
-          ? event.identifier
-          : '${event.identifier}_event';
 
       buffer.writeln('  /// Stream of ${event.identifier} events.');
       buffer.writeln('  Stream<$eventClass> get $eventName => _baseStream');
@@ -513,14 +516,18 @@ final class EventsGenerator extends GeneratorBase {
       );
       buffer.writeln('      .map((parsedEvent) {');
       buffer.writeln(
-        '        final eventStruct = parsedEvent.getValueByName(\'$pollingStructName\');',
+        '        final decoded = EventConverter.convertEvent<$eventClass>(',
       );
-      buffer.writeln('        if (eventStruct == null) {');
+      buffer.writeln('          parsedEvent,');
+      buffer.writeln('          $eventClass.fromAbi,');
+      buffer.writeln('          $eventClass.type,');
+      buffer.writeln('        );');
+      buffer.writeln('        if (decoded == null) {');
       buffer.writeln(
-        '          throw StateError(\'Event struct not found in parsed event\');',
+        '          throw StateError(\'Failed to decode ${event.identifier} event\');',
       );
       buffer.writeln('        }');
-      buffer.writeln('        return $eventClass.fromAbi(eventStruct);');
+      buffer.writeln('        return decoded;');
       buffer.writeln('      });');
       buffer.writeln();
     }
@@ -551,16 +558,14 @@ final class EventsGenerator extends GeneratorBase {
 
     for (final event in events) {
       final eventClass = _normalizeEventClassName(event.identifier);
-      final pollingStructName = event.identifier.endsWith('_event')
-          ? event.identifier
-          : '${event.identifier}_event';
       buffer.writeln('        case \'${event.identifier}\':');
       buffer.writeln(
-        '          final struct = parsedEvent.getValueByName(\'$pollingStructName\');',
+        '          return EventConverter.convertEvent<$eventClass>(',
       );
-      buffer.writeln(
-        '          return struct != null ? $eventClass.fromAbi(struct) : null;',
-      );
+      buffer.writeln('            parsedEvent,');
+      buffer.writeln('            $eventClass.fromAbi,');
+      buffer.writeln('            $eventClass.type,');
+      buffer.writeln('          );');
     }
 
     buffer.writeln('        default:');

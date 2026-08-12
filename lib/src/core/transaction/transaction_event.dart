@@ -121,6 +121,66 @@ class TransactionEvent {
     );
   }
 
+  /// Creates an event from a Gateway/Proxy response with hex-encoded data and topics.
+  ///
+  /// Gateway/Proxy nodes serialize event `data` and `topics` as hex strings,
+  /// whereas the public API serializes them base64-encoded. Use this factory
+  /// when the payload originated from a gateway (`/transaction/:hash`) endpoint.
+  ///
+  /// #### Parameters
+  /// - `response` - Gateway response map with hex-encoded `data` and `topics`
+  ///
+  /// #### Returns
+  /// `TransactionEvent` - Event with hex-decoded byte arrays
+  factory TransactionEvent.fromProxyHttpResponse(
+    Map<String, dynamic> response,
+  ) {
+    final String addressStr = requireAs<String>(response['address'], 'address');
+    final String identifierStr =
+        optionalAs<String>(response['identifier'], 'identifier') ?? '';
+    final List<dynamic> topicsList =
+        optionalAs<List<dynamic>>(response['topics'], 'topics') ?? <dynamic>[];
+    final String? dataStr = optionalAs<String>(response['data'], 'data');
+    final List<dynamic> additionalDataList =
+        optionalAs<List<dynamic>>(
+          response['additionalData'],
+          'additionalData',
+        ) ??
+        <dynamic>[];
+    final int order = optionalAs<int>(response['order'], 'order') ?? 0;
+    final Map<String, dynamic>? addressAssets =
+        optionalAs<Map<String, dynamic>>(
+          response['addressAssets'],
+          'addressAssets',
+        );
+
+    final List<Uint8List> topics = topicsList
+        .map((topic) => _decodeProxyBytes(requireAs<String>(topic, 'topic')))
+        .toList();
+
+    final Uint8List data = dataStr != null && dataStr.isNotEmpty
+        ? _decodeProxyBytes(dataStr)
+        : Uint8List(0);
+
+    final List<Uint8List> additionalData = additionalDataList
+        .map(
+          (item) =>
+              _decodeProxyBytes(requireAs<String>(item, 'additionalDataItem')),
+        )
+        .toList();
+
+    return TransactionEvent(
+      address: Address.fromBech32(addressStr),
+      identifier: identifierStr,
+      topics: topics,
+      data: data,
+      additionalData: additionalData,
+      order: order,
+      addressAssets: addressAssets,
+      raw: response,
+    );
+  }
+
   /// Creates an event from the `/events` API endpoint response with hex-encoded data.
   ///
   /// #### Parameters
@@ -131,15 +191,12 @@ class TransactionEvent {
   ///
   /// #### Example
   /// ```dart
-  /// // From /events endpoint
-  /// final eventsResponse = await provider.getEvents({
-  ///   'address': contractAddress.bech32,
-  ///   'identifier': 'transfer',
-  /// });
-  ///
-  /// final events = eventsResponse['events'].map((e) =>
-  ///   TransactionEvent.fromEventsEndpoint(e)
-  /// ).toList();
+  /// // Raw payloads served by the `/events` route
+  /// final events = eventsResponse
+  ///     .map(
+  ///       (Map<String, dynamic> e) => TransactionEvent.fromEventsEndpoint(e),
+  ///     )
+  ///     .toList();
   ///
   /// for (final event in events) {
   ///   final amount = event.getTopicAsBigInt(2);
@@ -374,4 +431,34 @@ class TransactionEvent {
         'dataBytes: ${data.length}'
         ')';
   }
+}
+
+/// Decodes a gateway/proxy-encoded value: prefers hex, falls back to UTF-8 bytes.
+///
+/// Gateway responses serialize event `data`/`topics` as hex strings, but real
+/// payloads occasionally arrive as plain UTF-8 (e.g. error messages from older
+/// nodes). This helper is permissive: if `value` doesn't look like even-length
+/// hex, the raw UTF-8 bytes are returned instead so no information is lost.
+Uint8List _decodeProxyBytes(String value) {
+  if (value.isEmpty) return Uint8List(0);
+  if (value.length.isEven && _isHexString(value)) {
+    try {
+      return HexUtils.hexToBytes(value);
+    } catch (_) {
+      return Uint8List.fromList(utf8.encode(value));
+    }
+  }
+  return Uint8List.fromList(utf8.encode(value));
+}
+
+bool _isHexString(String s) {
+  for (int i = 0; i < s.length; i++) {
+    final int c = s.codeUnitAt(i);
+    final bool isHex =
+        (c >= 0x30 && c <= 0x39) ||
+        (c >= 0x61 && c <= 0x66) ||
+        (c >= 0x41 && c <= 0x46);
+    if (!isHex) return false;
+  }
+  return true;
 }

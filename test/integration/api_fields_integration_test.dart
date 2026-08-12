@@ -1,3 +1,6 @@
+@Tags(<String>['integration'])
+library;
+
 import 'dart:typed_data';
 
 import 'package:abidock_mvx/abidock_mvx.dart';
@@ -28,7 +31,7 @@ void main() {
       expect(config.topUpFactor, greaterThan(0));
 
       expect(config.denomination, equals(18));
-      expect(config.gasPriceModifier, isA<String>());
+      expect(config.gasPriceModifier, isA<double>());
       expect(config.adaptivity, isA<bool>());
       expect(config.hysteresis, isA<String>());
     });
@@ -39,7 +42,7 @@ void main() {
       expect(config.chainId, equals('D'));
       expect(config.minGasPrice, greaterThan(0));
       expect(config.denomination, equals(18));
-      expect(config.gasPriceModifier, isA<String>());
+      expect(config.gasPriceModifier, isA<double>());
     });
 
     test('should have optional fields available when present', () async {
@@ -86,17 +89,14 @@ void main() {
     test('should fetch all economics fields from mainnet', () async {
       final economics = await mainnetProvider.getNetworkEconomics();
 
-      // Supply fields
       expect(economics.totalSupply, greaterThan(0));
       expect(economics.circulatingSupply, greaterThan(0));
       expect(economics.staked, greaterThan(0));
 
-      // Market data
       expect(economics.price, greaterThan(0));
       expect(economics.marketCap, greaterThan(0));
       expect(economics.tokenMarketCap, greaterThanOrEqualTo(0));
 
-      // APR fields
       expect(economics.apr, greaterThan(0));
       expect(economics.topUpApr, greaterThanOrEqualTo(0));
       expect(economics.baseApr, greaterThan(0));
@@ -105,11 +105,9 @@ void main() {
     test('should fetch economics from devnet', () async {
       final economics = await devnetProvider.getNetworkEconomics();
 
-      // Supply fields
       expect(economics.totalSupply, greaterThan(0));
       expect(economics.circulatingSupply, greaterThan(0));
 
-      // APR fields
       expect(economics.apr, greaterThanOrEqualTo(0));
     });
 
@@ -428,7 +426,7 @@ void main() {
         expect(config.topUpFactor, isA<double>());
         expect(config.topUpFactor, greaterThan(0));
         expect(config.denomination, equals(18));
-        expect(config.gasPriceModifier, isA<String>());
+        expect(config.gasPriceModifier, isA<double>());
       },
     );
 

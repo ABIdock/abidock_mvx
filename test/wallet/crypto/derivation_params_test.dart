@@ -6,8 +6,16 @@ import 'package:test/test.dart';
 void main() {
   group('ScryptKeyDerivationParams', () {
     group('default parameters', () {
-      test('has correct default values', () {
+      test('default constructor uses TS-canonical n=4096', () {
         final params = ScryptKeyDerivationParams();
+        expect(params.n, equals(4096));
+        expect(params.r, equals(8));
+        expect(params.p, equals(1));
+        expect(params.dklen, equals(32));
+      });
+
+      test('strict() constructor uses stronger n=16384', () {
+        final params = ScryptKeyDerivationParams.strict();
         expect(params.n, equals(16384));
         expect(params.r, equals(8));
         expect(params.p, equals(1));
@@ -16,7 +24,7 @@ void main() {
     });
 
     group('custom parameters', () {
-      test('accepts custom n value (power of 2, >= 16384)', () {
+      test('accepts custom n value (power of 2, >= 4096)', () {
         final params = ScryptKeyDerivationParams(n: 32768);
         expect(params.n, equals(32768));
       });
@@ -33,11 +41,16 @@ void main() {
     });
 
     group('validation', () {
-      test('rejects n below 16384', () {
+      test('rejects n below 4096', () {
         expect(
-          () => ScryptKeyDerivationParams(n: 8192),
+          () => ScryptKeyDerivationParams(n: 2048),
           throwsA(isA<ArgumentError>()),
         );
+      });
+
+      test('accepts the TS-canonical n=4096 boundary', () {
+        final params = ScryptKeyDerivationParams(n: 4096);
+        expect(params.n, equals(4096));
       });
 
       test('rejects n that is not a power of 2', () {

@@ -112,6 +112,36 @@ class TransactionLogs {
     );
   }
 
+  /// Creates transaction logs from a Gateway/Proxy response map.
+  ///
+  /// Gateway nodes encode event `data` and `topics` as hex strings, whereas
+  /// the public API uses base64. Use this factory when wiring the gateway
+  /// transaction endpoint.
+  ///
+  /// #### Parameters
+  /// - `response` - Gateway response containing 'address' and 'events' fields
+  ///
+  /// #### Returns
+  /// `TransactionLogs` - Logs with hex-decoded event payloads
+  factory TransactionLogs.fromProxyHttpResponse(Map<String, dynamic> response) {
+    final String addressStr = requireAs<String>(response['address'], 'address');
+    final List<dynamic> eventsList =
+        optionalAs<List<dynamic>>(response['events'], 'events') ?? <dynamic>[];
+
+    final List<TransactionEvent> events = eventsList
+        .map(
+          (eventData) => TransactionEvent.fromProxyHttpResponse(
+            requireAs<Map<String, dynamic>>(eventData, 'eventData'),
+          ),
+        )
+        .toList();
+
+    return TransactionLogs(
+      address: Address.fromBech32(addressStr),
+      events: events,
+    );
+  }
+
   /// Address associated with the logs (usually contract address).
   final Address address;
 

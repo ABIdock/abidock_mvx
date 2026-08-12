@@ -10,8 +10,13 @@ import '../../../core/address.dart';
 import '../../../core/balance.dart';
 import '../../../core/nonce.dart';
 import '../../../core/transaction/controllers/base_controller.dart';
+import '../../../core/transaction/factories/smart_contract_transactions_factory.dart';
+import '../../../core/transaction/gas_models/gas_limit.dart';
+import '../../../core/transaction/outcome_parsers/smart_contract_outcome_parser.dart';
 import '../../../core/transaction/transaction.dart';
 import '../../../core/transaction/transaction_event_parser.dart';
+import '../../../core/transaction/transaction_on_network.dart';
+import '../../../core/transaction/transaction_watcher.dart';
 import '../../../infrastructure/network/network_provider.dart';
 import '../../abi.dart';
 
@@ -77,6 +82,7 @@ final class SmartContractController extends BaseController {
     required this.contractAddress,
     required this.networkProvider,
     required SmartContractAbi abi,
+    super.gasLimitEstimator,
     super.logger,
   }) : _abi = abi,
        _factory = SmartContractCallFactory(
@@ -96,7 +102,9 @@ final class SmartContractController extends BaseController {
          networkProvider: networkProvider,
          abi: abi,
          logger: logger,
-       );
+       ),
+       _outcomeParser = SmartContractOutcomeParser(abi: abi),
+       _watcher = TransactionWatcher(networkProvider: networkProvider);
 
   /// Creates controller without ABI for raw [TypedValue] or [Uint8List] arguments.
   ///
@@ -138,6 +146,7 @@ final class SmartContractController extends BaseController {
   SmartContractController.withoutAbi({
     required this.contractAddress,
     required this.networkProvider,
+    super.gasLimitEstimator,
     super.logger,
   }) : _abi = null,
        _factory = SmartContractCallFactory.withoutAbi(
@@ -150,10 +159,12 @@ final class SmartContractController extends BaseController {
          networkProvider: networkProvider,
          logger: logger,
        ),
-       _eventRunner = null;
+       _eventRunner = null,
+       _outcomeParser = const SmartContractOutcomeParser(),
+       _watcher = TransactionWatcher(networkProvider: networkProvider);
 
   /// The target smart contract address.
-  final SmartContractAddress contractAddress;
+  final Address contractAddress;
 
   /// The network provider for API calls.
   final NetworkProvider networkProvider;
@@ -185,6 +196,235 @@ final class SmartContractController extends BaseController {
 
   /// Internal event runner for event operations (null when no ABI).
   final SmartContractEventRunner? _eventRunner;
+
+  /// Internal outcome parser for deploy / execute results.
+  final SmartContractOutcomeParser _outcomeParser;
+
+  /// Internal transaction watcher for awaitCompleted* methods.
+  final TransactionWatcher _watcher;
+
+  /// Creates an unsigned deploy transaction for this contract's bytecode.
+  ///
+  /// Delegates to [SmartContractTransactionsFactory.createTransactionForDeploy]
+  /// without signing — caller is responsible for nonce and signing.
+  ///
+  /// #### Parameters
+  /// - `sender` - Deployer address
+  /// - `nonce` - Sender's account nonce
+  /// - `bytecode` - WASM contract bytecode
+  /// - `gasLimit` - Gas limit for the deploy transaction
+  /// - `codeMetadata` - Optional code metadata bytes
+  /// - `vmType` - Optional VM type identifier (default `0500`)
+  /// - `arguments` - Optional constructor argument byte parts
+  ///
+  /// #### Returns
+  /// Unsigned [Transaction] ready to be signed by the caller.
+  ///
+  /// #### Example
+  /// ```dart
+  /// final tx = controller.createTransactionForDeploy(
+  ///   sender: alice.address,
+  ///   nonce: const Nonce(7),
+  ///   bytecode: wasm,
+  ///   gasLimit: const GasLimit(60000000),
+  /// );
+  /// ```
+  Transaction createTransactionForDeploy({
+    required Address sender,
+    required Nonce nonce,
+    required Uint8List bytecode,
+    required GasLimit gasLimit,
+    Uint8List? codeMetadata,
+    String vmType = '0500',
+    List<Uint8List> arguments = const <Uint8List>[],
+  }) {
+    final SmartContractTransactionsFactory factory =
+        SmartContractTransactionsFactory(
+          SmartContractTransactionsConfig(chainId: networkProvider.chainId),
+        );
+    return factory.createTransactionForDeploy(
+      sender: sender,
+      bytecode: bytecode,
+      gasLimit: gasLimit,
+      codeMetadata: codeMetadata,
+      vmType: vmType,
+      arguments: arguments,
+      nonce: nonce,
+    );
+  }
+
+  /// Creates an unsigned upgrade transaction for this contract.
+  ///
+  /// #### Parameters
+  /// - `sender` - Caller (current contract owner) address
+  /// - `nonce` - Sender's account nonce
+  /// - `bytecode` - New WASM contract bytecode
+  /// - `gasLimit` - Gas limit for the upgrade transaction
+  /// - `codeMetadata` - Optional code metadata bytes
+  /// - `arguments` - Optional upgrade-constructor argument byte parts
+  ///
+  /// #### Returns
+  /// Unsigned [Transaction] ready to be signed by the caller.
+  ///
+  /// #### Example
+  /// ```dart
+  /// final tx = controller.createTransactionForUpgrade(
+  ///   sender: alice.address,
+  ///   nonce: const Nonce(8),
+  ///   bytecode: newWasm,
+  ///   gasLimit: const GasLimit(60000000),
+  /// );
+  /// ```
+  Transaction createTransactionForUpgrade({
+    required Address sender,
+    required Nonce nonce,
+    required Uint8List bytecode,
+    required GasLimit gasLimit,
+    Uint8List? codeMetadata,
+    List<Uint8List> arguments = const <Uint8List>[],
+  }) {
+    final SmartContractTransactionsFactory factory =
+        SmartContractTransactionsFactory(
+          SmartContractTransactionsConfig(chainId: networkProvider.chainId),
+        );
+    return factory.createTransactionForUpgrade(
+      sender: sender,
+      contract: contractAddress,
+      bytecode: bytecode,
+      gasLimit: gasLimit,
+      codeMetadata: codeMetadata,
+      arguments: arguments,
+      nonce: nonce,
+    );
+  }
+
+  /// Parses a completed deploy transaction into a structured outcome.
+  ///
+  /// #### Parameters
+  /// - `transaction` - Completed [TransactionOnNetwork] from `getTransaction`
+  ///
+  /// #### Returns
+  /// [SmartContractDeployOutcome] with deployed-contract address, owner,
+  /// and code hash.
+  ///
+  /// #### Example
+  /// ```dart
+  /// final tx = await provider.getTransaction(hash, withProcessStatus: true);
+  /// final outcome = controller.parseDeploy(tx);
+  /// print(outcome.contracts.first.address.bech32);
+  /// ```
+  SmartContractDeployOutcome parseDeploy(TransactionOnNetwork transaction) {
+    return _outcomeParser.parseDeploy(transaction);
+  }
+
+  /// Parses a completed execute transaction into a structured outcome.
+  ///
+  /// When ABI is available and a `function` is known, decoded typed values
+  /// are returned; otherwise raw return-data buffers are returned.
+  ///
+  /// #### Parameters
+  /// - `transaction` - Completed [TransactionOnNetwork] from `getTransaction`
+  /// - `function` - Optional endpoint name to drive ABI decoding
+  ///
+  /// #### Returns
+  /// [ParsedSmartContractCallOutcome] containing the return code, message,
+  /// and decoded values.
+  ///
+  /// #### Example
+  /// ```dart
+  /// final tx = await provider.getTransaction(hash, withProcessStatus: true);
+  /// final outcome = controller.parseExecute(transaction: tx, function: 'swap');
+  /// ```
+  ParsedSmartContractCallOutcome parseExecute({
+    required TransactionOnNetwork transaction,
+    String? function,
+  }) {
+    return _outcomeParser.parseExecute(transaction, function: function);
+  }
+
+  /// Decodes a raw [SmartContractQueryResponse] into native ABI values.
+  ///
+  /// Requires ABI: the endpoint's declared output types drive the decoding.
+  ///
+  /// #### Parameters
+  /// - `response` - Raw query response from `networkProvider.queryContract`
+  /// - `endpointName` - Endpoint name for output-type lookup
+  ///
+  /// #### Returns
+  /// List of decoded native Dart values matching endpoint outputs.
+  ///
+  /// #### Throws
+  /// - [StateError] if controller has no ABI
+  /// - [EndpointNotFoundException] if the endpoint is not in the ABI
+  ///
+  /// #### Example
+  /// ```dart
+  /// final raw = await provider.queryContract(query);
+  /// final values = controller.parseQueryResponse(
+  ///   response: raw,
+  ///   endpointName: 'getTotal',
+  /// );
+  /// ```
+  List<dynamic> parseQueryResponse({
+    required SmartContractQueryResponse response,
+    required String endpointName,
+  }) {
+    _requireAbiForEndpoints();
+    final AbiEndpoint? endpoint = abi.endpoints.getByName(endpointName);
+    if (endpoint == null) {
+      throw EndpointNotFoundException.withSuggestions(
+        endpointName: endpointName,
+        abi: abi,
+      );
+    }
+    final ResponseParser parser = ResponseParser(serializer: ArgSerializer());
+    final List<TypedValue> typed = parser.parseForEndpoint(
+      endpoint: endpoint,
+      returnData: response.returnDataParts,
+    );
+    return typed.map((TypedValue tv) => tv.nativeValue).toList();
+  }
+
+  /// Awaits a deploy transaction until completion and returns the parsed outcome.
+  ///
+  /// #### Parameters
+  /// - `txHash` - Transaction hash returned by `sendTransaction`
+  ///
+  /// #### Returns
+  /// [SmartContractDeployOutcome] with deployed-contract metadata.
+  ///
+  /// #### Example
+  /// ```dart
+  /// final outcome = await controller.awaitCompletedDeploy(hash);
+  /// ```
+  Future<SmartContractDeployOutcome> awaitCompletedDeploy(String txHash) async {
+    final TransactionOnNetwork tx = await _watcher.awaitCompleted(txHash);
+    return parseDeploy(tx);
+  }
+
+  /// Awaits an execute transaction until completion and returns the parsed outcome.
+  ///
+  /// #### Parameters
+  /// - `txHash` - Transaction hash returned by `sendTransaction`
+  /// - `function` - Optional endpoint name used to drive ABI decoding
+  ///
+  /// #### Returns
+  /// [ParsedSmartContractCallOutcome] with decoded return values.
+  ///
+  /// #### Example
+  /// ```dart
+  /// final outcome = await controller.awaitCompletedExecute(
+  ///   hash,
+  ///   function: 'swap',
+  /// );
+  /// ```
+  Future<ParsedSmartContractCallOutcome> awaitCompletedExecute(
+    String txHash, {
+    String? function,
+  }) async {
+    final TransactionOnNetwork tx = await _watcher.awaitCompleted(txHash);
+    return parseExecute(transaction: tx, function: function);
+  }
 
   /// Executes a smart contract query and returns parsed results.
   ///

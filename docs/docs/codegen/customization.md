@@ -69,16 +69,18 @@ The generator supports these feature flags:
 
 ### Logger Feature
 
-When enabled, the controller accepts an optional logger:
+When enabled, the controller accepts an optional logger and falls back to a
+fully configured `ConsoleLogger`. The field is typed as the abstract `Logger`,
+so your own implementation passes straight through:
 
 ```dart
 class PairController {
-  final ConsoleLogger logger;
+  final Logger logger;
 
   PairController({
     required dynamic contractAddress,
     required NetworkProvider networkProvider,
-    ConsoleLogger? logger,  // Optional logger parameter
+    Logger? logger,  // Optional logger parameter
   }) : logger = logger ?? ConsoleLogger(
          minLevel: LogLevel.debug,
          includeTimestamp: true,
@@ -94,19 +96,24 @@ class PairController {
 When enabled, calls use automatic gas estimation via `simulateGas`:
 
 ```dart
-// Create transaction with max gas for simulation
-final simulationTx = await controller.call(
-  account: sender,
+// Build an unsigned probe transaction for simulation.
+final factory = SmartContractCallFactory(
+  contractAddress: controller.contractAddress,
+  abi: controller.abi,
+  chainId: controller.networkProvider.chainId,
+);
+final probeTx = factory.createCall(
+  sender: sender.address,
   nonce: nonce,
   endpointName: 'addLiquidity',
   arguments: [firstTokenAmountMin, secondTokenAmountMin],
-  options: BaseControllerInput(gasLimit: const GasLimit(600000000)),
+  gasLimit: const GasLimit(600000000),
 );
 
-// Estimate gas using simulation
-final gasLimit = await simulateGas(simulationTx, controller.networkProvider);
+// Estimate gas using simulation.
+final gasLimit = await simulateGas(probeTx, controller.networkProvider);
 
-// Create final transaction with estimated gas
+// Sign once with the final gas limit so the signature matches.
 return controller.call(
   account: sender,
   nonce: nonce,
@@ -118,34 +125,75 @@ return controller.call(
 
 ### Transfers Feature
 
-When enabled, a transfer controller is generated:
+When enabled, a stateless `TransferService` is generated in
+`transfer_service.dart`, backed by one file per transfer kind under
+`transfers/`. It is contract-independent: it takes a `NetworkProvider` and
+moves tokens directly.
 
 ```dart
-class TransferController {
-  Future<Transaction> sendEgld(
-    IAccount sender,
-    Nonce nonce,
-    Address recipient,
-    Balance value,
-  ) async { ... }
+class TransferService {
+  const TransferService(this._provider);
 
-  Future<Transaction> sendEsdt(
+  Future<Transaction> egld(
     IAccount sender,
     Nonce nonce,
-    Address recipient,
-    String tokenId,
-    BigInt amount,
-  ) async { ... }
+    Address receiver,
+    Balance amount, {
+    Address? relayer,
+    Address? guardian,
+    Uint8List? data,
+    GasLimit? gasLimit,
+  });
 
-  Future<Transaction> sendNft(
+  Future<Transaction> esdt(
     IAccount sender,
     Nonce nonce,
-    Address recipient,
+    Address receiver,
     String tokenId,
-    BigInt nonce,
-    BigInt quantity,
-  ) async { ... }
+    BigInt amount, {
+    Address? relayer,
+    Address? guardian,
+    GasLimit? gasLimit,
+  });
+
+  Future<Transaction> nft(
+    IAccount sender,
+    Nonce nonce,
+    Address receiver,
+    String tokenId,
+    int tokenNonce,
+    BigInt amount, {
+    Address? relayer,
+    Address? guardian,
+    GasLimit? gasLimit,
+  });
+
+  Future<Transaction> multi(
+    IAccount sender,
+    Nonce nonce,
+    Address receiver,
+    List<TokenTransfer> transfers, {
+    Address? relayer,
+    Address? guardian,
+    GasLimit? gasLimit,
+  });
+
+  // Raw factory exposed for custom batching
+  TransferTransactionsFactory get transferFactory;
 }
+```
+
+Usage:
+
+```dart
+final transfers = TransferService(provider);
+
+final tx = await transfers.egld(
+  account,
+  networkAccount.nonce,
+  Address.fromBech32('erd1...'),
+  Balance.fromEgld(0.5),
+);
 ```
 
 ## Generated File Structure
@@ -155,21 +203,25 @@ The generator creates a nested folder structure:
 ```
 pair/
 ├── abi.dart                   # ABI constant
-├── controller.dart            # Main PairController class  
+├── controller.dart            # Main PairController class
 ├── pair.dart                  # Barrel export file
-├── models/                    # Structs and enums (one per file)
+├── transfer_service.dart      # TransferService (with --transfers)
+├── models/                    # Structs, enums, event models (one per file)
 │   ├── esdt_token_payment.dart
 │   ├── state.dart
 │   └── token_pair.dart
-├── queries/                   # Query functions (one per file)
+├── queries/                   # Query functions (one per view endpoint)
 │   ├── get_reserve.dart
 │   └── get_reserves_and_total_supply.dart
-├── calls/                     # Call functions (one per file)
-│   └── add_liquidity.dart
-├── events/                    # Event streams
+├── calls/                     # Call functions (one per mutable endpoint)
+│   ├── add_liquidity.dart
+│   └── deploy.dart            # when the ABI declares a constructor
+├── events/                    # Event streams (when the ABI declares events)
+│   ├── multi_event_polling_stream.dart
+│   ├── multi_event_websocket_stream.dart
 │   ├── polling_events/
 │   └── websocket_events/
-└── transfers/                 # Token transfers (with --transfers)
+└── transfers/                 # egld / esdt / nft / multi (with --transfers)
 ```
 
 ## Type Mappings
@@ -178,15 +230,25 @@ ABI types are automatically mapped to Dart types:
 
 | ABI Type | Dart Type |
 |----------|-----------|
-| `BigUint`, `BigInt` | `BigInt` |
-| `u8`, `u16`, `u32`, `u64` | `int` / `BigInt` |
-| `Address` | `Address` |
-| `TokenIdentifier` | `String` |
+| `u8`, `u16`, `u32` | `int` |
+| `i8`, `i16`, `i32` | `int` |
+| `u64`, `BigUint` | `BigInt` |
+| `i64`, `BigInt` | `BigInt` |
+| `ManagedDecimal` | `BigInt` |
+| `BigFloat` | `double` |
 | `bool` | `bool` |
-| `bytes` | `Uint8List` |
-| `optional<T>` | `T?` |
+| `bytes`, `H256`, `ManagedByteArray<N>` | `Uint8List` |
+| `utf-8 string` | `String` |
+| `Address` | `Address` |
+| `TokenIdentifier`, `EsdtTokenIdentifier` | `TokenIdentifier` |
+| `EgldOrEsdtTokenIdentifier` | `EgldOrEsdtTokenIdentifier` |
+| `EsdtTokenPayment` (transfer type) | `TokenTransferValue` |
+| `CodeMetadata` | `List<int>` |
+| `Option<T>`, `optional<T>` | `T?` |
+| `List<T>`, `array<N,T>` | `List<T>` |
 | `variadic<T>` | `List<T>` |
-| `multi<A,B,C>` | `(A, B, C)` (Dart 3 records) |
+| `tuple<A,B>`, `multi<A,B,C>` | `(A, B)` / `(A, B, C)` (Dart 3 records) |
+| struct / enum | Generated class or Dart `enum` of the same name |
 
 ## Custom Types
 
@@ -207,7 +269,7 @@ class EsdtTokenPayment {
     required this.amount,
   });
 
-  final String tokenIdentifier;
+  final TokenIdentifier tokenIdentifier;
   final BigInt tokenNonce;
   final BigInt amount;
 
@@ -277,24 +339,26 @@ extension PairControllerExtensions on PairController {
     final (res1, res2, total) = await getReservesAndTotalSupply();
     return res1 + res2;
   }
-  
+
   /// Swap with slippage protection
   Future<Transaction> swapWithSlippage(
     IAccount sender,
     Nonce nonce,
-    String tokenIn,
+    TokenIdentifier tokenIn,
+    TokenIdentifier tokenOut,
     BigInt amountIn,
-    double maxSlippagePercent, {
-    List<TokenTransferValue> tokenTransfers = const [],
+    int maxSlippageBps, {
+    List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
   }) async {
     final expectedOut = await getAmountOut(tokenIn, amountIn);
-    final minOut = (expectedOut * BigInt.from((100 - maxSlippagePercent).toInt())) ~/ BigInt.from(100);
-    
+    final minOut =
+        (expectedOut * BigInt.from(10000 - maxSlippageBps)) ~/
+            BigInt.from(10000);
+
     return swapTokensFixedInput(
       sender,
       nonce,
-      tokenIn,
-      amountIn,
+      tokenOut,
       minOut,
       tokenTransfers: tokenTransfers,
     );

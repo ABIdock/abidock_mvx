@@ -27,23 +27,8 @@ class BarrelGenerator extends GeneratorBase {
     exports.add('export \'abi.dart\';');
     exports.add('export \'controller.dart\';');
 
-    final eventModelNames = <String>{};
-    if (abi.events.isNotEmpty) {
-      for (final event in abi.events) {
-        String normalized = event.identifier;
-        if (normalized.endsWith('_event')) {
-          normalized = normalized.substring(0, normalized.length - 6);
-        }
-        final eventModelName = '${nameSanitizer.toPascalCase(normalized)}Event';
-        eventModelNames.add(eventModelName);
-      }
-    }
-
     if (abi.types.isNotEmpty) {
       for (final type in abi.types.values) {
-        if (eventModelNames.contains(type.name)) {
-          continue;
-        }
         final name = nameSanitizer.toSnakeCase(type.name);
         exports.add('export \'models/$name.dart\';');
       }
@@ -65,11 +50,7 @@ class BarrelGenerator extends GeneratorBase {
 
     if (abi.events.isNotEmpty) {
       for (final event in abi.events) {
-        String normalized = event.identifier;
-        if (normalized.endsWith('_event')) {
-          normalized = normalized.substring(0, normalized.length - 6);
-        }
-        final name = '${nameSanitizer.toSnakeCase(normalized)}_event';
+        final name = _eventModelFileName(event.identifier);
         exports.add('export \'models/$name.dart\';');
       }
 
@@ -81,6 +62,11 @@ class BarrelGenerator extends GeneratorBase {
       for (final event in abi.events) {
         final name = nameSanitizer.toSnakeCase(event.identifier);
         exports.add('export \'events/websocket_events/$name.dart\';');
+      }
+
+      exports.add('export \'events/multi_event_websocket_stream.dart\';');
+      if (abi.events.length > 1) {
+        exports.add('export \'events/multi_event_polling_stream.dart\';');
       }
     }
 
@@ -99,5 +85,20 @@ class BarrelGenerator extends GeneratorBase {
     }
 
     return [FileOutput(path: filename, content: buffer.toString())];
+  }
+
+  /// Returns the event-model file name for [identifier], applying the same
+  /// `_data` suffix as [EventModelsGenerator] / [EventsGenerator] when the
+  /// event class name collides with a custom struct.
+  String _eventModelFileName(String identifier) {
+    final base = identifier.endsWith('_event')
+        ? identifier.substring(0, identifier.length - 6)
+        : identifier;
+    final candidate = '${nameSanitizer.toSnakeCase(base)}_event';
+    final className = '${nameSanitizer.toPascalCase(base)}Event';
+    final hasConflict = abi.types.keys.any(
+      (typeName) => nameSanitizer.toPascalCase(typeName) == className,
+    );
+    return hasConflict ? '${candidate}_data' : candidate;
   }
 }

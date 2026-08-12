@@ -144,7 +144,7 @@ class SignerException extends WalletException {
 /// #### Example
 /// ```dart
 /// try {
-///   final wallet = UserWallet.fromJson(keystoreJson, 'password');
+///   final secretKey = await UserWallet.loadSecretKey('wallet.json', 'password');
 /// } on DecryptorException catch (e) {
 ///   print('Decryption failed: ${e.message}');
 /// }
@@ -219,7 +219,7 @@ class NetworkException extends AbidockException {
 /// #### Example
 /// ```dart
 /// try {
-///   await awaiter.awaitOnAddress(address, predicate);
+///   await awaiter.awaitOnCondition(address, condition);
 /// } on AccountAwaiterTimeoutException catch (e) {
 ///   print('Timeout waiting for ${e.address}: ${e.message}');
 /// }
@@ -260,7 +260,7 @@ class AccountAwaiterTimeoutException extends NetworkException {
 /// #### Example
 /// ```dart
 /// try {
-///   await awaiter.awaitOnAddress(address, predicate);
+///   await awaiter.awaitOnCondition(address, condition);
 /// } on AccountAwaiterException catch (e) {
 ///   print('Awaiter error: ${e.message}');
 /// }
@@ -303,7 +303,12 @@ class TransactionException extends AbidockException {
 /// #### Example
 /// ```dart
 /// try {
-///   final tx = await controller.createCallTransaction(...);
+///   final tx = await controller.call(
+///     account: account,
+///     nonce: nonce,
+///     endpointName: 'stake',
+///     options: BaseControllerInput(gasLimit: GasLimit(10000000)),
+///   );
 /// } on TransactionCreationException catch (e) {
 ///   print('Failed to create tx: ${e.message}');
 ///   if (e.transactionHash != null) {
@@ -421,7 +426,7 @@ class TransactionWatcherException extends TransactionException {
 /// #### Example
 /// ```dart
 /// try {
-///   final event = parser.parseEvent(rawEvent);
+///   final event = parser.parseSingleEvent(rawEvent, 'transfer');
 /// } on EventParsingException catch (e) {
 ///   print('Failed to parse ${e.eventIdentifier}: ${e.message}');
 /// }
@@ -540,7 +545,7 @@ class AbiBinaryCodecException extends SerializationException {
 /// #### Example
 /// ```dart
 /// try {
-///   final encoded = serializer.serialize(value);
+///   final encoded = NativeSerializer.nativeToTypedValues(args, endpoint);
 /// } on AbiNativeSerializationException catch (e) {
 ///   print('Serialization error for ${e.typeName}: ${e.message}');
 /// }

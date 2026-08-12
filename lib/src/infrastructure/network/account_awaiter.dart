@@ -8,16 +8,23 @@ import '../../utils/sdk_exceptions.dart';
 import 'network_provider.dart';
 
 /// Configuration options for account polling and waiting.
+///
+/// Defaults are derived from the chain's round timing: one poll per 600 ms
+/// round, a 9-second hard timeout (15 rounds) and no patience delay. Prior to
+/// Supernova a round lasted 6 seconds, which is why older defaults were an
+/// order of magnitude larger (6 s polling, 90 s timeout).
 class AccountAwaitingOptions {
   /// Creates awaiting options with timeout and polling interval.
   ///
   /// #### Parameters
-  /// - `timeout` - Maximum wait time before throwing timeout exception (default 60s)
-  /// - `pollingInterval` - Time between state checks (default 500ms)
+  /// - `timeout` - Maximum wait time before throwing timeout exception (default 9 seconds)
+  /// - `pollingInterval` - Time between state checks (default 600 milliseconds)
+  /// - `patience` - Extra delay applied AFTER the condition is satisfied, before returning (default 0)
   /// - `maxConsecutiveErrors` - Maximum consecutive errors before giving up (default 5)
   const AccountAwaitingOptions({
-    this.timeout = const Duration(seconds: 60),
-    this.pollingInterval = const Duration(milliseconds: 500),
+    this.timeout = const Duration(seconds: 9),
+    this.pollingInterval = const Duration(milliseconds: 600),
+    this.patience = Duration.zero,
     this.maxConsecutiveErrors = 5,
   });
 
@@ -26,6 +33,9 @@ class AccountAwaitingOptions {
 
   /// Polling interval.
   final Duration pollingInterval;
+
+  /// Optional grace delay applied after the condition becomes true, before returning.
+  final Duration patience;
 
   /// Maximum consecutive errors before throwing.
   final int maxConsecutiveErrors;
@@ -69,6 +79,9 @@ class AccountAwaiter {
         consecutiveErrors = 0;
 
         if (condition(account)) {
+          if (opts.patience > Duration.zero) {
+            await Future<void>.delayed(opts.patience);
+          }
           return account;
         }
 

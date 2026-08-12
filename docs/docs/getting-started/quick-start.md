@@ -188,7 +188,7 @@ abidock assets/my-contract.abi.json lib/generated/my-contract MyContract --full
 Then use the generated code:
 
 ```dart
-import 'lib/generated/my-contract/my_contract.dart';
+import 'package:my_app/generated/my_contract/my_contract.dart';
 
 void main() async {
   final provider = GatewayNetworkProvider.devnet();

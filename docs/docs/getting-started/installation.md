@@ -15,7 +15,7 @@ Add the dependency to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  abidock_mvx: ^1.2.0
+  abidock_mvx: ^2.0.0
 ```
 
 Then run:
@@ -77,22 +77,36 @@ Amount: 1000000000000000000
 
 | Platform | Support |
 |----------|---------|
-| Dart VM | Full |
-| Flutter (iOS) | Full |
+| Dart VM (CLI, server) | Full |
 | Flutter (Android) | Full |
-| Flutter (Web) | Full |
+| Flutter (iOS) | Full |
 | Flutter (Desktop) | Full |
+| Flutter (Web) | Not supported |
+
+:::caution
+The network layer, the WebSocket event stream, and the file-backed wallet
+helpers use `dart:io`, which does not exist on the web. Build for the VM,
+mobile, or desktop; on web, put the SDK behind a backend you control.
+:::
 
 ## Dependencies
 
-abidock_mvx has minimal dependencies:
+| Package | Used for |
+|---------|----------|
+| `dio` | HTTP client for the API and Gateway providers |
+| `web_socket_channel` | WebSocket event streaming |
+| `pointycastle` | Cryptographic primitives |
+| `cryptography` | Keystore key derivation |
+| `pinenacl` | Ed25519 signing and secret-box encryption |
+| `ed25519_hd_key` | HD key derivation |
+| `bip39_plus` | Mnemonic generation and validation |
+| `unorm_dart` | Unicode normalization of mnemonics |
+| `convert` | Hex and base encodings |
+| `yaml` | Reading `abidock.yaml` in the CLI |
+| `path` | Filesystem paths in the CLI and wallet helpers |
+| `meta` | Annotations |
 
-- `convert` - Encoding utilities
-- `pointycastle` - Cryptographic operations
-- `bip39_plus` - Mnemonic generation
-- `ed25519_hd_key` - EdDSA signing
-
-All dependencies are pure Dart and work across all platforms.
+Everything is pure Dart — no platform channels, no native build step.
 
 ## Next Steps
 

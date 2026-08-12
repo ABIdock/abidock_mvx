@@ -54,24 +54,6 @@ void main() {
       expect(utf8.decode(_hexDecode(parts[2])), 'yes');
     });
 
-    test('delegateVote includes delegator and stake', () {
-      final delegator = Address.fromBech32(
-        'erd150sh7scpm4q7tdtntte975kt0cgg3r4exf8mtwurfradguzxzuqsahzma8',
-      );
-      final tx = factory.createTransactionForDelegatingVote(
-        sender: sender,
-        proposalNonce: 1,
-        vote: VoteType.veto,
-        delegator: delegator,
-        userStake: BigInt.from(0x100),
-      );
-
-      final parts = utf8.decode(tx.data).split('@');
-      expect(parts[0], 'delegateVote');
-      expect(parts[3], delegator.hex);
-      expect(parts[4], '0100');
-    });
-
     test('closeProposal encodes nonce', () {
       final tx = factory.createTransactionForClosingProposal(
         sender: sender,

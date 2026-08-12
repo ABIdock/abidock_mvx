@@ -31,7 +31,6 @@ void main() {
     'Found ${sortedSymbols.length} public symbols in ${files.length} files',
   );
 
-  // Generate the output file
   final buffer = StringBuffer();
   buffer.writeln('/// Auto-generated list of known package symbols');
   buffer.writeln('/// Generated on: ${DateTime.now().toIso8601String()}');
@@ -67,7 +66,6 @@ void _extractSymbolsFromFile(File file, Set<String> symbols) {
       continue;
     }
 
-    // Match: abstract, final, base, sealed, interface class
     final classMatch = RegExp(
       r'^(?:abstract\s+)?(?:final\s+)?(?:base\s+)?(?:sealed\s+)?(?:interface\s+)?class\s+(\w+)',
     ).firstMatch(line);

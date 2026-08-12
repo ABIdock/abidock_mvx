@@ -1,5 +1,13 @@
+import 'dart:io';
+
 import 'package:abidock_mvx/abidock_mvx.dart';
 import 'pair/pair.dart';
+
+/// Events API key, read from the `ABIDOCK_WS_API_KEY` environment variable.
+///
+/// Never hard-code a real key in a committed example: run this sample with
+/// `ABIDOCK_WS_API_KEY=<your-key> dart run example/cookbook/generated/generated_websocket_events.dart`.
+final String _apiKey = Platform.environment['ABIDOCK_WS_API_KEY'] ?? 'your-key';
 
 Future<void> main() async {
   final provider = ApiNetworkProvider.devnet();
@@ -12,7 +20,7 @@ Future<void> main() async {
 
   final stream = controller.events.websocketStream(
     websocketUrl: 'wss://kepler-api.projectx.mx/devnet/events',
-    headers: {'Api-Key': 'e7dd4f836556656475c427a752958cd2'},
+    headers: {'Api-Key': _apiKey},
   );
 
   await stream.connect();

@@ -36,9 +36,15 @@ try {
 | **Wallet** | `WalletException` | Key management, signing, encryption | `PemException`, `MnemonicException`, `SignerException` |
 | **Network** | `NetworkException` | Connection/API errors | Timeout, 404, 503, circuit breaker |
 | **Transaction** | `TransactionException` | TX creation, execution errors | `TransactionWatcherTimeoutException`, `EventParsingException` |
-| **Smart Contract** | `SmartContractException` | Contract queries, ABI operations | `SmartContractQueryException`, `ArgumentEncodingException` |
+| **Smart Contract** | `SmartContractException` | ABI operations, argument/response handling | `ArgumentEncodingException`, `EndpointNotFoundException` |
 | **Serialization** | `SerializationException` | Data encoding/decoding | `AbiBinaryCodecException`, `DeserializationException` |
 | **Validation** | `ValidationException` | Input validation failures | Gas limit, address format, parameter constraints |
+
+:::caution `SmartContractQueryException` stands apart
+A failed *query* throws `SmartContractQueryException`, which implements `Exception` directly rather
+than extending `AbidockException`. Neither `on AbidockException` nor `on SmartContractException`
+catches it -- always give it its own `on` clause.
+:::
 
 ## Network Errors
 
@@ -199,19 +205,31 @@ Future<void> waitAndHandleResult(
 }
 
 String parseFailureReason(TransactionOnNetwork tx) {
-  // Check receipt
-  if (tx.receipt?.data != null) {
-    return tx.receipt!.data!;
+  // The gas-refund receipt carries the node's own message, when present.
+  final Map<String, dynamic>? receipt = tx.executionReceipt;
+  final Object? receiptData = receipt?['data'];
+  if (receiptData is String && receiptData.isNotEmpty) {
+    return receiptData;
   }
-  
-  // Check smart contract results
-  for (final scr in tx.smartContractResults ?? []) {
-    if (scr.data?.startsWith('@') == true) {
-      // Error codes start with @
-      return decodeErrorMessage(scr.data!);
+
+  // Smart contract results carry the return code and message.
+  for (final SmartContractResult scr
+      in tx.smartContractResults ?? const <SmartContractResult>[]) {
+    if (scr.errorMessage != null && scr.errorMessage!.isNotEmpty) {
+      return scr.errorMessage!;
+    }
+    if (scr.returnCode.isError) {
+      return scr.returnCode.message; // ReturnCode, not a raw String
     }
   }
-  
+
+  // Failure events (signalError) are in the logs.
+  for (final TransactionEvent event in tx.logs?.events ?? const <TransactionEvent>[]) {
+    if (event.identifier == 'signalError') {
+      return event.dataAsString;
+    }
+  }
+
   return 'Unknown failure';
 }
 ```
@@ -228,15 +246,16 @@ class ContractErrors {
   static const insufficientFunds = 'insufficient funds';
   
   static String decode(String hexError) {
-    if (hexError.startsWith('@')) {
-      hexError = hexError.substring(1);
+    String hex = hexError;
+    if (hex.startsWith('@')) {
+      hex = hex.substring(1);
     }
-    
+
     try {
-      final bytes = hexToBytes(hexError);
+      final bytes = HexUtils.hexToBytes(hex);
       return String.fromCharCodes(bytes);
     } catch (e) {
-      return hexError;
+      return hex;
     }
   }
 }
@@ -248,25 +267,24 @@ Future<List<dynamic>> queryContract(
   List<dynamic> args,
 ) async {
   try {
-    return await controller.query(
+    final QueryResult result = await controller.query(
       endpointName: endpointName,
       arguments: args,
     );
+    return result.values; // native Dart values
   } on SmartContractQueryException catch (e) {
-    // Parse the return code to understand the error
-    final returnCode = e.returnCode ?? 'unknown';
-    final decoded = ContractErrors.decode(returnCode);
-    
-    print('Contract query failed: $decoded');
-    
+    // `code` is the contract's return code; `message` its return message.
+    print('Contract query failed: ${e.code} - ${e.message}');
+
     // Handle specific error patterns
-    if (decoded.contains('not active') || decoded.contains('paused')) {
+    final String reason = e.message.toLowerCase();
+    if (reason.contains('not active') || reason.contains('paused')) {
       print('Contract is paused or inactive');
-    } else if (decoded.contains('not whitelisted')) {
+    } else if (reason.contains('not whitelisted')) {
       print('Address not whitelisted');
     }
-    
-    rethrow; // Re-throw as SmartContractQueryException
+
+    rethrow;
   }
 }
 ```
@@ -274,6 +292,8 @@ Future<List<dynamic>> queryContract(
 ## Wallet Errors
 
 ```dart
+import 'dart:convert';
+
 Future<UserSecretKey> loadAccountSafe(String source, {String? password}) async {
   try {
     // Try mnemonic
@@ -289,8 +309,8 @@ Future<UserSecretKey> loadAccountSafe(String source, {String? password}) async {
     
     // Try keystore JSON (requires password)
     if (source.startsWith('{') && password != null) {
-      final wallet = UserWallet.fromJson(source);
-      return wallet.decrypt(password);
+      final keyFile = jsonDecode(source) as Map<String, dynamic>;
+      return await UserWallet.decrypt(keyFile, password);
     }
     
     // Unknown format
@@ -315,7 +335,9 @@ Future<UserSecretKey> loadAccountSafe(String source, {String? password}) async {
 
 ## Available Exception Classes
 
-All exceptions extend `AbidockException` with optional `cause` and `stackTrace`:
+Every class below extends `AbidockException` -- with optional `cause` and `stackTrace` --
+**except `SmartContractQueryException`**, which implements `Exception` directly and exposes
+`message`, `code` and the original `response`.
 
 ### Wallet Exceptions
 - `WalletException` - Base for all wallet errors
@@ -339,7 +361,7 @@ All exceptions extend `AbidockException` with optional `cause` and `stackTrace`:
 
 ### Smart Contract Exceptions
 - `SmartContractException` - Base for contract operations
-- `SmartContractQueryException` - Contract query failures (includes `returnCode`)
+- `SmartContractQueryException` - Contract query failures (includes `code` and `response`; **not** an `AbidockException`)
 - `ArgumentEncodingException` - Function argument encoding errors
 - `ResponseParsingException` - Response deserialization errors
 - `AbiNotFoundException` - Missing required ABI definition
@@ -388,8 +410,8 @@ class SafeTransactionService {
       // 2. Calculate gas
       final dataLength = message?.length ?? 0;
       final config = await provider.getNetworkConfig();
-      final gasLimit = 50000 + (dataLength * config.gasPerDataByte);
-      final gasCost = BigInt.from(gasLimit * config.minGasPrice);
+      final gasLimit = config.minGasLimit + (dataLength * config.gasPerDataByte);
+      final gasCost = BigInt.from(gasLimit) * BigInt.from(config.minGasPrice);
       
       // 3. Validate balance (manual check - no built-in exception)
       final totalRequired = amount + gasCost;
@@ -406,9 +428,9 @@ class SafeTransactionService {
         value: Balance(amount),
         nonce: networkAccount.nonce,
         gasLimit: GasLimit(gasLimit),
-        gasPrice: GasPrice(1000000000),
+        gasPrice: GasPrice(config.minGasPrice),
         chainId: ChainId(config.chainId),
-        version: TransactionVersion(1),
+        version: const TransactionVersion(2),
         data: message != null ? Uint8List.fromList(utf8.encode(message)) : Uint8List(0),
       );
       

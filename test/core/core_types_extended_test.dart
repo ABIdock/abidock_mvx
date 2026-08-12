@@ -14,7 +14,10 @@ void main() {
     });
 
     test('fromHex rejects wrong length', () {
-      expect(() => Address.fromHex('00' * 16), throwsFormatException);
+      expect(
+        () => Address.fromHex('00' * 16),
+        throwsA(isA<AddressException>()),
+      );
     });
 
     test('fromHex accepts 32 bytes', () {

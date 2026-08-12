@@ -14,6 +14,7 @@ import '../types/primitives/string.dart';
 import '../types/special/code_metadata.dart';
 import '../types/special/composite.dart';
 import '../types/special/h256.dart';
+import '../types/special/managed_byte_array.dart';
 import '../types/special/managed_decimal.dart';
 import '../types/special/nothing.dart';
 import '../types/special/optional.dart';
@@ -93,6 +94,10 @@ T onTypeSelect<T>(AbiType type, TypeMatchCallbacks<T> callbacks) {
 
   if (type is H256Type) {
     return callbacks.onH256();
+  }
+
+  if (type is ManagedByteArrayType) {
+    return callbacks.onManagedByteArray();
   }
 
   if (type is TokenIdentifierType) {
@@ -195,6 +200,10 @@ T onTypedValueSelect<T>(TypedValue value, ValueMatchCallbacks<T> callbacks) {
     return callbacks.onH256();
   }
 
+  if (value is ManagedByteArrayValue) {
+    return callbacks.onManagedByteArray();
+  }
+
   if (value is TokenIdentifierValue) {
     return callbacks.onTokenIdentifier();
   }
@@ -265,6 +274,7 @@ class TypeMatchCallbacks<T> {
     TypeCallback<T>? onVariadic,
     TypeCallback<T>? onNothing,
     TypeCallback<T>? onH256,
+    TypeCallback<T>? onManagedByteArray,
     TypeCallback<T>? onTokenIdentifier,
     TypeCallback<T>? onEgldOrEsdtTokenIdentifier,
     TypeCallback<T>? onOptional,
@@ -284,6 +294,8 @@ class TypeMatchCallbacks<T> {
        onVariadic = onVariadic ?? _unsupported('Variadic type'),
        onNothing = onNothing ?? _unsupported('Nothing type'),
        onH256 = onH256 ?? _unsupported('H256 type'),
+       onManagedByteArray =
+           onManagedByteArray ?? _unsupported('ManagedByteArray type'),
        onTokenIdentifier =
            onTokenIdentifier ?? _unsupported('TokenIdentifier type'),
        onEgldOrEsdtTokenIdentifier =
@@ -330,6 +342,9 @@ class TypeMatchCallbacks<T> {
 
   /// Callback for H256 type.
   final TypeCallback<T> onH256;
+
+  /// Callback for `ManagedByteArray<N>` type.
+  final TypeCallback<T> onManagedByteArray;
 
   /// Callback for TokenIdentifier type.
   final TypeCallback<T> onTokenIdentifier;
@@ -399,6 +414,7 @@ class ValueMatchCallbacks<T> {
     TypeCallback<T>? onVariadic,
     TypeCallback<T>? onNothing,
     TypeCallback<T>? onH256,
+    TypeCallback<T>? onManagedByteArray,
     TypeCallback<T>? onTokenIdentifier,
     TypeCallback<T>? onEgldOrEsdtTokenIdentifier,
     TypeCallback<T>? onOptional,
@@ -418,6 +434,8 @@ class ValueMatchCallbacks<T> {
        onVariadic = onVariadic ?? _unsupported('Variadic value'),
        onNothing = onNothing ?? _unsupported('Nothing value'),
        onH256 = onH256 ?? _unsupported('H256 value'),
+       onManagedByteArray =
+           onManagedByteArray ?? _unsupported('ManagedByteArray value'),
        onTokenIdentifier =
            onTokenIdentifier ?? _unsupported('TokenIdentifier value'),
        onEgldOrEsdtTokenIdentifier =
@@ -464,6 +482,9 @@ class ValueMatchCallbacks<T> {
 
   /// Callback for H256 value.
   final TypeCallback<T> onH256;
+
+  /// Callback for `ManagedByteArray<N>` value.
+  final TypeCallback<T> onManagedByteArray;
 
   /// Callback for TokenIdentifier value.
   final TypeCallback<T> onTokenIdentifier;

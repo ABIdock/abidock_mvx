@@ -27,8 +27,8 @@ const int extraGasLimitForRelayedTransactions = 50000;
 /// #### Example
 /// ```dart
 /// final options = BaseControllerInput(
-///   gasLimit: 500000,
-///   gasPrice: 1000000000,
+///   gasLimit: GasLimit(500000),
+///   gasPrice: GasPrice(1000000000),
 ///   guardian: guardianAddress,  // For 2FA protection
 /// );
 /// ```
@@ -108,7 +108,7 @@ class BaseController {
   ///
   /// #### Example
   /// ```dart
-  /// final tx = Transaction(..., gasLimit: GasLimit(500000));
+  /// final tx = draft.copyWith(newGasLimit: GasLimit(500000));
   /// final adjusted = addExtraGasLimitIfRequired(tx);
   /// // If guardian set: gasLimit = 550,000 (500,000 + 50,000)
   /// ```
@@ -171,7 +171,7 @@ class BaseController {
   ///
   /// final signedTx = await setupAndSignTransaction(
   ///   baseTx,
-  ///   BaseControllerInput(gasLimit: 500000),
+  ///   BaseControllerInput(gasLimit: GasLimit(500000)),
   ///   Nonce(5),
   ///   account,
   /// );
@@ -250,7 +250,7 @@ class BaseController {
   ///
   /// #### Example
   /// ```dart
-  /// final tx = Transaction(..., guardian: guardianAddress);
+  /// final tx = draft.copyWith(newGuardian: guardianAddress);
   /// final upgraded = setVersionAndOptionsForGuardian(tx);
   /// // Result: version=2, options=2 (GuardedTransaction flag)
   /// ```
@@ -290,7 +290,7 @@ class BaseController {
   /// // With overrides
   /// final tx1 = await setTransactionGasOptions(
   ///   baseTx,
-  ///   BaseControllerInput(gasLimit: 500000, gasPrice: 1000000000),
+  ///   BaseControllerInput(gasLimit: GasLimit(500000), gasPrice: GasPrice(1000000000)),
   /// );
   ///
   /// // With estimation

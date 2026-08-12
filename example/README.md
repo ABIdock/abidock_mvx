@@ -33,6 +33,9 @@ Each guide links to exact Dart files so you can move from narrative explanations
 | --------- | ------- |
 | `cookbook/manual/` | Manual SDK examples: swaps, transfers, WebSocket listeners |
 | `cookbook/generated/` | Generated controller examples |
+| `assets/` | Wallet PEM files you supply; git-ignored |
+
+Every example resolves its file paths from the repository root, so run them from there — `example/cookbook/pair.abi.json` for the ABI and `example/assets/alice.pem` for the signing wallet.
 
 [comment]: # (mx-context-auto)
 
@@ -42,7 +45,13 @@ Each guide links to exact Dart files so you can move from narrative explanations
 
 ```bash
 dart pub get
+dart run example/assets/create_wallets.dart  # [1]
 ```
+
+Where:
+- **[1]** Creates `example/assets/alice.pem` and `example/assets/bob.pem`, then prints both addresses — fund them from the devnet faucet. See [assets/README.md](assets/README.md).
+
+The three read-only listeners (`websocket_events.dart`, `generated_polling_events.dart`, `generated_websocket_events.dart`) need no wallet; the two WebSocket samples read their key from `ABIDOCK_WS_API_KEY`.
 
 ### Manual SDK flows
 

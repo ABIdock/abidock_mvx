@@ -24,9 +24,12 @@ import '../../core/type_system.dart';
 /// print(bytes3.toHex()); // 48656C6C6F
 ///
 /// // Use in struct definitions
-/// final structType = StructType(fields: [
-///   StructField('data', BytesType.type),
-/// ]);
+/// final structType = StructType(
+///   name: 'Payload',
+///   fieldDefinitions: [
+///     FieldDefinition(name: 'data', type: BytesType.type),
+///   ],
+/// );
 /// ```
 @immutable
 final class BytesType extends PrimitiveType {

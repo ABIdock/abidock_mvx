@@ -71,37 +71,29 @@ void main() {
       final secretKey = await mnemonic.deriveKey(addressIndex: 0);
       final publicKey = await secretKey.generatePublicKey();
       final verifier = UserVerifier(publicKey);
+      const computer = MessageComputer();
 
-      final message = SignableMessage.fromMessage('Login to dApp');
-      final signature = await secretKey.sign(Uint8List.fromList(message.bytes));
-      final isValid = await verifier.verify(
-        Uint8List.fromList(message.bytes),
-        signature,
-      );
-      expect(isValid, isTrue);
+      final Message message = Message(utf8.encode('Login to dApp'));
+      final Uint8List digest = computer.computeBytesForSigning(message);
+      final Uint8List signature = await secretKey.sign(digest);
+      expect(await verifier.verify(digest, signature), isTrue);
 
-      final message1 = SignableMessage.fromMessage(
-        'Same message',
-        nonce: 'nonce1',
-      );
-      final message2 = SignableMessage.fromMessage(
-        'Same message',
-        nonce: 'nonce2',
-      );
-      final sig1 = await secretKey.sign(Uint8List.fromList(message1.bytes));
-      final sig2 = await secretKey.sign(Uint8List.fromList(message2.bytes));
+      final Message message1 = Message(utf8.encode('Same message|nonce1'));
+      final Message message2 = Message(utf8.encode('Same message|nonce2'));
+      final Uint8List digest1 = computer.computeBytesForSigning(message1);
+      final Uint8List digest2 = computer.computeBytesForSigning(message2);
+      final Uint8List sig1 = await secretKey.sign(digest1);
+      final Uint8List sig2 = await secretKey.sign(digest2);
 
+      expect(await verifier.verify(digest1, sig1), isTrue);
+      expect(await verifier.verify(digest2, sig2), isTrue);
       expect(
-        await verifier.verify(Uint8List.fromList(message1.bytes), sig1),
-        isTrue,
-      );
-      expect(
-        await verifier.verify(Uint8List.fromList(message2.bytes), sig2),
-        isTrue,
-      );
-      expect(
-        await verifier.verify(Uint8List.fromList(message1.bytes), sig2),
+        await verifier.verify(digest1, sig2),
         isFalse,
+        reason:
+            'Different nonce embedded in the message must produce a '
+            'different canonical digest and therefore reject the swapped '
+            'signature.',
       );
     });
 
@@ -116,51 +108,19 @@ void main() {
         final verifier1 = UserVerifier(publicKey1);
         final verifier2 = UserVerifier(publicKey2);
 
-        final authMessage = SignableMessage.fromMessage('Authenticate user');
-        final signature1 = await account1.sign(
-          Uint8List.fromList(authMessage.bytes),
-        );
-        final signature2 = await account2.sign(
-          Uint8List.fromList(authMessage.bytes),
-        );
+        const computer = MessageComputer();
+        final Message authMessage = Message(utf8.encode('Authenticate user'));
+        final Uint8List digest = computer.computeBytesForSigning(authMessage);
+        final Uint8List signature1 = await account1.sign(digest);
+        final Uint8List signature2 = await account2.sign(digest);
 
-        expect(
-          await verifier1.verify(
-            Uint8List.fromList(authMessage.bytes),
-            signature1,
-          ),
-          isTrue,
-        );
-        expect(
-          await verifier2.verify(
-            Uint8List.fromList(authMessage.bytes),
-            signature2,
-          ),
-          isTrue,
-        );
-        expect(
-          await verifier1.verify(
-            Uint8List.fromList(authMessage.bytes),
-            signature2,
-          ),
-          isFalse,
-        );
-        expect(
-          await verifier2.verify(
-            Uint8List.fromList(authMessage.bytes),
-            signature1,
-          ),
-          isFalse,
-        );
+        expect(await verifier1.verify(digest, signature1), isTrue);
+        expect(await verifier2.verify(digest, signature2), isTrue);
+        expect(await verifier1.verify(digest, signature2), isFalse);
+        expect(await verifier2.verify(digest, signature1), isFalse);
 
         final wrongLength = Uint8List(64);
-        expect(
-          await verifier1.verify(
-            Uint8List.fromList(authMessage.bytes),
-            wrongLength,
-          ),
-          isFalse,
-        );
+        expect(await verifier1.verify(digest, wrongLength), isFalse);
       },
     );
   });

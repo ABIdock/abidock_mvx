@@ -122,12 +122,14 @@ A complete ABI contains:
 
 ```dart
 final class SmartContractAbi {
-  String name;                    // Contract name
-  String version;                 // ABI version
-  AbiEndpoints endpoints;         // All endpoints 
-  EventDefinitions events;        // Event definitions 
-  Map<String, AbiType> types;     // Custom types
-  AbiEndpoint? constructor;       // Deploy constructor
+  final String name;                    // Contract name
+  final String version;                 // ABI version
+  final AbiEndpoint? constructor;       // Deploy constructor
+  final AbiEndpoint? upgradeConstructor; // Upgrade constructor
+  final AbiEndpoints endpoints;         // All endpoints
+  final EventDefinitions events;        // Event definitions
+  final Map<String, AbiType> types;     // Custom types
+  final Map<String, dynamic> metadata;  // Raw `buildInfo` / `docs` blocks
 }
 ```
 
@@ -135,15 +137,21 @@ final class SmartContractAbi {
 
 ```dart
 class AbiEndpoint {
-  String name;                    // Function name
-  bool isView;                    // Whether read-only (view)
-  InputParameters inputs;         // Input parameters
-  OutputParameters outputs;       // Return values
-  List<String> payableInTokens;   // Accepted tokens
-  bool isOnlyOwner;               // Whether owner-only
-  String? documentation;          // Optional docs
+  final String name;                    // Function name
+  final InputParameters inputs;         // Input parameters
+  final OutputParameters outputs;       // Return values
+  final List<String> payableInTokens;   // Accepted tokens ('*' = any)
+  final bool isView;                    // Whether read-only (view)
+  final bool isOnlyOwner;               // Whether owner-only
+  final bool isOnlyAdmin;               // Whether admin-only
+  final String? mutability;             // 'readonly' | 'mutable' | 'pure'
+  final List<String> labels;            // Endpoint labels from the ABI
+  final String? documentation;          // Optional docs
 }
 ```
+
+`isPayable` is derived (`payableInTokens.isNotEmpty`), and `isReadonly` / `isPure` read the
+`mutability` string.
 
 ### Collection Types
 

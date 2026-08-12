@@ -119,7 +119,6 @@ Future<void> _handleGenerate(List<String> args) async {
   var useTransfers = false;
   var useFull = false;
 
-  // Parse flags
   for (var i = 0; i < args.length; i++) {
     if ((args[i] == '--config' || args[i] == '-c') && i + 1 < args.length) {
       configPath = args[i + 1];
@@ -135,10 +134,8 @@ Future<void> _handleGenerate(List<String> args) async {
     }
   }
 
-  // Extract positional args (non-flag args)
   final positionalArgs = args.where((a) => !a.startsWith('-')).toList();
 
-  // If we have positional args (abi, output, name), use direct mode
   if (positionalArgs.length >= 3) {
     final command = GenerateCommand();
     await command.execute(
@@ -153,7 +150,6 @@ Future<void> _handleGenerate(List<String> args) async {
     return;
   }
 
-  // Otherwise use config mode
   final command = GenerateCommand();
   await command.execute(configPath: configPath);
 }

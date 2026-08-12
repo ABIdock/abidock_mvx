@@ -21,9 +21,12 @@ import 'numerical.dart';
 /// print(max.toBytes()); // [255, 255, 255, 255]
 ///
 /// // Use in struct definitions
-/// final structType = StructType(fields: [
-///   StructField('id', U32Type.type),
-/// ]);
+/// final structType = StructType(
+///   name: 'Identifier',
+///   fieldDefinitions: [
+///     FieldDefinition(name: 'id', type: U32Type.type),
+///   ],
+/// );
 /// ```
 @immutable
 final class U32Type extends NumericalType {

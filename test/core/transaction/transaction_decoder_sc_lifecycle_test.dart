@@ -7,7 +7,6 @@ import 'package:test/test.dart';
 Transaction _tx({
   required Uint8List data,
   Address? receiver,
-  List<Transaction> inner = const <Transaction>[],
   Address? relayer,
   Signature? signature,
 }) {
@@ -22,7 +21,6 @@ Transaction _tx({
     chainId: const ChainId('D'),
     version: const TransactionVersion(2),
     data: data,
-    innerTransactions: inner,
     relayer: relayer,
     signature: signature ?? const Signature.empty(),
   );
@@ -92,21 +90,26 @@ void main() {
       expect(result, isA<ClaimDeveloperRewards>());
     });
 
-    test('decodes RelayedV3Transaction when innerTransactions present', () {
+    test('a relayed transaction decodes as the call it carries', () {
       final relayer = Address.fromBech32(
         'erd1qyu5wthldzr8wx5c9ucg8kjagg0jfs53s8nr3zpz3hypefsdd8ssycr6th',
       );
-      final inner = _tx(
-        data: Uint8List(0),
+      final relayed = _tx(
+        data: Uint8List.fromList(utf8.encode('ClaimDeveloperRewards')),
+        receiver: Address.fromBech32(
+          'erd1qqqqqqqqqqqqqpgqzw0d0tj25qme9e4ukverjjjqle6xamay0n4s5r0v9g',
+        ),
         relayer: relayer,
         signature: Signature('ab' * 64),
       );
-      final outer = _tx(data: Uint8List(0), inner: <Transaction>[inner]);
 
-      final result = decoder.decode(outer);
-      expect(result, isA<RelayedV3Transaction>());
-      final r = result as RelayedV3Transaction;
-      expect(r.innerTransactions.length, 1);
+      final result = decoder.decode(relayed);
+
+      expect(result, isA<ClaimDeveloperRewards>());
+      expect(
+        result.transaction.relayer!.bech32,
+        'erd1qyu5wthldzr8wx5c9ucg8kjagg0jfs53s8nr3zpz3hypefsdd8ssycr6th',
+      );
     });
 
     test('returns UnknownTransaction for truncated deploy', () {

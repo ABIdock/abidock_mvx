@@ -1,7 +1,10 @@
 /// Smart contract interaction for MultiversX blockchain.
 /// Provides Factory/QueryRunner/EventRunner/Controller pattern.
 
+export 'controller/governance_controller.dart';
+export 'controller/multisig_controller.dart';
 export 'controller/smart_contract_controller.dart';
+export 'controller/validators_controller.dart';
 export 'event_streaming/event_converter.dart';
 export 'event_streaming/websocket_event_stream.dart';
 export 'events/smart_contract_event_runner.dart';

@@ -26,6 +26,9 @@ All examples are located in the `example/cookbook/manual/` directory and can be 
 # Token swap example
 dart run example/cookbook/manual/controller_swap.dart
 
+# Same swap, built without an ABI (raw typed values)
+dart run example/cookbook/manual/controller_swap_without_abi.dart
+
 # Relayed transaction example
 dart run example/cookbook/manual/controller_relayed_swap.dart
 
@@ -35,6 +38,8 @@ dart run example/cookbook/manual/transfer.dart
 # WebSocket events example
 dart run example/cookbook/manual/websocket_events.dart
 ```
+
+Generated-code counterparts live in `example/cookbook/generated/`.
 
 ## Prerequisites
 

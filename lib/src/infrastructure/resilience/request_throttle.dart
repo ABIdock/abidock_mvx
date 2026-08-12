@@ -2,13 +2,19 @@ import 'dart:async';
 
 /// Token-bucket throttle for outbound HTTP traffic.
 ///
-/// Limits the rate at which wrapped calls may reach a shared downstream
-/// (e.g. `api.multiversx.com`'s ~30 rps per-IP ceiling). Use it to smooth
-/// bursts that would otherwise trigger 429s.
+/// Limits the rate at which wrapped calls may reach a shared downstream. The
+/// public MultiversX hosts enforce per-IP ceilings at the edge — 50 requests
+/// per second on the Gateway hosts, 2 per second on the mainnet API host and 5
+/// on the devnet API host — and answer 429 above them. Sizing the bucket to
+/// the ceiling smooths bursts that would otherwise be rejected.
+///
+/// A provider wires one of these automatically when
+/// `NetworkProviderConfig.throttlePolicy` is enabled; construct it directly
+/// only to throttle calls this SDK does not make.
 ///
 /// #### Example
 /// ```dart
-/// final throttle = RequestThrottle(capacity: 30, refillPerSecond: 25);
+/// final throttle = RequestThrottle(capacity: 50, refillPerSecond: 50);
 /// await throttle.acquire();
 /// final response = await dio.get(url);
 /// ```

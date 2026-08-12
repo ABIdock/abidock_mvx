@@ -1,5 +1,6 @@
 /// Protocol Buffer serializer for MultiversX transactions.
-/// Serializes transactions to Protocol Buffer format compatible with mx-chain-go.
+/// Produces the exact Protocol Buffer encoding the chain hashes to derive a
+/// transaction hash.
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -26,6 +27,12 @@ class ProtoSerializer {
 
   /// Serializes transaction to Protocol Buffer binary format.
   ///
+  /// The transaction message on the wire defines fields **1-17 only**, the
+  /// last two being the relayer address and the relayer signature. No tag
+  /// beyond 17 may ever be written: the chain's schema does not declare one,
+  /// so an unknown tag would produce a Blake2b hash that disagrees with the
+  /// network and the transaction would be rejected.
+  ///
   /// #### Parameters
   /// - `transaction` - Transaction to serialize
   ///
@@ -51,19 +58,17 @@ class ProtoSerializer {
     _writeBytesField(buffer, 3, Uint8List.fromList(transaction.receiver.bytes));
 
     if (transaction.receiverUsername.isNotEmpty) {
-      final Uint8List usernameBytes = Uint8List.fromList(
-        utf8.encode(transaction.receiverUsername),
+      _writeBytesField(
+        buffer,
+        4,
+        _encodeUsername(transaction.receiverUsername),
       );
-      _writeBytesField(buffer, 4, usernameBytes);
     }
 
     _writeBytesField(buffer, 5, Uint8List.fromList(transaction.sender.bytes));
 
     if (transaction.senderUsername.isNotEmpty) {
-      final Uint8List usernameBytes = Uint8List.fromList(
-        utf8.encode(transaction.senderUsername),
-      );
-      _writeBytesField(buffer, 6, usernameBytes);
+      _writeBytesField(buffer, 6, _encodeUsername(transaction.senderUsername));
     }
 
     _writeVarintField(buffer, 7, transaction.gasPrice.value);
@@ -113,11 +118,6 @@ class ProtoSerializer {
       }
     }
 
-    for (final Transaction inner in transaction.innerTransactions) {
-      final Uint8List innerBytes = serializeTransaction(inner);
-      _writeBytesField(buffer, 18, innerBytes);
-    }
-
     return buffer.toBytes();
   }
 
@@ -130,27 +130,34 @@ class ProtoSerializer {
     return hasFlag && hasGuardian && hasSignature;
   }
 
-  /// Serializes transaction value using sign & magnitude format.
+  /// Encodes a herotag username as base64 string bytes.
   ///
-  /// Uses custom sign & magnitude format (sign byte + big-endian magnitude).
+  /// The username field on the wire holds the ASCII of the base64 encoding of
+  /// the herotag, not the raw UTF-8 username. Encoding it any other way makes
+  /// hash-signed transactions with herotags fail verification on-chain.
   ///
   /// #### Parameters
-  /// - `value` - BigInt value to serialize
+  /// - `username` - Non-empty herotag value
   ///
   /// #### Returns
-  /// `Uint8List` - Serialized value in sign & magnitude format
+  /// `Uint8List` - UTF-8 bytes of the base64 representation of the username
+  Uint8List _encodeUsername(String username) {
+    final String base64Username = base64.encode(utf8.encode(username));
+    return Uint8List.fromList(utf8.encode(base64Username));
+  }
+
+  /// Serializes the transaction value in the chain's sign & magnitude form:
+  /// a leading sign byte (`0x00` for non-negative) followed by the big-endian
+  /// magnitude, with zero encoded as `[0x00, 0x00]`.
   ///
-  /// #### Example
-  /// ```dart
-  /// // Zero: [0x00, 0x00]
-  /// final zero = _serializeValue(BigInt.zero);
+  /// #### Parameters
+  /// - `value` - Non-negative amount in atomic units
   ///
-  /// // 255: [0x00, 0xff]
-  /// final small = _serializeValue(BigInt.from(255));
+  /// #### Returns
+  /// `Uint8List` - Sign byte followed by the big-endian magnitude
   ///
-  /// // 65535: [0x00, 0xff, 0xff]
-  /// final large = _serializeValue(BigInt.from(65535));
-  /// ```
+  /// #### Throws
+  /// - `ArgumentError` - When `value` is negative
   Uint8List _serializeValue(BigInt value) {
     if (value.isNegative) {
       throw ArgumentError('Transaction value cannot be negative: $value');

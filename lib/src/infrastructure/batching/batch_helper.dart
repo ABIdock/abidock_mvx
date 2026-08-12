@@ -360,8 +360,6 @@ class _Semaphore {
       return;
     }
 
-    // Increment count before awaiting to prevent race conditions where
-    // multiple waiters could be released simultaneously.
     _currentCount++;
     final Completer<void> completer = Completer<void>();
     _waiters.add(completer);

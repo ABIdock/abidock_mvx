@@ -16,9 +16,12 @@ import 'package:meta/meta.dart';
 
 import '../utils/collection_utils.dart';
 import '../utils/helpers.dart';
+import '../utils/sdk_exceptions.dart';
 import 'core/core_types.dart';
 import 'core/endpoint.dart';
 import 'core/event.dart';
+import 'core/type_formula.dart';
+import 'core/type_formula_parser.dart';
 import 'core/types.dart';
 import 'extensions/type_extensions.dart';
 
@@ -148,24 +151,74 @@ final class SmartContractAbi {
         factory.registerTypeName(typeName);
       }
 
+      /// Phase 1: pre-register placeholder instances for every custom type so
+      /// that mutual recursion (e.g. `struct A { b: B }` + `struct B { a: A }`)
+      /// resolves: when struct `A` references `B`, `_customTypes['B']` already
+      /// exists. The placeholder is replaced in-place during phase 2 — for
+      /// structs the mutable field list is repopulated; for enums the parsed
+      /// type overwrites the placeholder in the registry.
+      for (final String typeName in typesData.keys) {
+        final Map<String, dynamic> typeDefinition =
+            requireAs<Map<String, dynamic>>(typesData[typeName], typeName);
+        final String typeKind = requireAs<String>(
+          typeDefinition['type'],
+          'type',
+        );
+        if (typeKind == 'struct') {
+          factory.registerCustomType(
+            typeName,
+            StructType(
+              name: typeName,
+              fieldDefinitions: const <FieldDefinition>[],
+            ),
+          );
+        } else if (typeKind == 'enum') {
+          factory.registerCustomType(typeName, EnumType.placeholder(typeName));
+        } else if (typeKind == 'explicit-enum') {
+          factory.registerCustomType(
+            typeName,
+            ExplicitEnumType.placeholder(typeName),
+          );
+        }
+      }
+
       final Set<String> resolved = <String>{};
       final Set<String> resolving = <String>{};
+
+      void collectNames(TypeFormula formula, List<String> sink) {
+        sink.add(formula.name);
+        for (final TypeFormula param in formula.typeParameters) {
+          collectNames(param, sink);
+        }
+      }
 
       List<String> extractCustomTypeNames(String typeStr) {
         final List<String> customTypes = <String>[];
 
         if (typesData.containsKey(typeStr)) {
           customTypes.add(typeStr);
+          return customTypes;
         }
 
-        final typeParamMatch = RegExp(r'<(.+)>$').firstMatch(typeStr);
-        if (typeParamMatch != null) {
-          final innerTypes = typeParamMatch.group(1)!;
-          for (final part in innerTypes.split(',')) {
-            customTypes.addAll(extractCustomTypeNames(part.trim()));
+        TypeFormula? formula;
+        try {
+          formula = TypeFormulaParser.parseString(typeStr);
+        } on AbiTypeFormulaParseException {
+          formula = null;
+        }
+
+        if (formula == null) {
+          return customTypes;
+        }
+
+        final List<String> names = <String>[];
+        collectNames(formula, names);
+        for (final String candidate in names) {
+          if (typesData.containsKey(candidate) &&
+              !customTypes.contains(candidate)) {
+            customTypes.add(candidate);
           }
         }
-
         return customTypes;
       }
 
@@ -174,10 +227,14 @@ final class SmartContractAbi {
           return;
         }
 
+        /// Self-referential structs (`Node { children: List<Node> }`) are
+        /// allowed: the recursion is bounded by the data at runtime, not by
+        /// the type. `_parseStruct` registers a placeholder in
+        /// `_customTypes` before descending into fields, so a recursive
+        /// lookup resolves to the same instance. Skip re-entry here instead
+        /// of throwing so the outer call can finish populating fields.
         if (resolving.contains(typeName)) {
-          throw FormatException(
-            'Circular dependency detected involving type: $typeName',
-          );
+          return;
         }
 
         resolving.add(typeName);
@@ -200,8 +257,47 @@ final class SmartContractAbi {
             );
             final customTypesInField = extractCustomTypeNames(fieldTypeStr);
             for (final depType in customTypesInField) {
-              if (!resolved.contains(depType)) {
+              if (!resolved.contains(depType) && depType != typeName) {
                 resolveTypeDependencies(depType);
+              }
+            }
+          }
+        } else if (typeKind == 'enum' || typeKind == 'explicit-enum') {
+          /// Enum variants may carry per-variant payload fields; their types
+          /// can reference other custom types (e.g. `enum E { A(MyStruct) }`).
+          /// Walk variants the same way we walk struct fields so deps are
+          /// registered before the enum itself is parsed.
+          final List<dynamic> variantsList =
+              optionalAs<List<dynamic>>(
+                typeDefinition['variants'],
+                'variants',
+              ) ??
+              <dynamic>[];
+          for (final variantDef in variantsList) {
+            if (variantDef is! Map<String, dynamic>) {
+              continue;
+            }
+            final List<dynamic> variantFields =
+                optionalAs<List<dynamic>>(variantDef['fields'], 'fields') ??
+                <dynamic>[];
+            for (final fieldDef in variantFields) {
+              if (fieldDef is! Map<String, dynamic>) {
+                continue;
+              }
+              final String? fieldTypeStr = optionalAs<String>(
+                fieldDef['type'],
+                'type',
+              );
+              if (fieldTypeStr == null) {
+                continue;
+              }
+              final List<String> customTypesInField = extractCustomTypeNames(
+                fieldTypeStr,
+              );
+              for (final String depType in customTypesInField) {
+                if (!resolved.contains(depType) && depType != typeName) {
+                  resolveTypeDependencies(depType);
+                }
               }
             }
           }
@@ -517,7 +613,7 @@ final class SmartContractAbi {
 /// registry.loadFromJson('StakingContract', stakingAbiJson);
 ///
 /// // Query ABIs
-/// final tokenAbi = registry.getAbi('TokenContract');
+/// final registeredTokenAbi = registry.getAbi('TokenContract');
 /// if (registry.hasAbi('NFTContract')) {
 ///   print('NFT ABI is registered');
 /// }

@@ -1,102 +1,32 @@
-/// Sanitizes identifiers that collide with Dart keywords.
+import '../core/name_sanitizer.dart';
+
+/// Thin facade over [NameSanitizer]. Kept for source-compatibility with
+/// existing generators; do not add new logic here — extend [NameSanitizer]
+/// instead so every generator sees the same keyword set, the same suffixes,
+/// and the same system-name conflict resolution.
 class KeywordSanitizer {
-  static const dartKeywords = {
-    'abstract',
-    'as',
-    'assert',
-    'async',
-    'await',
-    'break',
-    'case',
-    'catch',
-    'class',
-    'const',
-    'continue',
-    'covariant',
-    'default',
-    'deferred',
-    'do',
-    'dynamic',
-    'else',
-    'enum',
-    'export',
-    'extends',
-    'extension',
-    'external',
-    'factory',
-    'false',
-    'final',
-    'finally',
-    'for',
-    'function',
-    'get',
-    'hide',
-    'if',
-    'implements',
-    'import',
-    'in',
-    'interface',
-    'is',
-    'late',
-    'library',
-    'mixin',
-    'new',
-    'null',
-    'on',
-    'operator',
-    'part',
-    'required',
-    'rethrow',
-    'return',
-    'sealed',
-    'set',
-    'show',
-    'static',
-    'super',
-    'switch',
-    'sync',
-    'this',
-    'throw',
-    'true',
-    'try',
-    'typedef',
-    'var',
-    'void',
-    'when',
-    'while',
-    'with',
-    'yield',
-  };
+  KeywordSanitizer([NameSanitizer? sanitizer])
+    : _sanitizer = sanitizer ?? NameSanitizer();
 
-  String sanitizeEnumVariant(String name) {
-    if (dartKeywords.contains(name.toLowerCase())) {
-      return '${name}Value';
-    }
-    return name;
-  }
+  final NameSanitizer _sanitizer;
 
-  String sanitizeFieldName(String name) {
-    if (dartKeywords.contains(name.toLowerCase())) {
-      return '${name}_';
-    }
-    return name;
-  }
+  /// Canonical Dart keyword set (delegates to [NameSanitizer.dartKeywords]).
+  static Set<String> get dartKeywords => NameSanitizer.dartKeywords;
 
-  String sanitizeClassName(String name) {
-    if (dartKeywords.contains(name.toLowerCase())) {
-      return '${name}Model';
-    }
-    return name;
-  }
+  /// Sanitizes an enum variant identifier.
+  String sanitizeEnumVariant(String name) =>
+      _sanitizer.sanitizeEnumVariant(name);
 
-  String sanitizeParameterName(String name) {
-    if (dartKeywords.contains(name.toLowerCase())) {
-      return '${name}Value';
-    }
-    return name;
-  }
+  /// Sanitizes a struct/event field identifier.
+  String sanitizeFieldName(String name) => _sanitizer.sanitizeFieldName(name);
 
-  bool isKeyword(String name) {
-    return dartKeywords.contains(name.toLowerCase());
-  }
+  /// Sanitizes a class/type identifier.
+  String sanitizeClassName(String name) => _sanitizer.sanitizeClassName(name);
+
+  /// Sanitizes a parameter identifier (includes system-conflict resolution).
+  String sanitizeParameterName(String name) =>
+      _sanitizer.sanitizeParamName(name);
+
+  /// True if [name] is a Dart reserved/contextual keyword.
+  bool isKeyword(String name) => _sanitizer.isDartKeyword(name);
 }

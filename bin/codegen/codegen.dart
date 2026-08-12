@@ -8,6 +8,7 @@ import 'generators/abi_generator.dart';
 import 'generators/barrel_generator.dart';
 import 'generators/calls_generator.dart';
 import 'generators/controller_generator.dart';
+import 'generators/deploy_generator.dart';
 import 'generators/event_models_generator.dart';
 import 'generators/events_generator.dart';
 import 'generators/models_generator.dart';
@@ -129,6 +130,22 @@ class Codegen {
         writer.writeFileSync('${config.outputDir}/${file.path}', file.content);
       }
       print('   ✓ ${callFiles.length} files');
+      print('');
+    }
+
+    if (abi.constructor != null || abi.upgradeConstructor != null) {
+      print('🚢 Generating deploy/upgrade...');
+      final deployGen = DeployGenerator(
+        abi: abi,
+        typeMapper: typeMapper,
+        nameSanitizer: nameSanitizer,
+      );
+      final deployFiles = deployGen.generate();
+      allFiles.addAll(deployFiles);
+      for (final file in deployFiles) {
+        writer.writeFileSync('${config.outputDir}/${file.path}', file.content);
+      }
+      print('   ✓ ${deployFiles.length} files');
       print('');
     }
 

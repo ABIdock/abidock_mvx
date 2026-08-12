@@ -30,14 +30,26 @@ void main() {
     });
 
     test('should check flag constants and properties', () {
-      // Flag constants use big-endian 16-bit layout
-      expect(CodeMetadataValue.upgradeableFlag, 0x0100); // LSB of first byte
-      expect(CodeMetadataValue.readableFlag, 0x0400); // 3rd LSB of first byte
-      expect(CodeMetadataValue.payableFlag, 0x0002); // 2nd LSB of second byte
+      expect(
+        CodeMetadataValue.upgradeableFlag,
+        0x0100,
+        reason: 'LSB of first byte',
+      );
+      expect(
+        CodeMetadataValue.readableFlag,
+        0x0400,
+        reason: '3rd LSB of first byte',
+      );
+      expect(
+        CodeMetadataValue.payableFlag,
+        0x0002,
+        reason: '2nd LSB of second byte',
+      );
       expect(
         CodeMetadataValue.payableBySCFlag,
         0x0004,
-      ); // 3rd LSB of second byte
+        reason: '3rd LSB of second byte',
+      );
 
       const allFlags =
           CodeMetadataValue.upgradeableFlag |

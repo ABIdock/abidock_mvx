@@ -23,9 +23,12 @@ import 'numerical.dart';
 /// print(large.toHex()); // Hex representation
 ///
 /// // Use in struct definitions
-/// final structType = StructType(fields: [
-///   StructField('signedLarge', BigIntType.type),
-/// ]);
+/// final structType = StructType(
+///   name: 'SignedLedger',
+///   fieldDefinitions: [
+///     FieldDefinition(name: 'signedLarge', type: BigIntType.type),
+///   ],
+/// );
 /// ```
 @immutable
 final class BigIntType extends NumericalType {

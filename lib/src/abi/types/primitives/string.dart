@@ -22,9 +22,12 @@ import '../../core/type_system.dart';
 /// print(str3.nativeValue); // Hello
 ///
 /// // Use in struct definitions
-/// final structType = StructType(fields: [
-///   StructField('name', StringType.type),
-/// ]);
+/// final structType = StructType(
+///   name: 'Profile',
+///   fieldDefinitions: [
+///     FieldDefinition(name: 'name', type: StringType.type),
+///   ],
+/// );
 /// ```
 @immutable
 final class StringType extends PrimitiveType {
@@ -84,7 +87,7 @@ final class StringType extends PrimitiveType {
 /// #### Example
 /// ```dart
 /// // From string
-/// const str1 = StringValue('Hello World');
+/// final str1 = StringValue('Hello World');
 /// print(str1.toBytes()); // UTF-8 bytes
 ///
 /// // From UTF-8 factory

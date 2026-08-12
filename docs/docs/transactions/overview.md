@@ -26,6 +26,9 @@ Every transaction requires typed parameters:
 ```dart
 import 'dart:typed_data';
 
+final senderAddress = Address.fromBech32('erd1...sender...');
+final receiverAddress = Address.fromBech32('erd1...receiver...');
+
 final tx = Transaction(
   sender: senderAddress,              // Who sends (Address)
   receiver: receiverAddress,          // Who receives (Address)
@@ -110,36 +113,64 @@ void main() async {
 
 ## Gas Configuration
 
+Every gas limit the factories compute has two parts:
+
+```
+gasLimit = dataMovementGas + executionGas
+dataMovementGas = minGasLimit + gasLimitPerByte * data.length
+```
+
+`minGasLimit` is 50,000 and `gasLimitPerByte` is 1,500 by default; both come
+from `/network/config` (`config.minGasLimit`, `config.gasPerDataByte`). The
+execution term is what the endpoint itself costs.
+
 ### Standard Gas Values
 
-| Operation | Gas Limit |
-|-----------|-----------|
-| EGLD Transfer | 50,000 |
-| ESDT Transfer | 500,000 |
-| NFT Transfer | 1,000,000 |
-| Multi Transfer | 1,100,000 + 100,000 per token |
-| SC Call | 5,000,000 - 50,000,000 |
+| Operation | Execution gas | Total (with data-movement term) |
+|-----------|---------------|---------------------------------|
+| EGLD Transfer (no data) | 0 | 50,000 |
+| ESDT Transfer | 300,000 | 350,000 + 1,500 x data bytes |
+| NFT / SFT Transfer | 1,000,000 | 1,050,000 + 1,500 x data bytes |
+| Multi Transfer (N tokens) | 800,000 + 200,000 x N | 850,000 + 200,000 x N + 1,500 x data bytes |
+| Contract call | Endpoint-specific | Endpoint cost + data-movement term |
 
 ### Gas Price
 
-Default gas price is usually `1000000000`. Get from network config:
+Default gas price is usually `1000000000`. Get from network config -- note that
+`minGasPrice` is a plain `int`, so wrap it before handing it to a transaction:
 
 ```dart
 final config = await provider.getNetworkConfig();
-final gasPrice = config.minGasPrice;
+final gasPrice = GasPrice(config.minGasPrice);
 ```
 
 ## Transaction Status
 
-Possible statuses after sending:
+`TransactionStatus` wraps the raw status string the node, Gateway or Proxy
+reports. Several spellings mean the same thing, so prefer the predicates over
+string comparison:
 
-| Status | Description |
-|--------|-------------|
-| `pending` | In mempool, not yet processed |
-| `executed` | Executed in block |
-| `success` | Executed successfully |
-| `failed` | Execution failed |
-| `invalid` | Invalid transaction |
+| Status | Meaning | Predicate |
+|--------|---------|-----------|
+| `pending` | In mempool, not yet processed | `isPending` |
+| `received` | Accepted into the mempool | `isPending` |
+| `executed` | Executed in a block | `isExecuted` / `isSuccessful` |
+| `success` | Executed successfully | `isExecuted` / `isSuccessful` |
+| `successful` | Executed successfully (Gateway spelling) | `isExecuted` / `isSuccessful` |
+| `fail` | Execution failed (short spelling) | `isFailed` |
+| `failed` | Execution failed | `isFailed` |
+| `unsuccessful` | Execution failed (Gateway spelling) | `isFailed` |
+| `invalid` | Rejected before execution | `isInvalid`, also `isFailed` |
+| `not-executable-in-block` | Proposed in a block but absent from its execution result | `isNotExecutableInBlock` |
+| `reward-reverted` | Reward transaction was reverted | - |
+| `unknown` | No observer could report a status | - |
+
+Two aggregate predicates matter when you are waiting on a transaction:
+
+- `isCompleted` -- executed with an outcome, success **or** failure.
+- `isFinal` -- broader: `isCompleted` plus `not-executable-in-block`, i.e. the
+  status will not change again. This is what `TransactionWatcher.awaitCompleted`
+  waits for.
 
 ```dart
 final watcher = TransactionWatcher(networkProvider: provider);

@@ -336,15 +336,58 @@ class TokenIdentifierBinaryCodec with ValidationMixin {
     return TokenIdentifierValue(identifier);
   }
 
+  /// Canonical identifier for native EGLD on the EgldOrEsdt wire form.
+  ///
+  /// Both an empty payload and the legacy 4-byte `EGLD` sentinel decode to this
+  /// canonical `EGLD-000000` identifier.
+  static const String _egldCanonicalIdentifier = 'EGLD-000000';
+
+  /// Legacy 4-byte EGLD sentinel emitted by older contracts.
+  static const String _egldLegacyIdentifier = 'EGLD';
+
+  /// Canonicalises a raw EgldOrEsdt identifier string.
+  ///
+  /// #### Parameters
+  /// - `raw` - UTF-8 decoded identifier bytes
+  ///
+  /// #### Returns
+  /// `String` - `'EGLD-000000'` for empty or legacy `'EGLD'`; raw value otherwise
+  static String _canonicaliseEgldOrEsdt(String raw) {
+    if (raw.isEmpty || raw == _egldLegacyIdentifier) {
+      return _egldCanonicalIdentifier;
+    }
+    return raw;
+  }
+
+  /// Returns wire bytes for an EgldOrEsdt identifier value.
+  ///
+  /// Native EGLD (`'EGLD-000000'`) encodes as empty bytes: the wire form of
+  /// EGLD on an `EgldOrEsdtTokenIdentifier` is a zero-length payload.
+  ///
+  /// #### Parameters
+  /// - `value` - EGLD or ESDT token identifier
+  ///
+  /// #### Returns
+  /// `Uint8List` - Empty buffer for native EGLD, UTF-8 bytes otherwise
+  static Uint8List _egldOrEsdtBytes(EgldOrEsdtTokenIdentifierValue value) {
+    if (value.identifier == _egldCanonicalIdentifier) {
+      return BinaryCodecUtils.emptyBuffer;
+    }
+    return Uint8List.fromList(utf8.encode(value.identifier));
+  }
+
   /// Decodes EgldOrEsdtTokenIdentifier from top-level buffer.
+  ///
+  /// Empty bytes and the legacy 4-byte `'EGLD'` sentinel are both canonicalised
+  /// to `'EGLD-000000'`; every other payload decodes verbatim.
   ///
   /// #### Parameters
   /// - `buffer` - ASCII/UTF-8 encoded identifier
   ///
   /// #### Returns
-  /// `EgldOrEsdtTokenIdentifierValue` - Decoded identifier
+  /// `EgldOrEsdtTokenIdentifierValue` - Decoded identifier (canonical form)
   EgldOrEsdtTokenIdentifierValue decodeTopLevelAsEgldOrEsdt(Uint8List buffer) {
-    final String identifier = utf8.decode(buffer);
+    final String identifier = _canonicaliseEgldOrEsdt(utf8.decode(buffer));
     return EgldOrEsdtTokenIdentifierValue(identifier);
   }
 
@@ -408,7 +451,9 @@ class TokenIdentifierBinaryCodec with ValidationMixin {
       offset + lengthBytes,
       endOffset,
     );
-    final String identifier = utf8.decode(identifierBytes);
+    final String identifier = _canonicaliseEgldOrEsdt(
+      utf8.decode(identifierBytes),
+    );
     return (EgldOrEsdtTokenIdentifierValue(identifier), lengthBytes + length);
   }
 
@@ -425,13 +470,16 @@ class TokenIdentifierBinaryCodec with ValidationMixin {
 
   /// Encodes EgldOrEsdtTokenIdentifier for top-level (no length prefix).
   ///
+  /// Native EGLD (`'EGLD-000000'`) is canonicalised to empty bytes: at top
+  /// level the EGLD wire form carries no bytes at all.
+  ///
   /// #### Parameters
   /// - `value` - EGLD or ESDT token identifier
   ///
   /// #### Returns
-  /// `Uint8List` - ASCII/UTF-8 bytes
+  /// `Uint8List` - Empty for native EGLD, UTF-8 bytes for ESDT identifiers
   Uint8List encodeTopLevelEgldOrEsdt(EgldOrEsdtTokenIdentifierValue value) {
-    return Uint8List.fromList(utf8.encode(value.identifier));
+    return _egldOrEsdtBytes(value);
   }
 
   /// Encodes TokenIdentifier for nested (4-byte length prefix).
@@ -453,15 +501,16 @@ class TokenIdentifierBinaryCodec with ValidationMixin {
 
   /// Encodes EgldOrEsdtTokenIdentifier for nested (4-byte length prefix).
   ///
+  /// Native EGLD (`'EGLD-000000'`) emits a zero-length payload, so nested EGLD
+  /// is the four bytes `00 00 00 00` and nothing more.
+  ///
   /// #### Parameters
   /// - `value` - EGLD or ESDT token identifier
   ///
   /// #### Returns
-  /// `Uint8List` - 4-byte length + ASCII/UTF-8 bytes
+  /// `Uint8List` - 4-byte length + ASCII/UTF-8 bytes (length 0 for native EGLD)
   Uint8List encodeNestedEgldOrEsdt(EgldOrEsdtTokenIdentifierValue value) {
-    final Uint8List identifierBytes = Uint8List.fromList(
-      utf8.encode(value.identifier),
-    );
+    final Uint8List identifierBytes = _egldOrEsdtBytes(value);
     return (BinaryBuilder()
           ..addU32(identifierBytes.length)
           ..addBytes(identifierBytes))

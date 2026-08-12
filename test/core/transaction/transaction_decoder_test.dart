@@ -56,7 +56,6 @@ void main() {
     });
 
     test('decodes a plain ESDTTransfer', () {
-      // ESDTTransfer@<tokenHex>@<amountHex>
       final String tokenHex = _hex(utf8.encode('WEGLD-bd4d79'));
       final String amountHex = BigInt.from(12345).toRadixString(16);
       final String payload = 'ESDTTransfer@$tokenHex@$amountHex';
@@ -159,7 +158,6 @@ void main() {
         'erd150sh7scpm4q7tdtntte975kt0cgg3r4exf8mtwurfradguzxzuqsahzma8',
       );
       final String destHex = _hex(dest.bytes);
-      // Claims 3 legs but only provides 1.
       final String payload =
           'MultiESDTNFTTransfer@$destHex@03@${_hex(utf8.encode('X-000001'))}@00@01';
       final tx = _tx(data: Uint8List.fromList(utf8.encode(payload)));
@@ -170,7 +168,6 @@ void main() {
     });
 
     test('returns UnknownTransaction on malformed argument', () {
-      // Odd-length hex argument.
       const String payload = 'myCall@abc';
       final tx = _tx(data: Uint8List.fromList(utf8.encode(payload)));
 

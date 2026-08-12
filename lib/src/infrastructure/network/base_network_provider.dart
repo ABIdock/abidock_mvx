@@ -14,14 +14,19 @@ import '../../core/transaction/transaction_status.dart';
 import '../../utils/helpers.dart';
 import '../../utils/hex_utils.dart';
 import '../../utils/sdk_exceptions.dart';
+import '../caching/cache_manager.dart';
 import '../logging/logger.dart';
 import '../resilience/circuit_breaker.dart';
 import '../resilience/circuit_breaker_exception.dart';
+import '../resilience/request_throttle.dart';
+import '../resilience/retry_helper.dart';
 import 'account_storage.dart';
 import 'account_storage_entry.dart';
 import 'block_on_network.dart';
+import 'guardian_data.dart';
 import 'network_config.dart';
 import 'network_provider.dart';
+import 'network_provider_config.dart';
 import 'network_status.dart';
 import 'send_transactions_result.dart';
 
@@ -38,20 +43,33 @@ abstract class BaseNetworkProvider implements NetworkProvider {
   /// - `client` - Optional custom Dio HTTP client
   /// - `logger` - Optional logger for debugging
   /// - `enableCircuitBreaker` - Enable circuit breaker for resilience
+  /// - `config` - Optional `NetworkProviderConfig` controlling client name,
+  ///   extra HTTP headers, request timeout, base URL override, and the
+  ///   retry / throttle / response-cache policies. Every policy defaults to
+  ///   off, so omitting `config` leaves one plain HTTP request per call.
   BaseNetworkProvider({
     required String baseUrl,
     required ChainId chainId,
     Dio? client,
     this.logger,
     this.enableCircuitBreaker = false,
-  }) : _baseUrl = baseUrl,
+    NetworkProviderConfig? config,
+  }) : _baseUrl = _normalizeBaseUrl(config?.baseUrl ?? baseUrl),
        _chainId = chainId,
        _dio = client ?? Dio(),
-       _ownsClient = client == null {
+       _ownsClient = client == null,
+       _config = config {
+    /// Only mutate the Dio default options when the provider owns the
+    /// client. When a shared Dio is injected (M2-14), we leave its headers /
+    /// timeouts untouched and instead carry per-request overrides via Options.
+    if (_ownsClient) {
+      _applyConfigToDio();
+    }
+
     if (enableCircuitBreaker) {
       _circuitBreaker = CircuitBreaker(
         failureThreshold: 5,
-        timeout: defaultTimeout,
+        timeout: requestTimeout,
         retryDelay: const Duration(minutes: 1),
         onOpen: () => logger?.warning(
           '$providerName circuit breaker opened - too many failures',
@@ -100,12 +118,138 @@ abstract class BaseNetworkProvider implements NetworkProvider {
   /// Enable circuit breaker for resilient calls.
   final bool enableCircuitBreaker;
 
+  /// Optional configuration block forwarded from the user / Entrypoint.
+  final NetworkProviderConfig? _config;
+
+  /// Returns the active `NetworkProviderConfig`, if any.
+  NetworkProviderConfig? get config => _config;
+
   /// Circuit breaker for resilient calls (if enabled).
   late final CircuitBreaker? _circuitBreaker;
+
+  /// Lazily built `RetryHelper`. Only created when the supplied
+  /// `NetworkProviderConfig.retryPolicy` is enabled (M2-15).
+  RetryHelper? get _retryHelper {
+    final RetryPolicy? policy = _config?.retryPolicy;
+    if (policy == null || !policy.enabled) return null;
+    return _cachedRetryHelper ??= RetryHelper(
+      config: policy.config ?? const RetryConfig(),
+      logger: logger,
+    );
+  }
+
+  RetryHelper? _cachedRetryHelper;
+
+  /// Lazily built `RequestThrottle`. Only created when the supplied
+  /// `NetworkProviderConfig.throttlePolicy` is enabled.
+  RequestThrottle? get _throttle {
+    final ThrottlePolicy? policy = _config?.throttlePolicy;
+    if (policy == null || !policy.enabled) return null;
+    return _cachedThrottle ??= RequestThrottle(
+      capacity: policy.capacity!,
+      refillPerSecond: policy.refillPerSecond!,
+    );
+  }
+
+  RequestThrottle? _cachedThrottle;
+
+  /// Lazily built response `CacheManager`. Only created when the supplied
+  /// `NetworkProviderConfig.cachePolicy` is enabled.
+  CacheManager? get _responseCache {
+    final ResponseCachePolicy? policy = _config?.cachePolicy;
+    if (policy == null || !policy.enabled) return null;
+    return _cachedResponseCache ??= CacheManager(
+      defaultConfig: policy.defaultConfig ?? const CacheConfig(),
+      endpointConfigs: policy.endpointConfigs,
+    );
+  }
+
+  CacheManager? _cachedResponseCache;
+
+  /// Waits for a slot from the configured request throttle.
+  ///
+  /// Returns immediately when `NetworkProviderConfig.throttlePolicy` is
+  /// disabled, which is the default, so an unconfigured provider pays nothing
+  /// for this call.
+  @protected
+  Future<void> acquireRequestSlot() async {
+    final RequestThrottle? throttle = _throttle;
+    if (throttle == null) return;
+    await throttle.acquire();
+  }
+
+  /// Drops every entry from the opt-in `GET` response cache.
+  ///
+  /// No-op when `NetworkProviderConfig.cachePolicy` is disabled. The cache is
+  /// already cleared automatically after every successful `POST`; call this
+  /// when state changed through some other channel.
+  void clearResponseCache() => _cachedResponseCache?.clearAll();
 
   /// Default timeout for requests.
   @protected
   static const Duration defaultTimeout = Duration(seconds: 30);
+
+  /// Effective request timeout used for per-call races and Dio defaults.
+  @protected
+  Duration get requestTimeout => _config?.requestTimeout ?? defaultTimeout;
+
+  static String _normalizeBaseUrl(String url) {
+    String trimmed = url.trim();
+    while (trimmed.endsWith('/')) {
+      trimmed = trimmed.substring(0, trimmed.length - 1);
+    }
+    return trimmed;
+  }
+
+  /// Combines `baseUrl` with `resourceUrl` while collapsing duplicate slashes.
+  @protected
+  String resolveUrl(String resourceUrl) => _resolveUrl(resourceUrl);
+
+  String _resolveUrl(String resourceUrl) {
+    String path = resourceUrl;
+    while (path.startsWith('/')) {
+      path = path.substring(1);
+    }
+    return '$_baseUrl/$path';
+  }
+
+  void _applyConfigToDio() {
+    final Duration effective = requestTimeout;
+    _dio.options.connectTimeout = effective;
+    _dio.options.receiveTimeout = effective;
+    _dio.options.sendTimeout = effective;
+
+    final String userAgent = UserAgent.build(clientName: _config?.clientName);
+    _dio.options.headers['User-Agent'] = userAgent;
+
+    final Map<String, String>? extra = _config?.headers;
+    if (extra != null) {
+      for (final MapEntry<String, String> entry in extra.entries) {
+        _dio.options.headers[entry.key] = entry.value;
+      }
+    }
+  }
+
+  /// Builds the per-request header map combining configured headers, the
+  /// SDK user-agent, and any extra entries provided by the caller.
+  ///
+  /// When the underlying Dio is shared (not owned), this is the only place
+  /// header customisation happens — `_applyConfigToDio` is skipped so the
+  /// shared client's defaults remain untouched (M2-14).
+  Map<String, dynamic> _buildRequestHeaders([Map<String, dynamic>? extra]) {
+    final Map<String, dynamic> headers = <String, dynamic>{};
+    if (!_ownsClient) {
+      headers['User-Agent'] = UserAgent.build(clientName: _config?.clientName);
+      final Map<String, String>? configured = _config?.headers;
+      if (configured != null) {
+        for (final MapEntry<String, String> entry in configured.entries) {
+          headers[entry.key] = entry.value;
+        }
+      }
+    }
+    if (extra != null) headers.addAll(extra);
+    return headers;
+  }
 
   /// Provider name for logging (e.g., 'API', 'Gateway').
   @protected
@@ -159,6 +303,44 @@ abstract class BaseNetworkProvider implements NetworkProvider {
   @protected
   String nonFungibleTokensEndpoint(Address address);
 
+  /// Endpoint for `getGuardianData`.
+  ///
+  /// API: `accounts/{bech32}/guardian-data`. Gateway: `address/{bech32}/guardian-data`.
+  @protected
+  String guardianDataEndpoint(Address address);
+
+  /// First index sent on the account token/NFT listing routes when the caller
+  /// asks for no particular page.
+  ///
+  /// `null` means "send nothing", which is correct for hosts whose listing
+  /// route returns the account's complete holdings in one payload.
+  @protected
+  int? get defaultTokenListingFrom => null;
+
+  /// Page size sent on the account token/NFT listing routes when the caller
+  /// asks for no particular page.
+  ///
+  /// `null` means "send nothing" and therefore accept whatever the host
+  /// defaults to.
+  @protected
+  int? get defaultTokenListingSize => null;
+
+  /// Appends `?from=...&size=...` to `path` when the params are non-null.
+  ///
+  /// Preserves existing query strings on `path` by switching the leading
+  /// separator from `?` to `&` as needed.
+  @protected
+  String appendPagination(String path, {int? from, int? size}) {
+    if (from == null && size == null) {
+      return path;
+    }
+    final List<String> parts = <String>[];
+    if (from != null) parts.add('from=$from');
+    if (size != null) parts.add('size=$size');
+    final String sep = path.contains('?') ? '&' : '?';
+    return '$path$sep${parts.join('&')}';
+  }
+
   /// Endpoint for fungible-token metadata lookup.
   @protected
   String fungibleTokenDefinitionEndpoint(String identifier);
@@ -171,9 +353,13 @@ abstract class BaseNetworkProvider implements NetworkProvider {
   @protected
   String nonFungibleInstanceEndpoint(String collection, int nonce);
 
-  /// Endpoint for fetching a block by hash.
+  /// Endpoint for fetching a block by hash within a given shard.
+  ///
+  /// Gateway requires both `shard` and `hash` in the URL
+  /// (`block/{shard}/by-hash/{hash}`). API ignores `shard` because it indexes
+  /// blocks globally by hash; implementations should still accept the value.
   @protected
-  String blockByHashEndpoint(String hash);
+  String blockByHashEndpoint(int shard, String hash);
 
   /// Endpoint for fetching the latest block for a shard.
   @protected
@@ -192,8 +378,11 @@ abstract class BaseNetworkProvider implements NetworkProvider {
   @protected
   String networkStatusEndpoint({int shard = 4294967295});
 
-  /// Endpoint for transaction cost estimation (Gateway-only). Return `null`
-  /// to signal that the provider does not support this method.
+  /// Endpoint for transaction cost estimation.
+  ///
+  /// `POST /transaction/cost` is served by the Gateway and proxied by the API
+  /// host, so the default is correct for both. Return `null` only from a
+  /// provider pointed at a host that does not expose the route.
   @protected
   String? estimateTransactionCostEndpoint() => 'transaction/cost';
 
@@ -305,11 +494,14 @@ abstract class BaseNetworkProvider implements NetworkProvider {
   }
 
   @override
-  Future<NetworkStatus> getNetworkStatus() async {
-    logger?.debug('Fetching network status');
+  Future<NetworkStatus> getNetworkStatus({int shard = 4294967295}) async {
+    logger?.debug(
+      'Fetching network status',
+      context: <String, dynamic>{'shard': shard.toString()},
+    );
 
     final response = await executeWithCircuitBreaker(
-      () => doGetGeneric(networkStatusEndpoint()),
+      () => doGetGeneric(networkStatusEndpoint(shard: shard)),
     );
 
     return parseNetworkStatus(
@@ -502,7 +694,10 @@ abstract class BaseNetworkProvider implements NetworkProvider {
     final String? endpoint = estimateTransactionCostEndpoint();
     if (endpoint == null) {
       throw UnsupportedError(
-        'estimateTransactionCost is only supported by the Gateway provider.',
+        'estimateTransactionCost is not wired on $providerName: '
+        'estimateTransactionCostEndpoint() returned null. Both the API and '
+        'the Gateway hosts serve POST /transaction/cost, which is the '
+        'default this hook returns.',
       );
     }
     final response = await executeWithCircuitBreaker(
@@ -550,20 +745,23 @@ abstract class BaseNetworkProvider implements NetworkProvider {
 
       logger?.debug('Query request body', context: requestBody);
 
-      final Response<dynamic> response = await executeWithCircuitBreaker(() {
-        return dio
-            .post<dynamic>(
-              '$baseUrl/${queryContractEndpoint()}',
-              data: requestBody,
-              options: Options(
-                headers: <String, dynamic>{
-                  'Content-Type': 'application/json',
-                  'Accept': 'application/json',
-                },
-              ),
-            )
-            .timeout(defaultTimeout);
-      });
+      final Response<dynamic> response = await executeWithCircuitBreaker(
+        () async {
+          await acquireRequestSlot();
+          return dio
+              .post<dynamic>(
+                _resolveUrl(queryContractEndpoint()),
+                data: requestBody,
+                options: Options(
+                  headers: _buildRequestHeaders(<String, dynamic>{
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                  }),
+                ),
+              )
+              .timeout(requestTimeout);
+        },
+      );
 
       if (response.statusCode != HttpStatus.ok &&
           response.statusCode != HttpStatus.created) {
@@ -687,34 +885,76 @@ abstract class BaseNetworkProvider implements NetworkProvider {
 
   @override
   Future<List<TokenOnNetwork>> getFungibleTokensOfAccount(
-    Address address,
-  ) async {
+    Address address, {
+    int? from,
+    int? size,
+  }) async {
+    final int? effectiveFrom = from ?? defaultTokenListingFrom;
+    final int? effectiveSize = size ?? defaultTokenListingSize;
+
     logger?.debug(
       'Fetching fungible tokens',
-      context: <String, dynamic>{'address': address.bech32},
+      context: <String, dynamic>{
+        'address': address.bech32,
+        'from': effectiveFrom?.toString() ?? 'default',
+        'size': effectiveSize?.toString() ?? 'default',
+      },
     );
 
-    final response = await executeWithCircuitBreaker(
-      () => doGetGeneric(fungibleTokensEndpoint(address)),
+    final String url = appendPagination(
+      fungibleTokensEndpoint(address),
+      from: effectiveFrom,
+      size: effectiveSize,
     );
+
+    final response = await executeWithCircuitBreaker(() => doGetGeneric(url));
 
     return parseFungibleTokens(response);
   }
 
   @override
   Future<List<TokenOnNetwork>> getNonFungibleTokensOfAccount(
-    Address address,
-  ) async {
+    Address address, {
+    int? from,
+    int? size,
+  }) async {
+    final int? effectiveFrom = from ?? defaultTokenListingFrom;
+    final int? effectiveSize = size ?? defaultTokenListingSize;
+
     logger?.debug(
       'Fetching NFTs',
+      context: <String, dynamic>{
+        'address': address.bech32,
+        'from': effectiveFrom?.toString() ?? 'default',
+        'size': effectiveSize?.toString() ?? 'default',
+      },
+    );
+
+    final String url = appendPagination(
+      nonFungibleTokensEndpoint(address),
+      from: effectiveFrom,
+      size: effectiveSize,
+    );
+
+    final response = await executeWithCircuitBreaker(() => doGetGeneric(url));
+
+    return parseNonFungibleTokens(response);
+  }
+
+  @override
+  Future<GuardianData> getGuardianData(Address address) async {
+    logger?.debug(
+      'Fetching guardian data',
       context: <String, dynamic>{'address': address.bech32},
     );
 
     final response = await executeWithCircuitBreaker(
-      () => doGetGeneric(nonFungibleTokensEndpoint(address)),
+      () => doGetGeneric(guardianDataEndpoint(address)),
     );
 
-    return parseNonFungibleTokens(response);
+    return GuardianData.fromHttpResponse(
+      requireAs<Map<String, dynamic>>(response, 'response'),
+    );
   }
 
   @override
@@ -776,11 +1016,14 @@ abstract class BaseNetworkProvider implements NetworkProvider {
   }
 
   @override
-  Future<BlockOnNetwork> getBlock(String hash) async {
-    logger?.debug('Fetching block', context: <String, dynamic>{'hash': hash});
+  Future<BlockOnNetwork> getBlock(String hash, {int shard = 4294967295}) async {
+    logger?.debug(
+      'Fetching block',
+      context: <String, dynamic>{'hash': hash, 'shard': shard.toString()},
+    );
 
     final response = await executeWithCircuitBreaker(
-      () => doGetGeneric(blockByHashEndpoint(hash)),
+      () => doGetGeneric(blockByHashEndpoint(shard, hash)),
     );
 
     return parseBlock(response);
@@ -824,14 +1067,45 @@ abstract class BaseNetworkProvider implements NetworkProvider {
 
   @override
   Future<dynamic> doGetGeneric(String resourceUrl) async {
-    final String url = '$baseUrl/$resourceUrl';
+    final CacheManager? cache = _responseCache;
+    if (cache != null) {
+      final dynamic cached = cache.get<dynamic>(resourceUrl);
+      if (cached != null) {
+        logger?.debug(
+          'GET served from cache',
+          context: <String, dynamic>{'resource': resourceUrl},
+        );
+        return cached;
+      }
+    }
+
+    final RetryHelper? retry = _retryHelper;
+    final dynamic result = retry == null
+        ? await _doGetGenericOnce(resourceUrl)
+        : await retry.execute<dynamic>(
+            operation: () => _doGetGenericOnce(resourceUrl),
+            isRetryable: RetryHelper.isTransientError,
+            operationName: 'GET $resourceUrl',
+          );
+
+    if (cache != null && result != null) {
+      cache.put<dynamic>(resourceUrl, result);
+    }
+
+    return result;
+  }
+
+  Future<dynamic> _doGetGenericOnce(String resourceUrl) async {
+    final String url = _resolveUrl(resourceUrl);
 
     logger?.debug('GET request', context: <String, dynamic>{'url': url});
 
+    await acquireRequestSlot();
+
     try {
       final Response<dynamic> response = await dio
-          .get<dynamic>(url)
-          .timeout(defaultTimeout);
+          .get<dynamic>(url, options: Options(headers: _buildRequestHeaders()))
+          .timeout(requestTimeout);
 
       if (response.statusCode != HttpStatus.ok) {
         logger?.warning(
@@ -864,7 +1138,7 @@ abstract class BaseNetworkProvider implements NetworkProvider {
       }
 
       return responseData;
-    } on DioException catch (e) {
+    } on DioException catch (e, stack) {
       final String errorMessage = parseErrorFromDioException(e, url);
 
       logger?.error(
@@ -881,15 +1155,39 @@ abstract class BaseNetworkProvider implements NetworkProvider {
         errorMessage,
         statusCode: e.response?.statusCode,
         endpoint: url,
+        cause: e,
+        stackTrace: stack,
       );
     }
   }
 
   @override
   Future<dynamic> doPostGeneric(String resourceUrl, dynamic payload) async {
-    final String url = '$baseUrl/$resourceUrl';
+    final RetryHelper? retry = _retryHelper;
+    final dynamic result = retry == null
+        ? await _doPostGenericOnce(resourceUrl, payload)
+        : await retry.execute<dynamic>(
+            operation: () => _doPostGenericOnce(resourceUrl, payload),
+            isRetryable: RetryHelper.isTransientError,
+            operationName: 'POST $resourceUrl',
+          );
+
+    /// A successful POST may have changed chain state — a sent transaction
+    /// bumps the sender nonce — so any cached GET body is now suspect.
+    _cachedResponseCache?.clearAll();
+
+    return result;
+  }
+
+  Future<dynamic> _doPostGenericOnce(
+    String resourceUrl,
+    dynamic payload,
+  ) async {
+    final String url = _resolveUrl(resourceUrl);
 
     logger?.debug('POST request', context: <String, dynamic>{'url': url});
+
+    await acquireRequestSlot();
 
     try {
       final Response<dynamic> response = await dio
@@ -897,13 +1195,13 @@ abstract class BaseNetworkProvider implements NetworkProvider {
             url,
             data: payload,
             options: Options(
-              headers: <String, dynamic>{
+              headers: _buildRequestHeaders(<String, dynamic>{
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
-              },
+              }),
             ),
           )
-          .timeout(defaultTimeout);
+          .timeout(requestTimeout);
 
       if (response.statusCode != HttpStatus.ok &&
           response.statusCode != HttpStatus.created) {
@@ -937,7 +1235,7 @@ abstract class BaseNetworkProvider implements NetworkProvider {
       }
 
       return responseData;
-    } on DioException catch (e) {
+    } on DioException catch (e, stack) {
       final String errorMessage = parseErrorFromDioException(e, url);
 
       logger?.error(
@@ -954,6 +1252,8 @@ abstract class BaseNetworkProvider implements NetworkProvider {
         errorMessage,
         statusCode: e.response?.statusCode,
         endpoint: url,
+        cause: e,
+        stackTrace: stack,
       );
     }
   }

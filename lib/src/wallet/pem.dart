@@ -1,9 +1,11 @@
 /// PEM file parsing for user and validator keys with comprehensive validation.
-/// Parses base64-encoded keys wrapped in BEGIN/END markers with security checks.
+/// Parses base64-encoded keys wrapped in BEGIN/END markers and validates
+/// that the bech32 label in the header matches the derived address.
 
 import 'dart:convert';
 import 'dart:typed_data';
 
+import '../core/address.dart';
 import '../utils/sdk_exceptions.dart';
 import 'user_keys.dart';
 
@@ -17,21 +19,13 @@ import 'user_keys.dart';
 /// `UserSecretKey` - Secret key at specified index
 ///
 /// #### Throws
-/// - `PemException` - If PEM is invalid, index out of bounds, or security checks fail
+/// - `PemException` - If PEM is invalid, index out of bounds, label is not a
+///   valid bech32 address, or label does not match derived address.
 ///
 /// #### Example
 /// ```dart
-/// // Load from file
 /// final pemContent = await File('wallet.pem').readAsString();
 /// final secretKey = parseUserKey(pemContent);
-///
-/// // Multiple keys
-/// final key0 = parseUserKey(pemContent, index: 0);
-/// final key1 = parseUserKey(pemContent, index: 1);
-///
-/// // Use in signer
-/// final signer = UserSigner(secretKey);
-/// final address = await signer.getAddress();
 /// ```
 UserSecretKey parseUserKey(String text, {int index = 0}) {
   final List<UserSecretKey> keys = parseUserKeys(text);
@@ -45,6 +39,9 @@ UserSecretKey parseUserKey(String text, {int index = 0}) {
 
 /// Parses all user keys from PEM text.
 ///
+/// Each block's header label is validated as a bech32 address, and the
+/// embedded public key bytes are checked to match that label.
+///
 /// #### Parameters
 /// - `text` - PEM file content (may contain multiple keys)
 ///
@@ -52,45 +49,67 @@ UserSecretKey parseUserKey(String text, {int index = 0}) {
 /// `List<UserSecretKey>` - All secret keys found in PEM
 ///
 /// #### Throws
-/// - `PemException` - If PEM is invalid or security checks fail
-///
-/// #### Example
-/// ```dart
-/// // Parse all keys
-/// final keys = parseUserKeys(pemContent);
-/// print('Found ${keys.length} keys');
-///
-/// // Create signers for all keys
-/// final signers = keys.map((key) => UserSigner(key)).toList();
-///
-/// // Get all addresses
-/// for (int i = 0; i < keys.length; i++) {
-///   final publicKey = await keys[i].generatePublicKey();
-///   final address = publicKey.toAddress();
-///   print('Key $i: ${address.bech32}');
-/// }
-/// ```
+/// - `PemException` - If PEM is invalid, label is not bech32, or label and
+///   derived public key disagree.
 List<UserSecretKey> parseUserKeys(String text) {
-  final List<Uint8List> buffers = _parse(
+  final List<_PemBlock> blocks = _parse(
     text,
     userSeedLength + userPubkeyLength,
   );
-  return buffers.map((Uint8List buffer) {
-    return UserSecretKey(buffer.sublist(0, userSeedLength));
-  }).toList();
+  final List<UserSecretKey> result = <UserSecretKey>[];
+  for (final _PemBlock block in blocks) {
+    final Uint8List buffer = block.bytes;
+    final Uint8List publicBytes = buffer.sublist(
+      userSeedLength,
+      userSeedLength + userPubkeyLength,
+    );
+
+    final Address labelAddress;
+    try {
+      labelAddress = Address.fromBech32(block.label);
+    } catch (error, stackTrace) {
+      throw PemException(
+        'PEM label is not a valid bech32 address: "${block.label}"',
+        cause: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    final Address derived = Address(publicBytes, hrp: labelAddress.hrp);
+    if (derived.bech32 != labelAddress.bech32) {
+      throw PemException(
+        'PEM label does not match derived address: '
+        '${labelAddress.bech32} vs ${derived.bech32}',
+      );
+    }
+
+    result.add(UserSecretKey(buffer.sublist(0, userSeedLength)));
+  }
+  return result;
 }
 
-/// Parses PEM text and extracts binary data.
-List<Uint8List> _parse(String text, int expectedLength) {
+/// Internal representation of one parsed PEM block.
+class _PemBlock {
+  const _PemBlock({required this.label, required this.bytes});
+
+  /// Label parsed from the `-----BEGIN ... for <label>-----` header.
+  final String label;
+
+  /// Decoded key bytes (hex-decoded from the base64 body).
+  final Uint8List bytes;
+}
+
+/// Parses PEM text and extracts the label and binary data of each block.
+List<_PemBlock> _parse(String text, int expectedLength) {
   if (text.isEmpty) {
     throw const PemException('PEM text is empty');
   }
-  const maxPemSize = 1024 * 1024; // 1MB
+  const int maxPemSize = 1024 * 1024;
   if (text.length > maxPemSize) {
     throw const PemException('PEM file too large (max 1024KB)');
   }
   String cleanText = text;
-  if (text.startsWith('\uFEFF')) {
+  if (text.startsWith('﻿')) {
     cleanText = text.substring(1);
   }
   final List<String> lines = cleanText
@@ -103,8 +122,9 @@ List<Uint8List> _parse(String text, int expectedLength) {
     throw const PemException('PEM contains no valid content');
   }
 
-  final List<Uint8List> buffers = <Uint8List>[];
+  final List<_PemBlock> blocks = <_PemBlock>[];
   List<String> linesAccumulator = <String>[];
+  String? currentLabel;
   bool inBlock = false;
 
   for (final String line in lines) {
@@ -112,11 +132,18 @@ List<Uint8List> _parse(String text, int expectedLength) {
       if (inBlock) {
         throw const PemException('Nested BEGIN markers not allowed');
       }
+      currentLabel = _extractLabel(line, 'BEGIN');
       linesAccumulator = <String>[];
       inBlock = true;
     } else if (line.startsWith('-----END')) {
       if (!inBlock) {
         throw const PemException('END marker without matching BEGIN');
+      }
+      final String endLabel = _extractLabel(line, 'END');
+      if (endLabel != currentLabel) {
+        throw PemException(
+          'PEM BEGIN/END labels disagree: "$currentLabel" vs "$endLabel"',
+        );
       }
 
       try {
@@ -156,15 +183,15 @@ List<Uint8List> _parse(String text, int expectedLength) {
             'incorrect key length: expected $expectedLength, found ${asBytes.length}',
           );
         }
-        final isAllZeros = asBytes.every((b) => b == 0);
-        final isAllOnes = asBytes.every((b) => b == 0xFF);
+        final bool isAllZeros = asBytes.every((int b) => b == 0);
+        final bool isAllOnes = asBytes.every((int b) => b == 0xFF);
         if (isAllZeros || isAllOnes) {
           throw const PemException(
             'Invalid key format (all zeros or all ones)',
           );
         }
 
-        buffers.add(asBytes);
+        blocks.add(_PemBlock(label: currentLabel ?? '', bytes: asBytes));
       } catch (e) {
         if (e is PemException) {
           rethrow;
@@ -173,6 +200,7 @@ List<Uint8List> _parse(String text, int expectedLength) {
       }
 
       linesAccumulator = <String>[];
+      currentLabel = null;
       inBlock = false;
     } else {
       if (inBlock) {
@@ -183,9 +211,23 @@ List<Uint8List> _parse(String text, int expectedLength) {
   if (inBlock) {
     throw const PemException('Unclosed PEM block (missing END marker)');
   }
-  if (buffers.isEmpty) {
+  if (blocks.isEmpty) {
     throw const PemException('No valid keys found in PEM');
   }
 
-  return buffers;
+  return blocks;
+}
+
+/// Extracts the label (e.g. `erd1...`) from a PEM `BEGIN`/`END` marker line.
+String _extractLabel(String line, String kind) {
+  final RegExp pattern = RegExp(
+    '-----$kind (?:PRIVATE KEY|EC PRIVATE KEY|RSA PRIVATE KEY|KEY) for ([^-]+?)-----',
+  );
+  final RegExpMatch? match = pattern.firstMatch(line);
+  if (match == null) {
+    throw PemException(
+      'Malformed PEM $kind line (expected "-----$kind ... for <label>-----"): "$line"',
+    );
+  }
+  return match.group(1)!.trim();
 }

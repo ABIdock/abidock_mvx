@@ -35,7 +35,11 @@ final controller = DelegationController(
 Create a new staking provider contract:
 
 ```dart
-final account = await Account.fromPem('validator.pem');
+import 'dart:io';
+
+// Account.fromPem takes the PEM *content*, not a file path.
+final pemContent = await File('validator.pem').readAsString();
+final account = await Account.fromPem(pemContent);
 final accountInfo = await provider.getAccount(account.address);
 
 final input = NewDelegationContractInput(
@@ -55,24 +59,42 @@ print('Delegation contract created: $hash');
 ```
 
 :::info Minimum Requirements
-- Minimum 1250 EGLD to create a delegation contract
+- Minimum deposit of 1250 EGLD to create a delegation contract
+- A validator node requires 2500 EGLD of base stake before it can be staked
 - Service fee is in basis points (1000 = 10%, 10000 = 100%)
 :::
 
 ### Add Validator Nodes
 
-Add BLS keys to your delegation contract:
+Adding a node proves ownership of the validator key: for each BLS public key
+you supply a BLS signature over the **delegation contract address bytes**.
+
+:::warning BLS signing needs a backend
+Validator identities are BLS12-381 keypairs (32-byte secret, 96-byte public
+key, 96-byte signature). No pure-Dart BLS12-381 implementation ships with this
+package, so `ValidatorSecretKey.sign` throws `UnimplementedError`. Wire up a
+native BLS plugin, an FFI binding, or a remote signing service and hand it to
+`ValidatorSigner.custom`.
+:::
 
 ```dart
-// Load validator keys
-final validatorKey = ValidatorSecretKey.fromPem('validator_key.pem');
+import 'dart:typed_data';
 
-// Sign the delegation contract address
-final signedMessage = validatorKey.sign(delegationContract.publicKeyBytes);
+// Your BLS backend, exposed as Uint8List Function(Uint8List).
+final signer = ValidatorSigner.custom(
+  (Uint8List bytes) => myBlsBackend.sign(bytes),
+);
+
+// The proof is a signature over the delegation contract address bytes.
+final Uint8List proofPayload = Uint8List.fromList(delegationContract.bytes);
+final Uint8List signedMessage = signer.sign(proofPayload);
+
+// BLS public keys are 96-byte values, built from hex or raw bytes.
+final validatorPublicKey = ValidatorPublicKey.fromHex('00e9...');
 
 final input = AddNodesInput(
   delegationContract: delegationContract,
-  publicKeys: [validatorKey.publicKey],
+  publicKeys: [validatorPublicKey],
   signedMessages: [signedMessage],
 );
 
@@ -82,6 +104,26 @@ final tx = await controller.createTransactionForAddingNodes(
   input,
 );
 ```
+
+`publicKeys` and `signedMessages` must be the same length -- the factory
+throws `ArgumentError` otherwise, since each key is paired positionally with
+its proof.
+
+### Reading validator keys from PEM
+
+`ValidatorSecretKey.fromPem` parses PEM **content**, not a path, and the PEM
+header carries the matching public key hex:
+
+```dart
+final pemText = await File('validator_key.pem').readAsString();
+final secretKey = ValidatorSecretKey.fromPem(pemText);
+
+// Multiple entries in one file:
+final allKeys = parseValidatorKeys(pemText);
+```
+
+The secret key is still useful for storage and transport (`toPem`); only the
+signing step needs the external BLS backend.
 
 ### Stake Nodes
 
@@ -159,7 +201,9 @@ Unjail slashed validator nodes:
 final input = UnjailingNodesInput(
   delegationContract: delegationContract,
   publicKeys: [jailedValidatorKey],
-  amount: Balance.fromEgld(2.5), // Unjail fee
+  // The fine is 2.5 EGLD per jailed node -- multiply by the number of keys
+  // you are unjailing. Any other amount is rejected by the chain.
+  amount: Balance.fromEgld(2.5),
 );
 
 final tx = await controller.createTransactionForUnjailingNodes(
@@ -290,7 +334,8 @@ print('Delegated: $hash');
 
 ### Undelegate EGLD
 
-Initiate unstaking (10-day unbonding period):
+Initiate unstaking. Funds stay locked for the unbonding period -- 10 epochs,
+roughly 10 days at the current epoch length -- before `withdraw` releases them:
 
 ```dart
 final input = UndelegateInput(
@@ -428,7 +473,7 @@ void main() async {
 
 ## Important Notes
 
-1. **Unbonding Period** - Undelegated funds have a 10-day unbonding period
+1. **Unbonding Period** - Undelegated funds are locked for 10 epochs (about 10 days) before they can be withdrawn
 2. **Minimum Stake** - Check provider's minimum delegation requirement
 3. **Rewards** - Rewards accumulate continuously and can be claimed anytime
 4. **Validator Keys** - Keep validator secret keys secure and backed up

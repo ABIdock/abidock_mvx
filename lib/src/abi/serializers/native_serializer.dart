@@ -763,7 +763,6 @@ class NativeSerializer {
 
             return Uint8List.fromList(bytes);
           } catch (e) {
-            // Fall through to hex detection below if bech32 decode fails
             if (e is AbiNativeSerializationException) rethrow;
           }
         }

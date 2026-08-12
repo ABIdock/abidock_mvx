@@ -79,22 +79,29 @@ Add a message to your transfer:
 import 'dart:convert';
 
 final message = 'Thank you for dinner!';
+final data = Uint8List.fromList(utf8.encode(message));
 
 final tx = Transaction(
   sender: account.address,
   receiver: Address.fromBech32('erd1...'),
   value: Balance.fromEgld(0.1),
   nonce: accountInfo.nonce,
-  gasLimit: GasLimit(50000 + (message.length * config.gasPerDataByte)),
-  gasPrice: GasPrice(1000000000),
+  gasLimit: GasLimit(
+    config.minGasLimit + data.length * config.gasPerDataByte,
+  ),
+  gasPrice: GasPrice(config.minGasPrice),
   chainId: ChainId(config.chainId),
   version: TransactionVersion(1),
-  data: Uint8List.fromList(utf8.encode(message)),
+  data: data,
 );
 ```
 
 :::tip Gas Calculation
-When adding data, increase gas limit by `data.length * gasPerDataByte`
+The data-movement cost is `minGasLimit + gasLimitPerByte * data.length`, and it
+counts **bytes**, not characters -- a multi-byte UTF-8 message costs more than
+its string length suggests. `config.minGasLimit` and `config.gasPerDataByte`
+carry the live values (50,000 and 1,500 by default). The transaction factories
+add this term automatically on top of an endpoint's execution gas.
 :::
 
 ## Check Balance Before Transfer
@@ -107,9 +114,8 @@ void main() async {
   final amount = Balance.fromEgld(1.0);
   final gasEstimate = Balance.fromString('50000000000000'); // ~50k gas
   
-  final totalNeeded = Balance.fromString(
-    (amount.value + gasEstimate.value).toString()
-  );
+  // Balance supports arithmetic and comparison operators directly.
+  final totalNeeded = amount + gasEstimate;
   
   if (accountInfo.balance < totalNeeded) {
     print('Insufficient balance!');

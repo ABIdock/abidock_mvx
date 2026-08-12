@@ -9,6 +9,24 @@ description: Work with MultiversX primitive ABI types including unsigned/signed 
 
 Primitive types are the building blocks of MultiversX smart contract data.
 
+## Wire format at a glance
+
+Every primitive has two encodings -- one for a whole buffer (**top-level**: a transaction argument
+or a return-data part) and one for the inside of a larger buffer (**nested**: a struct field, a list
+element).
+
+| Type | Top-level | Nested |
+|------|-----------|--------|
+| `u8` / `u16` / `u32` / `u64` | minimal big-endian magnitude, **zero = empty buffer** | fixed 1 / 2 / 4 / 8 bytes, big-endian |
+| `i8` / `i16` / `i32` / `i64` | minimal two's-complement (sign byte added when needed), zero = empty | fixed 1 / 2 / 4 / 8 bytes, two's-complement |
+| `BigUint` | magnitude bytes, no leading zeroes, zero = empty | `[u32 byte-length][magnitude]` |
+| `BigInt` | two's-complement bytes, zero = empty | `[u32 byte-length][two's-complement]` |
+| `bool` | `0x01` for `true`, **empty buffer for `false`** | one byte, `0x01` / `0x00` |
+| `bytes` / `utf-8 string` | raw bytes, no prefix | `[u32 byte-length][bytes]` |
+
+Decoding is symmetric: an empty top-level buffer decodes to `0`, `false` or an empty string, which
+is why a contract returning `0` sends back nothing at all.
+
 ## Value Creation Methods
 
 There are three ways to create any type value:
@@ -144,7 +162,7 @@ final str3 = StringType.type.createValue('Via type');
 
 ## Bytes
 
-Raw byte arrays:
+Raw byte arrays. `nativeValue` is a `Uint8List`:
 
 ```dart
 // From list of ints
@@ -167,18 +185,23 @@ print(bytes4.toHex()); // '48656C6C6F'
 
 ## Type Ranges Reference
 
-| Type | Min | Max | Bytes |
+The byte column is the **nested** width; top-level encodings are minimal and drop leading zeroes.
+
+| Type | Min | Max | Nested bytes |
 |------|-----|-----|-------|
-| U8 | 0 | 255 | 1 |
-| U16 | 0 | 65,535 | 2 |
-| U32 | 0 | 4,294,967,295 | 4 |
-| U64 | 0 | ~1.8 × 10^19 | 8 |
-| BigUInt | 0 | Unlimited | Variable |
-| I8 | -128 | 127 | 1 |
-| I16 | -32,768 | 32,767 | 2 |
-| I32 | -2.1 × 10^9 | 2.1 × 10^9 | 4 |
-| I64 | -9.2 × 10^18 | 9.2 × 10^18 | 8 |
-| BigInt | Unlimited | Unlimited | Variable |
+| u8 | 0 | 255 | 1 |
+| u16 | 0 | 65,535 | 2 |
+| u32 | 0 | 4,294,967,295 | 4 |
+| u64 | 0 | ~1.8 × 10^19 | 8 |
+| BigUint | 0 | Unlimited | 4 + magnitude |
+| i8 | -128 | 127 | 1 |
+| i16 | -32,768 | 32,767 | 2 |
+| i32 | -2.1 × 10^9 | 2.1 × 10^9 | 4 |
+| i64 | -9.2 × 10^18 | 9.2 × 10^18 | 8 |
+| BigInt | Unlimited | Unlimited | 4 + magnitude |
+
+Values outside a type's range throw `AbiBinaryCodecException` when encoded, and `ArgumentError`
+when constructed.
 
 ## Complete Example
 

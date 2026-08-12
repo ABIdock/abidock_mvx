@@ -4,7 +4,7 @@ import 'package:abidock_mvx/abidock_mvx.dart';
 import 'pair/pair.dart';
 
 Future<void> main() async {
-  final pem = File('assets/alice.pem').readAsStringSync();
+  final pem = File('example/assets/alice.pem').readAsStringSync();
   final account = await Account.fromPem(pem);
 
   final provider = ApiNetworkProvider.devnet();
@@ -17,15 +17,15 @@ Future<void> main() async {
   );
 
   final wegldAmount = BigInt.from(1) * BigInt.from(10).pow(18);
-  const wegldIdentifier = 'WEGLD-a28c59';
-  const mexIdentifier = 'MEX-a659d0';
+  const wegldIdentifier = TokenIdentifier('WEGLD-a28c59');
+  const mexIdentifier = TokenIdentifier('MEX-a659d0');
 
   final amountOut = await controller.getAmountOut(wegldIdentifier, wegldAmount);
 
   final minAmountOut = (amountOut * BigInt.from(9900)) ~/ BigInt.from(10000);
 
   final wegldTransfer = TokenTransferValue.fromPrimitives(
-    tokenIdentifier: wegldIdentifier,
+    tokenIdentifier: wegldIdentifier.value,
     amount: wegldAmount,
   );
 

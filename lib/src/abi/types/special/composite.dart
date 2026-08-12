@@ -77,8 +77,8 @@ final class CompositeType extends CustomType {
   ///
   /// #### Example
   /// ```dart
-  /// final type = CompositeType([U32Type.type, BooleanType.type]);
-  /// final value = type.createValue([100, true]);
+  /// final type = CompositeType.of([U32Type.type, BooleanType.type]);
+  /// final value = type.createValue([100, true]) as CompositeValue;
   /// print(value.length); // 2
   /// ```
   @override
@@ -125,7 +125,7 @@ final class CompositeType extends CustomType {
 ///
 /// #### Example
 /// ```dart
-/// final type = CompositeType([U32Type.type, BytesType.type]);
+/// final type = CompositeType.of([U32Type.type, BytesType.type]);
 /// final value = type.createValue([42, [1, 2, 3]]) as CompositeValue;
 ///
 /// print(value.length); // 2
@@ -152,7 +152,7 @@ final class CompositeValue extends TypedValue {
   ///
   /// #### Example
   /// ```dart
-  /// final type = CompositeType([U32Type.type, BooleanType.type]);
+  /// final type = CompositeType.of([U32Type.type, BooleanType.type]);
   /// final value = CompositeValue(type, [
   ///   U32Value(100),
   ///   BooleanValue(true),
@@ -235,7 +235,7 @@ final class CompositeValue extends TypedValue {
   ///
   /// // Instead, use ArgSerializer to encode as separate arguments:
   /// // final serializer = ArgSerializer();
-  /// // final args = serializer.encodeComposite(value);
+  /// // final args = serializer.valuesToStrings(value.fields);
   /// ```
   @override
   List<int> toBytes() {

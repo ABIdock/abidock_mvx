@@ -36,7 +36,11 @@ final controller = TokenManagementController(
 Create a standard fungible ESDT token:
 
 ```dart
-final account = await Account.fromPem('wallet.pem');
+import 'dart:io';
+
+// Account.fromPem takes the PEM *content*, not a file path.
+final pemContent = await File('wallet.pem').readAsString();
+final account = await Account.fromPem(pemContent);
 final accountInfo = await provider.getAccount(account.address);
 
 final input = IssueFungibleInput(
@@ -552,15 +556,61 @@ print('Assigned roles: ${roleResult.first.roles}');
 
 ## Token Properties Reference
 
-| Property | Description |
-|----------|-------------|
-| `canFreeze` | Owner can freeze accounts |
-| `canWipe` | Owner can wipe frozen accounts |
-| `canPause` | Owner can pause all transfers |
-| `canChangeOwner` | Ownership can be transferred |
-| `canUpgrade` | Properties can be modified |
-| `canAddSpecialRoles` | Roles can be assigned to accounts |
-| `canTransferNFTCreateRole` | NFT create role can be transferred |
+| Property | Description | On fungible `issue`? |
+|----------|-------------|----------------------|
+| `canFreeze` | Owner can freeze accounts | Yes |
+| `canWipe` | Owner can wipe frozen accounts | Yes |
+| `canPause` | Owner can pause all transfers | Yes |
+| `canChangeOwner` | Ownership can be transferred | Yes |
+| `canUpgrade` | Properties can be modified | Yes |
+| `canAddSpecialRoles` | Roles can be assigned to accounts | Yes |
+| `canTransferNFTCreateRole` | NFT create role can be transferred | No -- collection endpoints only |
+
+### How properties reach the system contract
+
+Two behaviours are worth knowing before you reason about a token's final
+state:
+
+**Every pair is emitted, including the `false` ones.** The factory always
+sends the complete `name`/`value` argument list, so `canFreeze` set to `false`
+travels as the explicit pair `canFreeze` / `false`. Omitting a pair does *not*
+mean "disabled": the ESDT system contract creates a token with `canUpgrade`
+and `canAddSpecialRoles` already enabled and only overrides the properties
+actually present in the argument list, so a missing pair silently keeps the
+contract's own default. Emitting every pair is also what lets a
+`controlChanges` call switch a property back **off** -- there is no other way
+to express that.
+
+Toggling properties after issuance is a factory-level operation. Pass the
+complete desired end state, not just the flags you want to turn on:
+
+```dart
+final factory = TokenManagementTransactionsFactory(
+  config: const TokenManagementConfig(chainId: ChainId.devnet()),
+);
+
+final tx = factory.createTransactionForControllingProperties(
+  sender: account.address,
+  tokenIdentifier: 'MTK-abc123',
+  properties: const TokenProperties(
+    canFreeze: true,
+    canWipe: false,   // written as an explicit `false` pair, so it turns off
+    canPause: true,
+    canChangeOwner: true,
+    canUpgrade: true,
+    canAddSpecialRoles: true,
+  ),
+);
+```
+
+Note that `TokenProperties.canUpgrade` defaults to `true` while every other
+flag defaults to `false`, matching the system contract's own default for a
+freshly issued token.
+
+**`canTransferNFTCreateRole` is absent from the fungible `issue` argument
+list.** It belongs to the collection endpoints (`issueNonFungible`,
+`issueSemiFungible`, `registerMetaESDT`), which is why
+`IssueFungibleInput` has no such field while `IssueNonFungibleInput` does.
 
 ## Role Reference
 
@@ -589,4 +639,4 @@ print('Assigned roles: ${roleResult.first.roles}');
 2. **Use appropriate decimals** - Standard is 18 for fungible tokens
 3. **Store token identifiers** - Parse and save the identifier from issue transactions
 4. **Wait for finalization** - Token operations require finalization before roles work
-5. **Test on devnet first** - Issue costs 0.05 EGLD on mainnet
+5. **Test on devnet first** - Every issue/register call carries a 0.05 EGLD payment to the ESDT system contract, on every network

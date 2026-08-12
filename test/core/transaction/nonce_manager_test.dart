@@ -56,7 +56,6 @@ void main() {
         expect(first.value, 42);
         expect(second.value, 43);
         expect(third.value, 44);
-        // Only a single bootstrap fetch — subsequent `next()` stays local.
         expect(provider.callCount, 1);
         expect(manager.peek, 45);
       },
@@ -85,16 +84,13 @@ void main() {
         final Nonce a = await manager.next(); // 0
         final Nonce b = await manager.next(); // 1
         final Nonce c = await manager.next(); // 2
-        // Free the middle one.
         manager.release(b);
         expect(a.value, 0);
         expect(c.value, 2);
 
-        // Next call should hand out the freed middle nonce first.
         final Nonce reused = await manager.next();
         expect(reused.value, 1);
 
-        // Then keep advancing the counter.
         final Nonce follow = await manager.next();
         expect(follow.value, 3);
       },
@@ -105,7 +101,6 @@ void main() {
       await manager.next(); // reserves 100 → counter at 101
       await manager.next(); // reserves 101 → counter at 102
 
-      // Network reports a lower nonce — we must not regress.
       provider.nextNonce = const Nonce(50);
       await manager.resync();
       expect(manager.peek, 102);
@@ -125,10 +120,8 @@ void main() {
       final Nonce reserved = await manager.next(); // 10
       manager.applyNonce(reserved);
 
-      // Network briefly reports an older state (e.g. load-balanced replica).
       provider.nextNonce = const Nonce(5);
       await manager.resync();
-      // Must clamp to applied+1 = 11.
       expect(manager.peek, 11);
     });
 

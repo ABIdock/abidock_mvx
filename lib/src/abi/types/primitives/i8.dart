@@ -20,9 +20,12 @@ import 'numerical.dart';
 /// print(zero.toBytes()); // [0]
 ///
 /// // Use in struct definitions
-/// final structType = StructType(fields: [
-///   StructField('offset', I8Type.type),
-/// ]);
+/// final structType = StructType(
+///   name: 'Adjustment',
+///   fieldDefinitions: [
+///     FieldDefinition(name: 'offset', type: I8Type.type),
+///   ],
+/// );
 /// ```
 @immutable
 final class I8Type extends NumericalType {

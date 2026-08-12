@@ -118,14 +118,50 @@ ChainId.testnet()  // Testnet
 
 ## Transfer Types
 
-The SDK supports various transfer types:
+`TransfersController` exposes three methods; each returns a **signed**
+transaction ready to broadcast.
 
-| Method | Description |
-|--------|-------------|
-| `createTransactionForNativeTransfer` | Send EGLD |
-| `createTransactionForESDTTransfer` | Send fungible tokens |
-| `createTransactionForNFTTransfer` | Send NFTs |
-| `createTransactionForMultiTransfer` | Send multiple tokens |
+| Method | Input | Sends |
+|--------|-------|-------|
+| `createTransactionForNativeTransfer` | `NativeTransferInput` | EGLD, with an optional `data` payload |
+| `createTransactionForTokenTransfer` | `TokenTransferInput` | One or more ESDT / NFT / SFT transfers |
+| `createTransactionForMultiTokenTransfer` | `TokenTransferInput` | Same as above, named for multi-token batches |
+
+The transfer protocol is chosen for you from the transfer list —
+`ESDTTransfer`, `ESDTNFTTransfer`, or `MultiESDTNFTTransfer`:
+
+```dart
+final tx = await controller.createTransactionForTokenTransfer(
+  alice,
+  currentNonce,
+  TokenTransferInput(
+    receiver: bobAddress,
+    transfers: [
+      TokenTransfer.fungible(
+        tokenIdentifier: 'WEGLD-a28c59',
+        amount: BigInt.from(10).pow(17),
+      ),
+      TokenTransfer.nonFungible(
+        tokenIdentifier: 'APES-abcdef',
+        nonce: 1,
+        amount: BigInt.one,
+      ),
+    ],
+  ),
+);
+```
+
+Every method takes an optional `baseOptions` for gas, guardian, and relayer
+overrides:
+
+```dart
+final tx = await controller.createTransactionForNativeTransfer(
+  alice,
+  currentNonce,
+  NativeTransferInput(receiver: bobAddress, amount: Balance.fromEgld(0.1)),
+  baseOptions: BaseControllerInput(gasLimit: GasLimit(60000)),
+);
+```
 
 ## See Also
 

@@ -6,8 +6,8 @@ import '../../core/type_system.dart';
 
 /// Variable-length list type for elements of type T.
 ///
-/// Represents smart contract list types with dynamic size determined
-/// at runtime (e.g., `Vec<T>` in Rust).
+/// Represents smart contract `List<T>` types whose size is determined at
+/// runtime rather than fixed by the type.
 @immutable
 final class ListType extends AbiType {
   /// Creates a List type for the element type.
@@ -58,7 +58,7 @@ final class ListType extends AbiType {
   /// #### Example
   /// ```dart
   /// final listType = ListType(U32Type.type);
-  /// final listValue = listType.createValue([10, 20, 30]);
+  /// final listValue = listType.createValue([10, 20, 30]) as ListValue;
   /// print(listValue.length); // 3
   /// print(listValue[0].nativeValue); // 10
   /// ```
@@ -203,7 +203,7 @@ final class ListValue extends TypedValue {
   /// #### Example
   /// ```dart
   /// final listType = ListType(U32Type.type);
-  /// final original = listType.createValue([1, 2, 3]);
+  /// final original = listType.createValue([1, 2, 3]) as ListValue;
   ///
   /// final doubled = original.map((e) {
   ///   final u32 = e as U32Value;

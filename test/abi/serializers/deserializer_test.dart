@@ -194,7 +194,6 @@ void main() {
     });
 
     test('false from empty bytes (top-level encoding)', () {
-      // In MultiversX ABI, empty bytes = false at top-level
       final result = deserializer.deserializeValue(
         _encode([]),
         BooleanType.type,
@@ -211,8 +210,6 @@ void main() {
     });
 
     test('extra bytes are ignored (per ABI spec)', () {
-      // ABI spec doesn't define behavior for multi-byte boolean
-      // Codec reads first byte only, which is a reasonable interpretation
       final result = deserializer.deserializeValue(
         _encode([0x01, 0x02]),
         BooleanType.type,
@@ -303,12 +300,20 @@ void main() {
   });
 
   group('EgldOrEsdtTokenIdentifier Type', () {
-    test('EGLD', () {
+    test('legacy EGLD sentinel canonicalises to EGLD-000000', () {
       final result = deserializer.deserializeValue(
         _encode('EGLD'.codeUnits),
         EgldOrEsdtTokenIdentifierType.type,
       );
-      expect(result, 'EGLD');
+      expect(result, 'EGLD-000000');
+    });
+
+    test('empty bytes canonicalise to EGLD-000000', () {
+      final result = deserializer.deserializeValue(
+        _encode(const <int>[]),
+        EgldOrEsdtTokenIdentifierType.type,
+      );
+      expect(result, 'EGLD-000000');
     });
 
     test('ESDT token', () {
@@ -462,7 +467,6 @@ void main() {
     });
 
     test('array of BigUInt - variable size elements', () {
-      // BigUInt uses nested encoding with length prefix (4 bytes) + value
       final type = ArrayType(BigUIntType.type, 2);
       final bytes = <int>[
         0x00, 0x00, 0x00, 0x02, // length prefix: 2 bytes
@@ -624,9 +628,6 @@ void main() {
           const EnumVariantDefinition(name: 'Empty', discriminant: 1),
         ],
       );
-      // Discriminant 0 + length-prefixed string "hello" (5 bytes)
-      // Length prefix: 0x00 0x00 0x00 0x05 (4 bytes big-endian)
-      // String content: "hello" (0x68 0x65 0x6C 0x6C 0x6F)
       final bytes = <int>[
         0x00, // discriminant
         0x00, 0x00, 0x00, 0x05, // length prefix
@@ -649,7 +650,6 @@ void main() {
           ),
         ],
       );
-      // Discriminant 0 + U32(42) + length-prefixed "hi" + U8(255)
       final bytes = <int>[
         0x00, // discriminant
         0x00, 0x00, 0x00, 0x2A, // U32 = 42
@@ -685,7 +685,6 @@ void main() {
           const EnumVariantDefinition(name: 'Active', discriminant: 1),
         ],
       );
-      // Empty bytes = discriminant 0 = variant 'Pending'
       final result = deserializer.deserializeValue(_encode([]), type);
       expect(result['variant'], 'Pending');
       expect(result['discriminant'], 0);
@@ -739,7 +738,6 @@ void main() {
           ),
         ],
       );
-      // ExplicitEnum is encoded as variant NAME string (not discriminant)
       final bytes = 'NotFound'.codeUnits;
       final result = deserializer.deserializeValue(_encode(bytes), type);
       expect(result['variant'], 'NotFound');
@@ -851,8 +849,6 @@ void main() {
     });
 
     test('variable decimal', () {
-      // Variable ManagedDecimal: [4-byte length][BigInt bytes][4-byte scale]
-      // Length = 2, value = 0x03E8 = 1000, scale = 3
       final type = ManagedDecimalType.variable(
         0,
       ); // scale in type is ignored for variable
@@ -909,9 +905,6 @@ void main() {
     });
 
     test('variadic BigUInt - variable size elements', () {
-      // BigUInt uses nested encoding with length prefix (4 bytes) + value
-      // Value 256 = 0x00000002 (len=2) + 0x01 0x00
-      // Value 42 = 0x00000001 (len=1) + 0x2A
       final type = VariadicType.of(BigUIntType.type);
       final bytes = <int>[
         0x00, 0x00, 0x00, 0x02, // length prefix: 2 bytes
@@ -1035,7 +1028,6 @@ void main() {
 
   group('Error Cases', () {
     test('empty numeric returns zero', () {
-      // Empty bytes at top-level represent zero
       expect(
         deserializer.deserializeValue(_encode([]), U32Type.type),
         equals(0),

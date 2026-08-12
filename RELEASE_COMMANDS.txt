@@ -1,0 +1,107 @@
+================================================================================
+ abidock_mvx 2.0.0 -- release commands
+================================================================================
+
+CONTEXT
+  pubspec.yaml is already at 2.0.0, tag v2.0.0 does NOT exist, and pub.dev's
+  latest is 1.2.0. So 2.0.0 is an unreleased in-flight version: it needs a tag
+  and a publish, NOT a version bump.
+
+  Use -VersionType current. Do NOT use 'major' -- that would bump to 3.0.0.
+
+  Working tree: ~300 modified, ~90 new, 2 deleted files.
+
+VERIFIED BEFORE HANDOFF (all from a clean run)
+  dart analyze --fatal-infos      No issues found
+  dart format lib test bin example  671 files, 0 changed
+  dart test                       1700 passed, 5 skipped
+  dart test -P integration        56 passed
+  pana (run on Linux)             160/160 points
+
+--------------------------------------------------------------------------------
+ STEP 0 -- rotate the leaked key first (do this before anything is pushed)
+--------------------------------------------------------------------------------
+
+  The events API key e7dd4f83...cd2 was committed in an earlier release and is
+  still in git history. It has been removed from the working tree, but pushing
+  does not remove it from history. Rotate it at the provider, then continue.
+
+--------------------------------------------------------------------------------
+ STEP 1 -- final local check
+--------------------------------------------------------------------------------
+
+  cd c:\Users\rene1\dev\abidock_mvx
+
+  dart pub get
+  dart analyze --fatal-infos
+  dart format --output=none --set-exit-if-changed lib test bin example
+  dart test
+
+  # optional, hits live mainnet/devnet
+  dart test -P integration
+
+  # optional, shows version / git / publish status side by side
+  .\scripts\status.ps1
+
+--------------------------------------------------------------------------------
+ STEP 2 -- commit everything and push to PRIVATE
+--------------------------------------------------------------------------------
+
+  # stages all changes (git add -A), commits, pushes 'private' main
+  .\scripts\push-private.ps1 -Message "fix: correct ESDT, governance and staking payloads; relayed v3; Supernova timestamps; remove non-working API"
+
+  Verify on github.com/ReneDuris/abidock_mvx before continuing.
+
+--------------------------------------------------------------------------------
+ STEP 3 -- tag, push to PUBLIC, publish to pub.dev
+--------------------------------------------------------------------------------
+
+  # dry run first -- makes no changes
+  .\scripts\release-public.ps1 -VersionType current -Message "Correctness release" -DryRun
+
+  # real run: tests, tags v2.0.0, pushes private + public, then prompts to publish
+  .\scripts\release-public.ps1 -VersionType current -Message "Correctness release"
+
+  This script will:
+    - refuse to run if tag v2.0.0 already exists
+    - run dart test
+    - commit pubspec.yaml + CHANGELOG.md if they changed
+    - create tag v2.0.0
+    - git push private main + v2.0.0
+    - git push public  main + v2.0.0
+    - prompt before dart pub publish
+
+--------------------------------------------------------------------------------
+ IF SOMETHING GOES WRONG
+--------------------------------------------------------------------------------
+
+  # remove a local tag created by mistake
+  git tag -d v2.0.0
+
+  # remove it from a remote
+  git push private :refs/tags/v2.0.0
+  git push public  :refs/tags/v2.0.0
+
+  # scripted rollback of the last release
+  .\scripts\rollback.ps1
+
+  pub.dev cannot be un-published. Only run the publish step when the tag and
+  both remotes look right.
+
+--------------------------------------------------------------------------------
+ NOT DONE -- decide before or after release
+--------------------------------------------------------------------------------
+
+  1. Rotate the leaked events API key (Step 0). Still in git history.
+
+  2. controller.call with a relayer throws at signing. Found during the docs
+     sweep, reported but not fixed, and not covered by the changelog.
+
+  3. Docusaurus is 3.9.2, latest is 3.10.2 (plus React 19.2.1 -> 19.2.8 and
+     TypeScript 6.0.2 -> 6.0.3). Docs content is current; only the build
+     tooling is behind. Deliberately left alone.
+
+  4. docs/build/ and build/ hold stale generated output. Both are gitignored,
+     so CI never sees them, but `dart format .` run locally will report them.
+
+================================================================================

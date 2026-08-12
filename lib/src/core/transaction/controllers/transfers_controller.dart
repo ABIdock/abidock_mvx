@@ -17,13 +17,13 @@ import '../../core.dart';
 /// // Simple transfer
 /// final input = NativeTransferInput(
 ///   receiver: Address.fromBech32('erd1...'),
-///   amount: Balance.fromEgld('1.5'),
+///   amount: Balance.fromEgld(1.5),
 /// );
 ///
 /// // Transfer with data
 /// final inputWithData = NativeTransferInput(
 ///   receiver: Address.fromBech32('erd1...'),
-///   amount: Balance.fromEgld('0.1'),
+///   amount: Balance.fromEgld(0.1),
 ///   data: utf8.encode('payment for service'),
 /// );
 /// ```
@@ -55,7 +55,7 @@ class NativeTransferInput {
 ///   receiver: Address.fromBech32('erd1...'),
 ///   transfers: [
 ///     TokenTransfer.fungible(
-///       tokenId: 'MYTOKEN-abc123',
+///       tokenIdentifier: 'MYTOKEN-abc123',
 ///       amount: BigInt.from(1000),
 ///     ),
 ///   ],
@@ -65,8 +65,15 @@ class NativeTransferInput {
 /// final multiInput = TokenTransferInput(
 ///   receiver: Address.fromBech32('erd1...'),
 ///   transfers: [
-///     TokenTransfer.fungible(tokenId: 'TOKEN-abc123', amount: BigInt.from(500)),
-///     TokenTransfer.nonFungible(tokenId: 'NFT-def456', nonce: 1),
+///     TokenTransfer.fungible(
+///       tokenIdentifier: 'TOKEN-abc123',
+///       amount: BigInt.from(500),
+///     ),
+///     TokenTransfer.nonFungible(
+///       tokenIdentifier: 'NFT-def456',
+///       nonce: 1,
+///       amount: BigInt.one,
+///     ),
 ///   ],
 /// );
 /// ```
@@ -87,7 +94,7 @@ class TokenTransferInput {
 /// #### Example
 /// ```dart
 /// final controller = TransfersController(
-///   chainId: 'D', // Devnet
+///   chainId: const ChainId.devnet(), // Devnet
 ///   gasLimitEstimator: myEstimator,
 /// );
 /// ```
@@ -102,12 +109,12 @@ class TransfersController extends BaseController {
   /// ```dart
   /// // With gas estimator
   /// final controller = TransfersController(
-  ///   chainId: 'D',
-  ///   gasLimitEstimator: NetworkGasEstimator(apiProvider),
+  ///   chainId: const ChainId.devnet(),
+  ///   gasLimitEstimator: GasEstimator(networkProvider: apiProvider),
   /// );
   ///
   /// // Without estimator (manual gas limits)
-  /// final simpleController = TransfersController(chainId: '1');
+  /// final simpleController = TransfersController(chainId: const ChainId.mainnet());
   /// ```
   TransfersController({required ChainId chainId, super.gasLimitEstimator})
     : factory = TransferTransactionsFactory(
@@ -135,7 +142,7 @@ class TransfersController extends BaseController {
   ///   Nonce(42),
   ///   NativeTransferInput(
   ///     receiver: Address.fromBech32('erd1...'),
-  ///     amount: Balance.fromEgld('1.5'),
+  ///     amount: Balance.fromEgld(1.5),
   ///     data: utf8.encode('payment'),
   ///   ),
   /// );
@@ -187,7 +194,7 @@ class TransfersController extends BaseController {
   ///     receiver: Address.fromBech32('erd1...'),
   ///     transfers: [
   ///       TokenTransfer.fungible(
-  ///         tokenId: 'MYTOKEN-abc123',
+  ///         tokenIdentifier: 'MYTOKEN-abc123',
   ///         amount: BigInt.from(1000),
   ///       ),
   ///     ],
@@ -235,8 +242,15 @@ class TransfersController extends BaseController {
   ///   TokenTransferInput(
   ///     receiver: Address.fromBech32('erd1...'),
   ///     transfers: [
-  ///       TokenTransfer.fungible(tokenId: 'TOKEN-abc123', amount: BigInt.from(500)),
-  ///       TokenTransfer.nonFungible(tokenId: 'NFT-def456', nonce: 1),
+  ///       TokenTransfer.fungible(
+  ///         tokenIdentifier: 'TOKEN-abc123',
+  ///         amount: BigInt.from(500),
+  ///       ),
+  ///       TokenTransfer.nonFungible(
+  ///         tokenIdentifier: 'NFT-def456',
+  ///         nonce: 1,
+  ///         amount: BigInt.one,
+  ///       ),
   ///     ],
   ///   ),
   /// );

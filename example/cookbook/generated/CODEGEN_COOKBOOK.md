@@ -166,7 +166,7 @@ Return types mirror the ABI definitions. No manual decoding required.
 ### Building transactions
 
 ```dart
-final pem = File('assets/alice.pem').readAsStringSync();
+final pem = File('example/assets/alice.pem').readAsStringSync();
 final account = await Account.fromPem(pem);
 
 // Get fresh nonce
@@ -333,7 +333,7 @@ import 'pair/pair.dart';
 
 Future<void> main() async {
   // Load account
-  final pem = File('assets/alice.pem').readAsStringSync();
+  final pem = File('example/assets/alice.pem').readAsStringSync();
   final account = await Account.fromPem(pem);
 
   // Initialize network

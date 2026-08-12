@@ -21,9 +21,12 @@ import 'numerical.dart';
 /// print(max.toBytes()); // [127, 255, 255, 255]
 ///
 /// // Use in struct definitions
-/// final structType = StructType(fields: [
-///   StructField('balance', I32Type.type),
-/// ]);
+/// final structType = StructType(
+///   name: 'AccountDelta',
+///   fieldDefinitions: [
+///     FieldDefinition(name: 'balance', type: I32Type.type),
+///   ],
+/// );
 /// ```
 @immutable
 final class I32Type extends NumericalType {

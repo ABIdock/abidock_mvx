@@ -1,10 +1,20 @@
+import 'dart:typed_data';
+
 import 'package:meta/meta.dart';
+
+import '../address.dart';
 
 /// Prefix for signed messages.
 ///
-/// Canonical MultiversX message-signing prefix. Retained from the pre-rebrand
+/// Canonical MultiversX message-signing prefix, kept from the pre-rebrand
 /// Elrond protocol spec so signatures interop with every existing wallet,
-/// ledger app, node verifier, and other SDK.
+/// ledger app and node verifier. The leading `0x17` byte is the length (23)
+/// of the ASCII string `Elrond Signed Message:\n` that follows.
+///
+/// DO NOT change the spelling — both spaces are part of the hashed bytes, so
+/// any edit produces signatures the chain rejects. The pinning test in
+/// `test/core/message/message_prefix_pinning_test.dart` exists to prevent
+/// silent regressions.
 const String messagePrefix = '\x17Elrond Signed Message:\n';
 
 /// Message in the MultiversX ecosystem.
@@ -32,10 +42,34 @@ class Message {
   ///
   /// #### Parameters
   /// - `bytes` - Raw message content (text as UTF-8 or binary)
-  Message(List<int> bytes) : _bytes = List<int>.unmodifiable(bytes);
+  /// - `address` - Optional signer address
+  /// - `signature` - Optional signature bytes (defaults to empty)
+  /// - `version` - Optional message version (defaults to `1`)
+  /// - `signer` - Optional signer identifier string
+  Message(
+    List<int> bytes, {
+    this.address,
+    Uint8List? signature,
+    this.version = 1,
+    this.signer,
+  }) : _bytes = List<int>.unmodifiable(bytes),
+       signature = signature ?? Uint8List(0);
 
   final List<int> _bytes;
 
   /// Raw message bytes (unmodifiable view).
   List<int> get bytes => _bytes;
+
+  /// Optional address of the signer, carried through pack/unpack.
+  final Address? address;
+
+  /// Signature bytes attached to the message. Defaults to an empty list
+  /// when the message has not yet been signed.
+  final Uint8List signature;
+
+  /// Message envelope version carried in the packed payload. Defaults to `1`.
+  final int version;
+
+  /// Optional free-form signer identifier (e.g. wallet name).
+  final String? signer;
 }

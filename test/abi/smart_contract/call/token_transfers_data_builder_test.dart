@@ -403,9 +403,22 @@ void main() {
       expect(parts[0], 'ESDTTransfer');
       expect(parts.length, 3);
     });
-    test('handles very long token identifier', () {
+    test('rejects token identifier whose ticker exceeds 10 chars', () {
+      expect(
+        () => TokenTransferValue.fromPrimitives(
+          tokenIdentifier: 'VERYLONGTOKENNAME-a1b2c3',
+          amount: BigInt.from(100),
+        ),
+        throwsA(isA<ArgumentError>()),
+        reason:
+            'MultiversX ESDT tickers are capped at 10 upper-case alnum chars '
+            '(see ESDT spec); longer tickers must be rejected at construction.',
+      );
+    });
+
+    test('handles 10-char-ticker token identifier (boundary)', () {
       final transfer = TokenTransferValue.fromPrimitives(
-        tokenIdentifier: 'VERYLONGTOKENNAME-a1b2c3',
+        tokenIdentifier: 'LONGTICKER-a1b2c3',
         amount: BigInt.from(100),
       );
       final parts = builder.buildDataPartsForESDTTransfer(transfer);

@@ -85,6 +85,7 @@ const sidebars: SidebarsConfig = {
       type: 'category',
       label: 'Network',
       items: [
+        'network/entrypoints',
         'network/providers',
         'network/network-configuration',
         'network/websocket-events',

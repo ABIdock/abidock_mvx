@@ -13,7 +13,7 @@ import '../../core.dart';
 /// #### Example
 /// ```dart
 /// final controller = TokenManagementController(
-///   chainId: '1',
+///   chainId: const ChainId.mainnet(),
 ///   gasLimitEstimator: estimator,
 /// );
 /// ```
@@ -183,6 +183,7 @@ class TokenManagementController extends BaseController {
       sender: sender.address,
       tokenName: options.tokenName,
       tokenTicker: options.tokenTicker,
+      tokenType: options.tokenType,
       decimals: options.numDecimals.toInt(),
     );
 
@@ -687,6 +688,8 @@ class TokenManagementController extends BaseController {
       sender: sender.address,
       tokenName: options.tokenName,
       tokenTicker: options.tokenTicker,
+      tokenType: options.tokenType,
+      numDecimals: options.numDecimals?.toInt(),
     );
 
     return setupAndSignTransaction(transaction, baseOptions, nonce, sender);

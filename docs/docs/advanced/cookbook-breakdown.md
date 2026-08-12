@@ -221,11 +221,15 @@ final watcher = TransactionWatcher(networkProvider: provider);
 final result = await watcher.awaitCompleted(txHash);
 ```
 
-**Transaction states:**
-- `pending` - In mempool
-- `success` - Executed successfully
-- `invalid` - Validation failed
-- `fail` - Execution failed (reverted)
+**Transaction states** (`result.status.status` is the raw string; the helpers below classify it):
+
+| Status | Meaning | Helper |
+|--------|---------|--------|
+| `pending`, `received` | In the mempool | `status.isPending` |
+| `success`, `successful`, `executed` | Executed successfully | `tx.isSuccessful` |
+| `fail`, `failed`, `unsuccessful`, `invalid` | Rejected or reverted | `tx.hasFailed` |
+
+`watcher.awaitCompleted(hash)` returns only once the status is final.
 
 ---
 
@@ -238,52 +242,77 @@ Relayed transactions enable gas-free user experiences.
 ```dart
 // User: performs the action
 final account = await Account.fromPem(pem);
+final userSigner = UserSigner.fromSecretKey(account.secretKey);
 
 // Relayer: pays for gas
 final accountRelayer = UserSigner.fromPem(pemRelayer);
+final relayerAddress = await accountRelayer.getAddress();
 ```
 
-**Why `UserSigner` for relayer?**
-- `Account` loads the full wallet (for transaction building)
-- `UserSigner` is lighter (only for signing)
-- Relayer only needs to sign, not build transactions
+**Why `UserSigner` for the relayer?**
+- `Account` carries the whole wallet (address, keys, transaction building)
+- `UserSigner` only signs -- which is all a relayer service ever needs
+- The signing extensions (`signWith`, `signAsRelayer`, `signAsGuardian`) all take a `UserSigner`
 
 ### Specifying the Relayer
 
+The relayer must be on the transaction **before** anyone signs -- the address is part of the signed
+payload -- and the transaction must be at version 2. `RelayedTransactionsFactory.applyRelayer` does
+both, on a still-unsigned transaction:
+
 ```dart
-options: BaseControllerInput(
-  gasLimit: GasLimit(25000000),
-  relayer: relayerAddress,
-),
+final callFactory = SmartContractCallFactory(
+  contractAddress: contractAddress,
+  abi: abi,
+  chainId: provider.chainId,
+);
+final unsigned = callFactory.createCall(
+  sender: aliceAddress,
+  nonce: currentNonce,
+  endpointName: 'swapTokensFixedInput',
+  arguments: <dynamic>[mexToken, minAmountOut],
+  tokenTransfers: <TokenTransferValue>[tokenTransfer],
+  gasLimit: const GasLimit(25000000),
+);
+
+final relayedFactory = RelayedTransactionsFactory(
+  const RelayedTransactionsConfig(chainId: ChainId.devnet()),
+);
+final relayed = relayedFactory.applyRelayer(unsigned, relayerAddress);
+// gasLimit is now 25,050,000: the endpoint cost plus the relayed base cost.
 ```
 
-This embeds the relayer address in the transaction structure, enabling the protocol to:
-1. Charge gas to relayer's account
-2. Verify relayer signature
-3. Execute on behalf of user
+:::caution
+`BaseControllerInput` also has a `relayer` field, but `controller.call` builds the call at
+`version: 1` and signing a relayed transaction below version 2 fails. Use the factory flow above.
+See [Relayed Transactions](/docs/smart-contracts/relayed-transactions) for the full story.
+:::
 
 ### Dual Signature Process
 
 ```dart
-// Step 1: User signs (happens in controller.call)
-final innerTx = await controller.call(...);
+// Step 1: the user signs
+final userSignedTx = await relayed.signWith(userSigner);
 
-// Step 2: Relayer signs
-final fullySignedTx = await innerTx.signAsRelayer(accountRelayer);
+// Step 2: the relayer co-signs the very same transaction
+final fullySignedTx = await userSignedTx.signAsRelayer(accountRelayer);
 ```
 
+**What actually travels:** one flat transaction carrying `relayer` and `relayerSignature` alongside
+`sender` and `signature`. There is no outer wrapper and no inner-transaction bundle.
+
 **Signature verification:**
-- Inner transaction has user's signature
-- Outer wrapper has relayer's signature
-- Both must be valid for execution
+- The signing payload excludes all three signature fields, so user and relayer sign identical bytes
+- Order does not matter -- relayer first is just as valid
+- Both signatures must verify, and sender and relayer must live in the same shard
 
 ### Economic Model
 
 | Party | Responsibility |
 |-------|---------------|
-| User | Signs action, owns assets |
-| Relayer | Pays gas, provides UX |
-| Protocol | Verifies both signatures |
+| User | Signs the action, owns the assets |
+| Relayer | Pays the fee, provides the UX |
+| Protocol | Verifies both signatures, charges the relayer |
 
 ---
 
@@ -308,13 +337,12 @@ final controller = TransfersController(chainId: const ChainId.devnet());
 Balance.fromEgld(0.1)
 ```
 
-**Under the hood:**
-```dart
-static Balance fromEgld(double egld) {
-  final raw = BigInt.from(egld * 1e18);
-  return Balance(raw);
-}
-```
+**Under the hood:** `Balance.fromEgld(num value)` formats the value to 18 decimal places as a
+*string*, then concatenates the integer and fractional digits and parses the result as a `BigInt`.
+The conversion never goes through a lossy `double * 1e18` multiplication.
+
+For amounts that come from user input, prefer `Balance.fromEgldString('0.1')`: it skips the
+floating-point representation entirely.
 
 ### Transfer Input
 
@@ -325,22 +353,35 @@ NativeTransferInput(
 )
 ```
 
-**Other transfer inputs:**
+**Token transfers** use a single input type -- one receiver, one or more `TokenTransfer` entries:
+
 ```dart
 // ESDT transfer
-EsdtTransferInput(
+TokenTransferInput(
   receiver: bobAddress,
-  tokenIdentifier: 'MEX-a659d0',
-  amount: BigInt.from(1000000),
+  transfers: <TokenTransfer>[
+    TokenTransfer.fungible(
+      tokenIdentifier: 'MEX-a659d0',
+      amount: BigInt.from(1000000),
+    ),
+  ],
 )
 
-// NFT transfer
-NftTransferInput(
+// NFT transfer (nonce identifies the instance)
+TokenTransferInput(
   receiver: bobAddress,
-  tokenIdentifier: 'NFT-abc123',
-  nonce: 1,
+  transfers: <TokenTransfer>[
+    TokenTransfer.nonFungible(
+      tokenIdentifier: 'MYNFT-abc123',
+      nonce: 1,
+      amount: BigInt.one,
+    ),
+  ],
 )
 ```
+
+Pass them to `controller.createTransactionForTokenTransfer(account, nonce, input)`; several entries
+in one input become a single `MultiESDTNFTTransfer`.
 
 ### Nonce Awaiting
 
@@ -401,24 +442,32 @@ swapStream.events.listen((result) {
 
 ### Parsed Event Structure
 
+`parsed.toMap()` returns `Map<String, TypedValue>` -- one entry per ABI-declared field, keyed by the
+field name from the event definition. The identifier is not in the map; read it from the event
+itself.
+
 ```dart
-// Example swap event
-{
-  'identifier': 'swap',
-  'tokenIn': 'WEGLD-a28c59',
-  'tokenOut': 'MEX-a659d0',
-  'amountIn': BigInt.from(...),
-  'amountOut': BigInt.from(...),
-  'caller': 'erd1...',
-}
+final ParsedEvent parsed = result.parsedEvent!;
+
+print(parsed.event.identifier); // 'swap'
+
+final Map<String, TypedValue> fields = parsed.toMap();
+final tokenIn = fields['token_in']?.nativeValue;   // 'WEGLD-a28c59'
+final amountIn = fields['amount_in']?.nativeValue; // BigInt
+
+// Or fetch one field directly
+final caller = parsed.getValueByName('caller')?.nativeValue;
 ```
+
+Field names come straight from the ABI's event definition, so they match the contract's own
+spelling.
 
 ### Production Considerations
 
 ```dart
-// Handle connection lifecycle
+// Handle connection lifecycle (onData is the positional argument)
 swapStream.events.listen(
-  onData: (event) => handleEvent(event),
+  (result) => handleEvent(result),
   onError: (error) => reconnect(),
   onDone: () => cleanup(),
   cancelOnError: false,  // Keep listening after errors

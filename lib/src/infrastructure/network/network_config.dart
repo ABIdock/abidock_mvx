@@ -23,7 +23,7 @@ class NetworkConfig {
   /// - `maxGasPerTransaction` - Maximum gas limit allowed per transaction
   /// - `numShards` - Number of shards (excluding metachain)
   /// - `denomination` - Token denomination (number of decimals, default 18)
-  /// - `gasPriceModifier` - Gas price modifier string
+  /// - `gasPriceModifier` - Gas price modifier (`double` multiplier in `[0,1]`)
   /// - `adaptivity` - Network adaptivity flag
   /// - `hysteresis` - Hysteresis value for network
   /// - `latestTagSoftwareVersion` - Latest software version tag
@@ -33,6 +33,7 @@ class NetworkConfig {
   /// - `rewardsTopUpGradientPoint` - Rewards top-up gradient point
   /// - `shardConsensusGroupSize` - Shard consensus group size
   /// - `startTime` - Network start timestamp
+  /// - `genesisTimestamp` - Optional genesis timestamp (`BigInt`)
   const NetworkConfig({
     required this.chainId,
     required this.gasPerDataByte,
@@ -47,7 +48,7 @@ class NetworkConfig {
     this.maxGasPerTransaction = 600000000,
     this.numShards = 3,
     this.denomination = 18,
-    this.gasPriceModifier = '0.01',
+    this.gasPriceModifier = 0.01,
     this.adaptivity = false,
     this.hysteresis = '0.2',
     this.latestTagSoftwareVersion,
@@ -57,7 +58,8 @@ class NetworkConfig {
     this.rewardsTopUpGradientPoint,
     this.shardConsensusGroupSize,
     this.startTime,
-  });
+    BigInt? genesisTimestamp,
+  }) : _genesisTimestamp = genesisTimestamp;
 
   /// Creates configuration from REST API response.
   ///
@@ -122,8 +124,11 @@ class NetworkConfig {
   /// Token denomination (number of decimals, typically 18 for EGLD).
   final int denomination;
 
-  /// Gas price modifier string.
-  final String gasPriceModifier;
+  /// Gas price modifier applied to the processing-gas portion of the fee.
+  ///
+  /// The chain reports this as a multiplier in `[0, 1]` (typically `0.01`),
+  /// so only the movement-gas share of a transaction is billed at full price.
+  final double gasPriceModifier;
 
   /// Whether network adaptivity is enabled.
   final bool adaptivity;
@@ -152,6 +157,20 @@ class NetworkConfig {
   /// Network start timestamp (Unix timestamp).
   final int? startTime;
 
+  /// Genesis timestamp expressed as a `BigInt`.
+  ///
+  /// Defaults to the value of `startTime` when not provided explicitly.
+  BigInt? get genesisTimestamp =>
+      _genesisTimestamp ?? (startTime != null ? BigInt.from(startTime!) : null);
+
+  final BigInt? _genesisTimestamp;
+
+  /// Long-form alias for [extraGasLimitGuardedTx].
+  int get extraGasLimitForGuardedTransactions => extraGasLimitGuardedTx;
+
+  /// Long-form alias for [extraGasLimitRelayedTx].
+  int get extraGasLimitForRelayedTransactions => extraGasLimitRelayedTx;
+
   static NetworkConfig _fromConfigMap(Map<String, dynamic> config) {
     final String? chainId = optionalAs<String>(
       config['erd_chain_id'],
@@ -166,7 +185,7 @@ class NetworkConfig {
         'Unrecognized chain ID: "$chainId". '
         'Expected one of: "D" (devnet), "1" (mainnet), "T" (testnet).',
         name: 'NetworkConfig',
-        level: 900, // warning
+        level: 900,
       );
     }
 
@@ -196,7 +215,10 @@ class NetworkConfig {
       ),
       numShards: JsonUtils.parseInt(config['erd_num_shards_without_meta'], 3),
       denomination: JsonUtils.parseInt(config['erd_denomination'], 18),
-      gasPriceModifier: config['erd_gas_price_modifier']?.toString() ?? '0.01',
+      gasPriceModifier: JsonUtils.parseDouble(
+        config['erd_gas_price_modifier'],
+        0.01,
+      ),
       adaptivity: config['erd_adaptivity'] == true,
       hysteresis: config['erd_hysteresis']?.toString() ?? '0.2',
       latestTagSoftwareVersion: optionalAs<String>(
@@ -221,6 +243,9 @@ class NetworkConfig {
           : null,
       startTime: config['erd_start_time'] != null
           ? JsonUtils.parseInt(config['erd_start_time'], 0)
+          : null,
+      genesisTimestamp: config['erd_start_time'] != null
+          ? BigInt.from(JsonUtils.parseInt(config['erd_start_time'], 0))
           : null,
     );
   }

@@ -21,9 +21,12 @@ import 'numerical.dart';
 /// print(max.toBytes()); // [255, 255]
 ///
 /// // Use in struct definitions
-/// final structType = StructType(fields: [
-///   StructField('port', U16Type.type),
-/// ]);
+/// final structType = StructType(
+///   name: 'Endpoint',
+///   fieldDefinitions: [
+///     FieldDefinition(name: 'port', type: U16Type.type),
+///   ],
+/// );
 /// ```
 @immutable
 final class U16Type extends NumericalType {

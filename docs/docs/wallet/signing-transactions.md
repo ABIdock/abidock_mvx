@@ -2,7 +2,7 @@
 id: signing-transactions
 title: Signing Transactions
 sidebar_position: 5
-description: Sign MultiversX transactions and messages cryptographically using Account, SecretKey, or Signer classes.
+description: Sign MultiversX transactions and off-chain messages with Account, UserSigner, TransactionComputer, and MessageComputer.
 ---
 
 # Signing Transactions
@@ -101,6 +101,19 @@ final txBytes = transaction.serializeForSigning();
 final signature = await secretKey.sign(txBytes);
 ```
 
+`serializeForSigning()` picks the right payload for you: it returns the
+Keccak-256 hash of the signing JSON when the transaction has the hash-signing
+option bit set, and the raw signing JSON otherwise. The two underlying
+routines are also available directly:
+
+```dart
+const computer = TransactionComputer();
+
+final json = computer.computeBytesForSigning(transaction);   // raw JSON bytes
+final hash = computer.computeHashForSigning(transaction);    // Keccak-256 of it
+final usesHashSigning = computer.hasOptionsSetForHashSigning(transaction);
+```
+
 ### Hash-signing for large transactions
 
 When the transaction has the `TRANSACTION_OPTIONS_TX_HASH_SIGN` option bit set,
@@ -122,69 +135,132 @@ final signature = await account.signTransaction(hashSignedTx); // signs the hash
 
 ## Signing Messages
 
-You can sign arbitrary messages using `UserSigner`:
+Off-chain messages -- dApp logins, proofs of ownership, anything that is not a
+transaction -- are represented by `Message` and signed through
+`MessageComputer`.
+
+### The message envelope
+
+A raw message payload is never signed directly. The chain, xPortal, the Web
+Wallet and the Ledger app all sign the Keccak-256 digest of a fixed envelope:
+
+```
+keccak256( "\x17Elrond Signed Message:\n" + decimalLength(data) + data )
+```
+
+The leading `0x17` byte is the length (23) of the ASCII text that follows, and
+`decimalLength(data)` is the byte length of the payload rendered as ASCII
+decimal digits. The spelling is part of the hashed bytes and is fixed by the
+protocol -- a signature produced over any other envelope will not verify.
+
+`MessageComputer.computeBytesForSigning` builds those 32 bytes for you; the
+constant itself is exported as `canonicalMessagePrefix` if you need it.
 
 ```dart
 import 'dart:convert';
-
-void main() async {
-  final account = await Account.fromMnemonic('your mnemonic...');
-  final signer = UserSigner(account.secretKey);
-  
-  // Sign a message
-  final message = utf8.encode('Hello, MultiversX!');
-  final signature = await signer.sign(Uint8List.fromList(message));
-  
-  print('Message: Hello, MultiversX!');
-  print('Signature: ${convert.hex.encode(signature)}');
-}
-```
-
-## Signable Messages (with Replay Protection)
-
-For dApp authentication, use `SignableMessage` which provides protection against:
-- **Replay attacks** - timestamps and nonces prevent reusing signatures
-- **Cross-chain attacks** - chain ID binding prevents use on other networks
-- **Relay attacks** - recipient binding prevents use with different backends
-
-```dart
 import 'package:abidock_mvx/abidock_mvx.dart';
 
 void main() async {
-  final account = await Account.fromMnemonic('your mnemonic...');
-  
-  // Create signable message with automatic timestamp and nonce
-  final message = SignableMessage.fromMessage(
-    'Login to MyDApp',
-    chainId: 'D',                    // Prevent cross-chain replay
-    recipient: 'erd1webapp...',      // Prevent relay to other backends
+  final Account account = await Account.fromMnemonic('your mnemonic...');
+
+  final Message message = Message(utf8.encode('Hello, MultiversX!'));
+
+  // Account.signMessage applies the canonical envelope for you.
+  final Uint8List signature = await account.signMessage(message);
+
+  // ...and verifies against the same envelope.
+  final bool isValid = await account.verifyMessageSignature(
+    message,
+    signature,
   );
 
-  // Sign with account
-  final signature = await account.signMessage(message);
-
-  // Send to backend for verification
-  final authData = {
-    'message': message.bytes,
-    'timestamp': message.timestamp,
-    'nonce': message.nonce,
-    'chainId': message.chainId,
-    'recipient': message.recipient,
-    'signature': signature,
-  };
+  print('Signature: ${Signature.fromUint8List(signature).hex}');
+  print('Valid: $isValid');
 }
 ```
 
-### Custom Timestamp and Nonce
+### Signing with a `UserSigner`
+
+`UserSigner.sign` takes raw bytes, so compute the envelope explicitly:
 
 ```dart
-final customMessage = SignableMessage.fromMessage(
-  'Custom auth message',
-  timestamp: DateTime.now().millisecondsSinceEpoch,
-  nonce: 'unique-session-id-123',
-  chainId: '1',  // Mainnet
-);
+void main() async {
+  final Account account = await Account.fromMnemonic('your mnemonic...');
+  final UserSigner signer = UserSigner(account.secretKey);
+
+  const MessageComputer computer = MessageComputer();
+  final Message message = Message(utf8.encode('Login to MyDApp'));
+
+  final Uint8List toSign = computer.computeBytesForSigning(message);
+  final Uint8List signature = await signer.sign(toSign);
+
+  // Verification uses the identical bytes.
+  final UserVerifier verifier = UserVerifier.fromAddress(account.address);
+  final bool ok = await verifier.verify(
+    computer.computeBytesForVerifying(message),
+    signature,
+  );
+  print('Valid: $ok');
+}
 ```
+
+### Binary payloads
+
+`Message` carries bytes, not text, so any binary payload works unchanged:
+
+```dart
+final Message binaryMessage = Message(<int>[0x01, 0x02, 0x03, 0x04]);
+final Uint8List binarySignature = await account.signMessage(binaryMessage);
+```
+
+### Handing a message to another party
+
+`packMessage` produces the JSON-friendly map wallets exchange when a message
+travels between a dApp and a signer; `unpackMessage` reverses it. The payload
+and signature are hex-encoded and the address is rendered as bech32.
+
+```dart
+const MessageComputer computer = MessageComputer();
+
+final Message signed = Message(
+  utf8.encode('Login to MyDApp'),
+  address: account.address,
+  signature: signature,
+);
+
+final Map<String, dynamic> packed = computer.packMessage(signed);
+// {'message': '4c6f67696e...', 'version': 1, 'signature': '...',
+//  'address': 'erd1...'}
+
+// On the receiving side:
+final Message received = computer.unpackMessage(packed);
+```
+
+`unpackMessage` decodes the `message` field strictly as hex. Pass
+`acceptBase64: true` only if you must accept producers that emit base64.
+
+### Replay protection is yours to add
+
+The envelope binds nothing but the payload -- no timestamp, no chain ID, no
+recipient. If a signature must not be replayable, put those fields **inside**
+the payload you sign and check them on the verifying side:
+
+```dart
+final Map<String, Object> claims = <String, Object>{
+  'statement': 'Login to MyDApp',
+  'chainId': 'D',
+  'recipient': 'https://mydapp.example',
+  'issuedAt': DateTime.now().toUtc().toIso8601String(),
+  'nonce': 'unique-session-id-123',
+};
+
+final Message message = Message(utf8.encode(jsonEncode(claims)));
+final Uint8List signature = await account.signMessage(message);
+```
+
+Because the claims are part of the hashed bytes, a backend that re-serializes
+the same map and verifies the signature knows the signer agreed to exactly
+those values.
 
 ## Creating Signers from Different Sources
 

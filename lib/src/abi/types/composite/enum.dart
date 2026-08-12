@@ -7,8 +7,8 @@ import '../../core/type_system.dart';
 
 /// Variant definition for enum types with name, discriminant, and optional fields.
 ///
-/// Defines a single variant in an enum type, similar to Rust enum
-/// variants or TypeScript discriminated unions.
+/// Defines a single variant in an enum type: a name, the discriminant byte
+/// that identifies it on the wire, and the fields it carries (if any).
 @immutable
 final class EnumVariantDefinition {
   /// Creates an enum variant definition.
@@ -146,6 +146,20 @@ final class EnumType extends CustomType {
       throw ArgumentError('Enum must have at least one variant');
     }
 
+    _validateUniqueness();
+  }
+
+  /// Creates an empty placeholder enum used during two-phase ABI dependency
+  /// resolution. Real variants are populated in the second pass before any
+  /// encode/decode operation runs.
+  ///
+  /// #### Parameters
+  /// - `name` - Custom type name registered in Phase 1.
+  EnumType.placeholder(String name)
+    : variants = const <EnumVariantDefinition>[],
+      super(name: name, cardinality: TypeCardinalityExtension.singular());
+
+  void _validateUniqueness() {
     final Set<String> names = variants
         .map((EnumVariantDefinition v) => v.name)
         .toSet();

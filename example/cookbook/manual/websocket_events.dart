@@ -2,6 +2,12 @@ import 'dart:io';
 
 import 'package:abidock_mvx/abidock_mvx.dart';
 
+/// Events API key, read from the `ABIDOCK_WS_API_KEY` environment variable.
+///
+/// Never hard-code a real key in a committed example: run this sample with
+/// `ABIDOCK_WS_API_KEY=<your-key> dart run example/cookbook/manual/websocket_events.dart`.
+final String _apiKey = Platform.environment['ABIDOCK_WS_API_KEY'] ?? 'your-key';
+
 Future<void> main() async {
   final ConsoleLogger logger = ConsoleLogger(
     minLevel: LogLevel.debug,
@@ -12,7 +18,7 @@ Future<void> main() async {
   );
   final provider = ApiNetworkProvider.devnet();
 
-  final abiFile = File('assets/pair.abi.json');
+  final abiFile = File('example/cookbook/pair.abi.json');
   final abiJsonString = await abiFile.readAsString();
   final abi = SmartContractAbi.fromJson(abiJsonString);
 
@@ -29,7 +35,7 @@ Future<void> main() async {
     websocketUrl: 'wss://kepler-api.projectx.mx/devnet/events',
     identifiers: const ['swap'],
     contractAddress: controller.contractAddress,
-    headers: {'Api-Key': 'e7dd4f836556656475c427a752958cd2'},
+    headers: {'Api-Key': _apiKey},
     abi: abi,
     logger: logger,
   );

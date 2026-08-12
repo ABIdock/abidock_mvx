@@ -111,24 +111,37 @@ class AbiValidator {
         );
       } else {
         issues.add(
-          ValidationIssue.warning(
+          ValidationIssue.info(
             rule: 'MISSING_FIELD',
-            message: 'Missing "buildInfo" field',
+            message: 'No "buildInfo" section',
             location: 'root',
             suggestion:
-                'Add buildInfo section with rustc version and framework info',
+                'buildInfo is optional build provenance and is not used by '
+                'code generation',
           ),
         );
       }
     } else {
-      final abiVersion = buildInfo['abiVersion'] as String?;
-      if (abiVersion == null) {
+      if (buildInfo['contractCrate'] is! Map<String, dynamic>) {
         issues.add(
           ValidationIssue.warning(
             rule: 'MISSING_FIELD',
-            message: 'Missing "abiVersion" in buildInfo',
+            message: 'Missing "contractCrate" in buildInfo',
             location: 'buildInfo',
-            suggestion: 'Add abiVersion field (e.g., "0.0.0")',
+            suggestion:
+                'Add contractCrate object with the crate name and version',
+          ),
+        );
+      }
+
+      if (buildInfo['framework'] is! Map<String, dynamic>) {
+        issues.add(
+          ValidationIssue.warning(
+            rule: 'MISSING_FIELD',
+            message: 'Missing "framework" in buildInfo',
+            location: 'buildInfo',
+            suggestion:
+                'Add framework object with the build framework name and version',
           ),
         );
       }
@@ -146,18 +159,19 @@ class AbiValidator {
       );
     }
 
-    final constructorRaw = abi['constructor'];
-    if (constructorRaw is Map<String, dynamic>) {
-      _validateEndpointStructure(constructorRaw, 'constructor', issues);
-    } else if (constructorRaw != null) {
-      issues.add(
-        ValidationIssue.warning(
-          rule: 'INVALID_TYPE',
-          message:
-              'constructor should be an object, got ${constructorRaw.runtimeType}',
-          location: 'root',
-        ),
-      );
+    for (final key in const ['constructor', 'upgradeConstructor']) {
+      final raw = abi[key];
+      if (raw is Map<String, dynamic>) {
+        _validateEndpointStructure(raw, key, issues);
+      } else if (raw != null) {
+        issues.add(
+          ValidationIssue.warning(
+            rule: 'INVALID_TYPE',
+            message: '$key should be an object, got ${raw.runtimeType}',
+            location: 'root',
+          ),
+        );
+      }
     }
   }
 
@@ -169,19 +183,16 @@ class AbiValidator {
       return;
     }
 
-    // Handle types as Map (standard format)
     if (typesRaw is Map<String, dynamic>) {
       _validateTypesMap(typesRaw, issues);
       return;
     }
 
-    // Handle types as List (alternative format used by some ABIs)
     if (typesRaw is List) {
       _validateTypesList(typesRaw, issues);
       return;
     }
 
-    // Unknown format
     issues.add(
       ValidationIssue.warning(
         rule: 'INVALID_TYPE',
@@ -265,7 +276,8 @@ class AbiValidator {
         _validateEnumType(typeName, typeObj, issues);
         break;
       case 'explicit-enum':
-        // explicit-enum is valid, no extra validation needed
+        break;
+      case 'not-specified':
         break;
       default:
         issues.add(
@@ -286,14 +298,6 @@ class AbiValidator {
     final fields = typeObj['fields'] as List?;
 
     if (fields == null || fields.isEmpty) {
-      issues.add(
-        ValidationIssue.warning(
-          rule: 'MISSING_FIELD',
-          message: 'Struct has no fields',
-          location: 'types.$typeName',
-          suggestion: 'Add at least one field or use a different type',
-        ),
-      );
       return;
     }
 

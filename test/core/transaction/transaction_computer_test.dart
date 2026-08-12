@@ -122,17 +122,57 @@ void main() {
       );
     });
 
-    test('adds guardian floor for guarded transactions', () {
-      final guarded = computer.applyGuardian(baseTx(), guardian);
-      final withEnoughGas = guarded.copyWith(
-        newGasLimit: const GasLimit(200_000),
-      );
-
+    test('guarded and plain transactions at identical gasLimit yield identical '
+        'fees (C-4: no moveBalanceGas inflation)', () {
+      final guarded = computer
+          .applyGuardian(baseTx(), guardian)
+          .copyWith(newGasLimit: const GasLimit(200_000));
       final plain = baseTx().copyWith(newGasLimit: const GasLimit(200_000));
-      final guardedFee = computer.computeTransactionFee(withEnoughGas, config);
+
+      final guardedFee = computer.computeTransactionFee(guarded, config);
       final plainFee = computer.computeTransactionFee(plain, config);
 
-      expect(guardedFee > plainFee, isTrue);
+      expect(
+        guardedFee,
+        equals(plainFee),
+        reason:
+            'Extra guardian gas must inflate transaction.gasLimit at the '
+            'controller layer, NOT moveBalanceGas inside the fee computer.',
+      );
+    });
+
+    test('plain transaction fee matches base moveBalance + processing', () {
+      final tx = baseTx().copyWith(newGasLimit: const GasLimit(200_000));
+
+      final BigInt fee = computer.computeTransactionFee(tx, config);
+
+      final BigInt gasPrice = tx.gasPrice.toBigInt;
+      final BigInt moveBalanceGas = config.minGasLimit.toBigInt;
+      final BigInt feeForMove = moveBalanceGas * gasPrice;
+      final BigInt processingGas = tx.gasLimit.toBigInt - moveBalanceGas;
+      final int numerator = (config.gasPriceModifier.value * 10000).round();
+      final BigInt feeForProcessing =
+          processingGas *
+          gasPrice *
+          BigInt.from(numerator) ~/
+          BigInt.from(10000);
+
+      expect(fee, equals(feeForMove + feeForProcessing));
+    });
+
+    test('relayed v3 transaction fee equals plain fee at same gasLimit', () {
+      final tx = baseTx(
+        relayerAddr: sender,
+      ).copyWith(newGasLimit: const GasLimit(200_000));
+      final plain = baseTx().copyWith(newGasLimit: const GasLimit(200_000));
+
+      expect(
+        computer.computeTransactionFee(tx, config),
+        equals(computer.computeTransactionFee(plain, config)),
+        reason:
+            'Relayed-v3 extras live in transaction.gasLimit (controller), '
+            'not in moveBalanceGas.',
+      );
     });
 
     test('throws when gasLimit below moveGas', () {
@@ -145,18 +185,16 @@ void main() {
   });
 
   group('TransactionComputer.toPlainObject', () {
-    test('emits innerTransactions when present', () {
-      final inner = baseTx().copyWith(
-        newRelayer: sender,
-        newSignature: Signature('cd' * 64),
-      );
-      final outer = baseTx().copyWith(
-        newInnerTransactions: <Transaction>[inner],
-      );
+    test('a relayer does not change the bytes the sender signs', () {
+      final relayed = baseTx().copyWith(newRelayer: sender);
 
-      final json = computer.toPlainObject(outer);
-      expect(json['innerTransactions'], isA<List<dynamic>>());
-      expect((json['innerTransactions'] as List<dynamic>).length, 1);
+      final json = computer.toPlainObject(relayed);
+
+      expect(json['relayer'], sender.bech32);
+      expect(
+        utf8.decode(computer.computeBytesForSigning(relayed)),
+        isNot(utf8.decode(computer.computeBytesForSigning(baseTx()))),
+      );
     });
 
     test('omits signatures when withSignature is false', () {

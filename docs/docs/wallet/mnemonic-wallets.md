@@ -182,8 +182,8 @@ final Mnemonic m = UserWallet.decryptMnemonic(keyFileJson, password);
 
 ### Raw-bytes variant
 
-Integrators that wrap the mnemonic in a custom type (or need to hand the
-bytes to another SDK) can reach for the raw-bytes API. **The returned
+Integrators that wrap the mnemonic in their own type (or need to hand the
+raw bytes to a platform keystore) can reach for the raw-bytes API. **The returned
 `Uint8List` contains secret material; zero it with `fillRange` as soon as
 you're done.**
 

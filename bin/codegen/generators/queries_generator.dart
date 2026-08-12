@@ -1,4 +1,5 @@
 import 'package:abidock_mvx/src/abi/abi.dart';
+import '../core/import_manager.dart';
 import '../core/name_sanitizer.dart';
 import '../core/type_mapper.dart';
 import '../models/file_output.dart';
@@ -32,22 +33,21 @@ class QueriesGenerator extends GeneratorBase {
     final functionName = nameSanitizer.sanitizeParamName(endpoint.name);
     final filename = 'queries/${nameSanitizer.toSnakeCase(endpoint.name)}.dart';
 
-    final imports = <String>[];
+    final importManager = ImportManager();
 
-    final needsTypedData = _needsTypedData(endpoint);
-    if (needsTypedData) {
-      imports.add('import \'dart:typed_data\';');
+    if (_needsTypedData(endpoint)) {
+      importManager.addDartImport('dart:typed_data');
     }
 
-    imports.add('import \'package:abidock_mvx/abidock_mvx.dart\';');
+    importManager.addPackageImport('package:abidock_mvx/abidock_mvx.dart');
 
     final customTypes = _collectCustomTypes(endpoint);
     for (final typeName in customTypes.toList()..sort()) {
       final typeFile = nameSanitizer.toSnakeCase(typeName);
-      imports.add('import \'../models/$typeFile.dart\';');
+      importManager.addRelativeImport('../models/$typeFile.dart');
     }
 
-    _writeSortedImports(buffer, imports);
+    buffer.write(importManager.generate());
     buffer.writeln();
 
     final hasOutput = endpoint.outputs.isNotEmpty;
@@ -63,7 +63,7 @@ class QueriesGenerator extends GeneratorBase {
         if (line.trim().isEmpty) {
           buffer.writeln('///');
         } else {
-          buffer.writeln('/// $line');
+          buffer.writeln('/// ${escapeDocLine(line)}');
         }
       }
     }
@@ -116,8 +116,12 @@ class QueriesGenerator extends GeneratorBase {
       for (final input in endpoint.inputs) {
         final paramName = nameSanitizer.sanitizeParamName(input.name);
         final typeExpr = typeMapper.mapToTypeExpression(input.type);
+        final wrapped = typeMapper.wrapArgumentExpression(
+          input.type,
+          paramName,
+        );
         buffer.writeln(
-          '  final ${paramName}Value = $typeExpr.createValue($paramName);',
+          '  final ${paramName}Value = $typeExpr.createValue($wrapped);',
         );
       }
       buffer.writeln();
@@ -149,14 +153,12 @@ class QueriesGenerator extends GeneratorBase {
     if (hasOutput) {
       buffer.writeln();
       final outputs = endpoint.outputs.toList();
+      final anyMultiResult = outputs.any((o) => o.multiResult);
       if (outputs.length == 1) {
         final output = outputs.first;
         final dartType = typeMapper.mapToDartType(output.type);
         if (output.multiResult) {
-          final typeStr = output.type.toString();
-          final isVariadic =
-              typeStr.startsWith('variadic<') || typeStr.startsWith('multi<');
-
+          final isVariadic = output.type is VariadicType;
           buffer.writeln('      if (result.isEmpty) {');
           if (isVariadic) {
             buffer.writeln(
@@ -169,6 +171,17 @@ class QueriesGenerator extends GeneratorBase {
         }
         buffer.writeln('      return ${_decodeExpression(output.type, 0)};');
       } else {
+        if (anyMultiResult) {
+          buffer.writeln(
+            '      if (result.typedValues.length < ${outputs.length}) {',
+          );
+          buffer.writeln(
+            '        throw StateError('
+            "'${endpoint.name} returned \${result.typedValues.length} "
+            "values, expected ${outputs.length}');",
+          );
+          buffer.writeln('      }');
+        }
         buffer.writeln('      return (');
         for (int i = 0; i < outputs.length; i++) {
           buffer.write('        ${_decodeExpression(outputs[i].type, i)}');
@@ -186,27 +199,9 @@ class QueriesGenerator extends GeneratorBase {
     return FileOutput(path: filename, content: buffer.toString());
   }
 
-  /// Emits the Dart expression that decodes the `i`-th query return slot
-  /// into the Dart representation of [type]. Structs and enums are rebuilt
-  /// from their full `TypedValue` via `fromAbi` because their native value
-  /// is a plain `Map<String, dynamic>` / `int` discriminant and loses
-  /// type information; primitives take the native value directly.
+  /// Emits the Dart expression that decodes the `i`-th query return slot.
   String _decodeExpression(AbiType type, int index) {
-    final String dartType = typeMapper.mapToDartType(type);
-    if (type is StructType || type is EnumType || type is ExplicitEnumType) {
-      return '$dartType.fromAbi(result.typedValues[$index])';
-    }
-    if (type is ListType) {
-      final element = type.elementType;
-      if (element is StructType ||
-          element is EnumType ||
-          element is ExplicitEnumType) {
-        final String elementType = typeMapper.mapToDartType(element);
-        return '(result.typedValues[$index] as ListValue).elements'
-            '.map<$elementType>($elementType.fromAbi).toList()';
-      }
-    }
-    return 'infer<$dartType>(result[$index])';
+    return typeMapper.decodeTypedValue(type, 'result.typedValues[$index]');
   }
 
   /// Extract inner type from List&lt;T&gt; into the inner T type.
@@ -261,6 +256,10 @@ class QueriesGenerator extends GeneratorBase {
       for (final field in type.fieldTypes) {
         _collectTypeNames(field, types);
       }
+    } else if (type is MultiValueType) {
+      for (final t in type.types) {
+        _collectTypeNames(t, types);
+      }
     }
   }
 
@@ -277,6 +276,7 @@ class QueriesGenerator extends GeneratorBase {
   bool _typeNeedsTypedData(AbiType type) {
     if (type is BytesType) return true;
     if (type is H256Type) return true;
+    if (type is ManagedByteArrayType) return true;
     if (type is OptionType) return _typeNeedsTypedData(type.innerType);
     if (type is OptionalType) return _typeNeedsTypedData(type.innerType);
     if (type is ListType) return _typeNeedsTypedData(type.elementType);
@@ -284,49 +284,11 @@ class QueriesGenerator extends GeneratorBase {
     if (type is VariadicType) return _typeNeedsTypedData(type.itemType);
     if (type is TupleType) return type.elementTypes.any(_typeNeedsTypedData);
     if (type is CompositeType) {
-      for (final field in type.fieldTypes) {
-        if (_typeNeedsTypedData(field)) return true;
-      }
+      return type.fieldTypes.any(_typeNeedsTypedData);
+    }
+    if (type is MultiValueType) {
+      return type.types.any(_typeNeedsTypedData);
     }
     return false;
-  }
-
-  void _writeSortedImports(StringBuffer buffer, List<String> imports) {
-    final dartImports = <String>[];
-    final packageImports = <String>[];
-    final relativeImports = <String>[];
-
-    for (final import in imports) {
-      if (import.contains('dart:')) {
-        dartImports.add(import);
-      } else if (import.contains('package:')) {
-        packageImports.add(import);
-      } else {
-        relativeImports.add(import);
-      }
-    }
-
-    dartImports.sort();
-    packageImports.sort();
-    relativeImports.sort();
-
-    for (final import in dartImports) {
-      buffer.writeln(import);
-    }
-    if (dartImports.isNotEmpty &&
-        (packageImports.isNotEmpty || relativeImports.isNotEmpty)) {
-      buffer.writeln();
-    }
-
-    for (final import in packageImports) {
-      buffer.writeln(import);
-    }
-    if (packageImports.isNotEmpty && relativeImports.isNotEmpty) {
-      buffer.writeln();
-    }
-
-    for (final import in relativeImports) {
-      buffer.writeln(import);
-    }
   }
 }

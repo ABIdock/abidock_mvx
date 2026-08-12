@@ -21,16 +21,6 @@ final class EventModelsGenerator extends GeneratorBase {
     final files = <FileOutput>[];
 
     for (final event in abi.events) {
-      final eventClassName = _normalizeEventClassName(event.identifier);
-
-      final hasConflict = abi.types.keys.any(
-        (typeName) => nameSanitizer.toPascalCase(typeName) == eventClassName,
-      );
-
-      if (hasConflict) {
-        continue;
-      }
-
       if (event.inputs.isEmpty) {
         files.add(_generateMarkerEvent(event));
       } else {
@@ -174,50 +164,11 @@ final class EventModelsGenerator extends GeneratorBase {
       buffer.writeln('    final struct = value as StructValue;');
       buffer.writeln('    return $className(');
       for (final field in fields) {
-        final isCustomStruct = abi.types.containsKey(field.abiType.name);
-        final isEnum = field.abiType is EnumType;
-        final isListOfCustomStruct = _isListOfCustomStruct(field.abiType, abi);
-
-        final isExplicitEnum = field.abiType is ExplicitEnumType;
-
-        if (isListOfCustomStruct) {
-          final elementTypeName = _getListElementTypeName(field.dartType);
-          buffer.writeln('      ${field.name}: () {');
-          buffer.writeln(
-            '        final listValue = struct.getFieldValue(\'${field.abiName}\') as ListValue;',
-          );
-          buffer.writeln(
-            '        return listValue.elements.map((item) => $elementTypeName.fromAbi(item)).toList();',
-          );
-          buffer.writeln('      }(),');
-        } else if (isEnum || isExplicitEnum) {
-          buffer.writeln('      ${field.name}: () {');
-          buffer.writeln(
-            '        final fieldValue = struct.getFieldValue(\'${field.abiName}\');',
-          );
-          buffer.writeln(
-            '        return ${field.dartType}.fromAbi(fieldValue);',
-          );
-          buffer.writeln('      }(),');
-        } else if (isCustomStruct) {
-          buffer.writeln('      ${field.name}: () {');
-          buffer.writeln(
-            '        final fieldValue = struct.getFieldValue(\'${field.abiName}\').nativeValue;',
-          );
-          buffer.writeln('        if (fieldValue is Map<String, dynamic>) {');
-          buffer.writeln(
-            '          return ${field.dartType}.fromAbi(${field.dartType}.type.createValue(fieldValue));',
-          );
-          buffer.writeln('        }');
-          buffer.writeln(
-            '        return infer<${field.dartType}>(fieldValue);',
-          );
-          buffer.writeln('      }(),');
-        } else {
-          buffer.writeln(
-            '      ${field.name}: infer<${field.dartType}>(struct.getFieldValue(\'${field.abiName}\').nativeValue),',
-          );
-        }
+        final decode = typeMapper.decodeTypedValue(
+          field.abiType,
+          "struct.getFieldValue('${field.abiName}')",
+        );
+        buffer.writeln('      ${field.name}: $decode,');
       }
       buffer.writeln('    );');
     }
@@ -380,53 +331,56 @@ final class EventModelsGenerator extends GeneratorBase {
 
     if (dartType == 'Address') {
       return '$fieldName.bech32';
-    } else if (dartType == 'TokenIdentifier' ||
+    }
+    if (dartType == 'TokenIdentifier' ||
         dartType == 'EgldOrEsdtTokenIdentifier') {
       return '$fieldName.value';
-    } else if (dartType == 'BigInt') {
-      return '$fieldName.toString()';
-    } else if (dartType == 'bool' ||
-        dartType == 'int' ||
-        dartType == 'String') {
-      return fieldName;
-    } else if (dartType.startsWith('List<')) {
-      return '$fieldName.map((e) => e.toString()).toList()';
-    } else {
+    }
+    if (dartType == 'BigInt') {
       return '$fieldName.toString()';
     }
+    if (dartType == 'Uint8List') {
+      return '$fieldName.toList()';
+    }
+    if (dartType == 'bool' || dartType == 'int' || dartType == 'String') {
+      return fieldName;
+    }
+    if (dartType.startsWith('List<')) {
+      return '$fieldName.map((e) => e.toString()).toList()';
+    }
+    return '$fieldName.toString()';
   }
 
   String _normalizeEventClassName(String identifier) {
-    String normalized = identifier;
-    if (normalized.endsWith('_event')) {
-      normalized = normalized.substring(0, normalized.length - 6);
+    final base = _stripEventSuffix(identifier);
+    final candidate = '${nameSanitizer.toPascalCase(base)}Event';
+    if (_hasStructConflict(candidate)) {
+      return '${candidate}Data';
     }
-    return '${nameSanitizer.toPascalCase(normalized)}Event';
+    return candidate;
   }
 
   String _normalizeEventFileName(String identifier) {
-    String normalized = identifier;
-    if (normalized.endsWith('_event')) {
-      normalized = normalized.substring(0, normalized.length - 6);
+    final base = _stripEventSuffix(identifier);
+    final candidate = '${nameSanitizer.toSnakeCase(base)}_event';
+    final className = '${nameSanitizer.toPascalCase(base)}Event';
+    if (_hasStructConflict(className)) {
+      return '${candidate}_data';
     }
-    return '${nameSanitizer.toSnakeCase(normalized)}_event';
+    return candidate;
   }
 
-  bool _isListOfCustomStruct(AbiType type, SmartContractAbi abi) {
-    if (type is ListType) {
-      return abi.types.containsKey(type.elementType.name);
+  String _stripEventSuffix(String identifier) {
+    if (identifier.endsWith('_event')) {
+      return identifier.substring(0, identifier.length - 6);
     }
-    if (type is ArrayType) {
-      return abi.types.containsKey(type.elementType.name);
-    }
-    return false;
+    return identifier;
   }
 
-  String _getListElementTypeName(String dartType) {
-    if (!dartType.startsWith('List<') || !dartType.endsWith('>')) {
-      return dartType;
-    }
-    return dartType.substring(5, dartType.length - 1);
+  bool _hasStructConflict(String candidateClassName) {
+    return abi.types.keys.any(
+      (typeName) => nameSanitizer.toPascalCase(typeName) == candidateClassName,
+    );
   }
 }
 

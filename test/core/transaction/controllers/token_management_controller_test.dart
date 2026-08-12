@@ -164,12 +164,11 @@ void main() {
         baseInput,
       );
       expect(tx.sender, equals(alice.address));
-      expect(
-        tx.receiver.bech32,
-        equals(
-          'erd1qqqqqqqqqqqqqqqpqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqzllls8a5w6u',
-        ),
-      );
+
+      /// `ESDTNFTCreate` is a builtin function: it executes against the
+      /// caller's own account, so the transaction is addressed to the sender
+      /// and not to the ESDT system contract.
+      expect(tx.receiver.bech32, equals(alice.address.bech32));
       expect(tx.value.value, equals(BigInt.zero));
       expect(tx.signature, isNotNull);
     });
@@ -186,12 +185,11 @@ void main() {
         baseInput,
       );
       expect(tx.sender, equals(alice.address));
-      expect(
-        tx.receiver.bech32,
-        equals(
-          'erd1qqqqqqqqqqqqqqqpqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqzllls8a5w6u',
-        ),
-      );
+
+      /// `ESDTLocalBurn` is a builtin function: it executes against the
+      /// caller's own account, so the transaction is addressed to the sender
+      /// and not to the ESDT system contract.
+      expect(tx.receiver.bech32, equals(alice.address.bech32));
       expect(tx.value.value, equals(BigInt.zero));
       expect(tx.signature, isNotNull);
     });

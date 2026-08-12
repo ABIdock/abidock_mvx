@@ -10,7 +10,7 @@ import '../transaction/transaction.dart';
 /// #### Example
 /// ```dart
 /// // Using local account
-/// IAccount account = Account.fromPem(pemContent, 0);
+/// final IAccount account = await Account.fromPem(pemContent);
 /// final signature = await account.signTransaction(transaction);
 ///
 /// // Verifying signature
@@ -86,14 +86,20 @@ abstract interface class IAccount {
   /// #### Example
   /// ```dart
   /// final tx = Transaction(
+  ///   nonce: Nonce(7),
   ///   sender: account.address,
   ///   receiver: Address.fromBech32('erd1...'),
   ///   value: Balance.fromEgld(0.1),
-  ///   gasLimit: 50000,
-  ///   chainID: 'D',
+  ///   gasLimit: GasLimit(50000),
+  ///   gasPrice: GasPrice(1000000000),
+  ///   chainId: const ChainId.devnet(),
+  ///   version: const TransactionVersion(2),
+  ///   data: Uint8List(0),
   /// );
   /// final signature = await account.signTransaction(tx);
-  /// tx.signature = Signature.fromUint8List(signature);
+  /// final signedTx = tx.copyWith(
+  ///   newSignature: Signature.fromUint8List(signature),
+  /// );
   /// ```
   Future<Uint8List> signTransaction(Transaction transaction);
 
@@ -213,7 +219,7 @@ abstract interface class IAccount {
   /// print('Valid: $isValid'); // true
   ///
   /// // Someone else's signature
-  /// final otherAccount = Account.fromMnemonic(otherMnemonic, 0);
+  /// final otherAccount = await Account.fromMnemonic(otherMnemonic);
   /// final otherIsValid = await otherAccount.verifyMessageSignature(
   ///   message,
   ///   signature,

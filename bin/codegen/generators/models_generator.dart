@@ -76,7 +76,7 @@ class ModelsGenerator extends GeneratorBase {
           if (line.trim().isEmpty) {
             buffer.writeln('///');
           } else {
-            buffer.writeln('/// $line');
+            buffer.writeln('/// ${escapeDocLine(line)}');
           }
         }
       } else if (docs is List && docs.isNotEmpty) {
@@ -115,55 +115,27 @@ class ModelsGenerator extends GeneratorBase {
     buffer.writeln();
 
     buffer.writeln(
-      '  static final type = ${_generateStructTypeExpr(structType)};',
+      '  static final StructType type = ${_generateStructTypeExpr(structType)};',
     );
     buffer.writeln();
 
     buffer.writeln('  factory $className.fromAbi(TypedValue value) {');
-    buffer.writeln('    final struct = value as StructValue;');
-    buffer.writeln('    return $className(');
-    for (final field in structType.fieldDefinitions) {
-      final fieldName = nameSanitizer.sanitizeFieldName(field.name);
-      final dartType = typeMapper.mapToDartType(field.type);
-      final isListOfCustomStruct = _isListOfCustomStruct(field.type);
-
-      if (isListOfCustomStruct) {
-        final elementTypeName = _getListElementTypeName(dartType);
-        buffer.writeln('      $fieldName: () {');
-        buffer.writeln(
-          '        final listValue = struct.getFieldValue(\'${field.name}\') as ListValue;',
+    if (structType.fieldDefinitions.isEmpty) {
+      buffer.writeln('    value as StructValue;');
+      buffer.writeln('    return const $className();');
+    } else {
+      buffer.writeln('    final struct = value as StructValue;');
+      buffer.writeln('    return $className(');
+      for (final field in structType.fieldDefinitions) {
+        final fieldName = nameSanitizer.sanitizeFieldName(field.name);
+        final decode = typeMapper.decodeTypedValue(
+          field.type,
+          "struct.getFieldValue('${field.name}')",
         );
-        buffer.writeln(
-          '        return listValue.elements.map((item) => $elementTypeName.fromAbi(item)).toList();',
-        );
-        buffer.writeln('      }(),');
-      } else if (field.type is EnumType) {
-        final enumTypeName = nameSanitizer.toPascalCase(field.type.name);
-        buffer.writeln('      $fieldName: () {');
-        buffer.writeln(
-          '        final fieldValue = struct.getFieldValue(\'${field.name}\').nativeValue;',
-        );
-        buffer.writeln('        if (fieldValue == null) {');
-        buffer.writeln(
-          '          throw ArgumentError(\'Field ${field.name} cannot be null for enum type $enumTypeName\');',
-        );
-        buffer.writeln('        }');
-        buffer.writeln('        if (fieldValue is Map<String, dynamic>) {');
-        buffer.writeln(
-          '          return $enumTypeName.fromAbi($enumTypeName.type.createValue(fieldValue));',
-        );
-        buffer.writeln('        }');
-        buffer.writeln(
-          '        return $enumTypeName.fromAbi($enumTypeName.type.createValue(fieldValue));',
-        );
-        buffer.writeln('      }(),');
-      } else {
-        buffer.writeln(
-          '      $fieldName: infer<$dartType>(struct.getFieldValue(\'${field.name}\').nativeValue),',
-        );
+        buffer.writeln('      $fieldName: $decode,');
       }
+      buffer.writeln('    );');
     }
-    buffer.writeln('    );');
     buffer.writeln('  }');
     buffer.writeln();
 
@@ -211,7 +183,7 @@ class ModelsGenerator extends GeneratorBase {
           if (line.trim().isEmpty) {
             buffer.writeln('///');
           } else {
-            buffer.writeln('/// $line');
+            buffer.writeln('/// ${escapeDocLine(line)}');
           }
         }
       } else if (docs is List && docs.isNotEmpty) {
@@ -313,7 +285,7 @@ class ModelsGenerator extends GeneratorBase {
           if (line.trim().isEmpty) {
             buffer.writeln('///');
           } else {
-            buffer.writeln('/// $line');
+            buffer.writeln('/// ${escapeDocLine(line)}');
           }
         }
       } else if (docs is List && docs.isNotEmpty) {
@@ -477,6 +449,10 @@ class ModelsGenerator extends GeneratorBase {
       for (final field in type.fieldTypes) {
         _collectTypeDependencies(field, deps);
       }
+    } else if (type is MultiValueType) {
+      for (final t in type.types) {
+        _collectTypeDependencies(t, deps);
+      }
     }
   }
 
@@ -537,11 +513,13 @@ class ModelsGenerator extends GeneratorBase {
 
   String _generateToAbiConversion(AbiType type, String fieldName) {
     if (type is AddressType) {
-      return fieldName;
+      return '$fieldName.bech32';
     }
 
-    if (type is TokenIdentifierType) {
-      return fieldName;
+    if (type is TokenIdentifierType ||
+        type is EsdtTokenIdentifierType ||
+        type is EgldOrEsdtTokenIdentifierType) {
+      return '$fieldName.value';
     }
 
     if (type is StructType || type is EnumType || type is ExplicitEnumType) {
@@ -582,16 +560,6 @@ class ModelsGenerator extends GeneratorBase {
     return fieldName;
   }
 
-  bool _isListOfCustomStruct(AbiType type) {
-    if (type is ListType) {
-      return abi.types.containsKey(type.elementType.name);
-    }
-    if (type is ArrayType) {
-      return abi.types.containsKey(type.elementType.name);
-    }
-    return false;
-  }
-
   /// Generates a JSON-safe expression for a field value.
   String _generateToJsonValue(AbiType type, String fieldName) {
     if (type is StructType) {
@@ -601,7 +569,12 @@ class ModelsGenerator extends GeneratorBase {
       return '$fieldName.index';
     }
     if (type is AddressType) {
-      return fieldName;
+      return '$fieldName.bech32';
+    }
+    if (type is TokenIdentifierType ||
+        type is EsdtTokenIdentifierType ||
+        type is EgldOrEsdtTokenIdentifierType) {
+      return '$fieldName.value';
     }
     if (type is BigUIntType ||
         type is BigIntType ||
@@ -634,12 +607,5 @@ class ModelsGenerator extends GeneratorBase {
       return fieldName;
     }
     return fieldName;
-  }
-
-  String _getListElementTypeName(String dartType) {
-    if (!dartType.startsWith('List<') || !dartType.endsWith('>')) {
-      return dartType;
-    }
-    return dartType.substring(5, dartType.length - 1);
   }
 }

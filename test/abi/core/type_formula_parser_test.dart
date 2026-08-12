@@ -1,4 +1,6 @@
 import 'package:abidock_mvx/abidock_mvx.dart';
+import 'package:abidock_mvx/src/abi/core/type_formula_parser.dart'
+    show TokenType;
 import 'package:test/test.dart';
 
 void main() {

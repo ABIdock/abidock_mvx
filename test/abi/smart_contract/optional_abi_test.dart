@@ -150,7 +150,7 @@ void main() {
         arguments: [TokenIdentifierValue('OUT-abc123')],
         tokenTransfers: [
           TokenTransferValue.fromPrimitives(
-            tokenIdentifier: 'IN-abc123',
+            tokenIdentifier: 'INA-abc123',
             amount: BigInt.from(1000),
           ),
         ],

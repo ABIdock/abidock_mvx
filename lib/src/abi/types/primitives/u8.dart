@@ -20,9 +20,12 @@ import 'numerical.dart';
 /// print(zero.toBytes()); // [0]
 ///
 /// // Use in struct definitions
-/// final structType = StructType(fields: [
-///   StructField('count', U8Type.type),
-/// ]);
+/// final structType = StructType(
+///   name: 'Counter',
+///   fieldDefinitions: [
+///     FieldDefinition(name: 'count', type: U8Type.type),
+///   ],
+/// );
 /// ```
 @immutable
 final class U8Type extends NumericalType {

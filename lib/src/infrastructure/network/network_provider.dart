@@ -9,6 +9,7 @@ import '../../core/transaction/transaction_status.dart';
 import 'account_storage.dart';
 import 'account_storage_entry.dart';
 import 'block_on_network.dart';
+import 'guardian_data.dart';
 import 'network_config.dart';
 import 'network_economics.dart';
 import 'network_status.dart';
@@ -24,7 +25,7 @@ import 'send_transactions_result.dart';
 ///
 /// // Fetch account
 /// final account = await provider.getAccount(address);
-/// print('Balance: ${account.balance.toEgld()} EGLD');
+/// print('Balance: ${account.balance.toDenominatedTrimmed} EGLD');
 ///
 /// // Send transaction
 /// final txHash = await provider.sendTransaction(signedTx);
@@ -65,18 +66,22 @@ abstract interface class NetworkProvider {
   /// ```
   Future<NetworkConfig> getNetworkConfig();
 
-  /// Fetches network status.
+  /// Fetches network status for a given shard.
+  ///
+  /// #### Parameters
+  /// - `shard` - Shard ID (0, 1, 2, or `4294967295` for the metachain;
+  ///   defaults to the metachain, whose status covers the whole network).
   ///
   /// #### Returns
   /// `NetworkStatus` - Network status with current round, epoch, and nonce
   ///
   /// #### Example
   /// ```dart
-  /// final status = await provider.getNetworkStatus();
-  /// print('Current round: ${status.currentRound}');
-  /// print('Epoch: ${status.epoch}');
+  /// final meta = await provider.getNetworkStatus();
+  /// final shard0 = await provider.getNetworkStatus(shard: 0);
+  /// print('Shard 0 round: ${shard0.currentRound}');
   /// ```
-  Future<NetworkStatus> getNetworkStatus();
+  Future<NetworkStatus> getNetworkStatus({int shard});
 
   /// Fetches network economics data including supply, staking, and market info.
   ///
@@ -107,7 +112,7 @@ abstract interface class NetworkProvider {
   /// #### Example
   /// ```dart
   /// final account = await provider.getAccount(myAddress);
-  /// print('Balance: ${account.balance.toEgld()} EGLD');
+  /// print('Balance: ${account.balance.toDenominatedTrimmed} EGLD');
   /// print('Nonce: ${account.nonce.value}');
   /// if (account.isContract) {
   ///   print('Smart contract account');
@@ -279,19 +284,43 @@ abstract interface class NetworkProvider {
   ///
   /// #### Parameters
   /// - `address` - Account address to query
+  /// - `from` - Optional pagination offset; `null` lets the server pick the default.
+  /// - `size` - Optional page size; `null` lets the server pick the default.
   ///
   /// #### Returns
   /// `List<TokenOnNetwork>` - All fungible tokens owned by account
-  Future<List<TokenOnNetwork>> getFungibleTokensOfAccount(Address address);
+  Future<List<TokenOnNetwork>> getFungibleTokensOfAccount(
+    Address address, {
+    int? from,
+    int? size,
+  });
 
   /// Fetches all non-fungible tokens.
   ///
   /// #### Parameters
   /// - `address` - Account address to query
+  /// - `from` - Optional pagination offset; `null` lets the server pick the default.
+  /// - `size` - Optional page size; `null` lets the server pick the default.
   ///
   /// #### Returns
   /// `List<TokenOnNetwork>` - All NFTs owned by account
-  Future<List<TokenOnNetwork>> getNonFungibleTokensOfAccount(Address address);
+  Future<List<TokenOnNetwork>> getNonFungibleTokensOfAccount(
+    Address address, {
+    int? from,
+    int? size,
+  });
+
+  /// Fetches the guardian data for an account.
+  ///
+  /// Calls `/accounts/{bech32}/guardian-data` on the API and
+  /// `/address/{bech32}/guardian-data` on the Gateway.
+  ///
+  /// #### Parameters
+  /// - `address` - Account address to query.
+  ///
+  /// #### Returns
+  /// `GuardianData` - `guarded` flag plus optional active / pending guardians.
+  Future<GuardianData> getGuardianData(Address address);
 
   /// Fetches on-chain definition of a fungible ESDT.
   ///
@@ -368,13 +397,17 @@ abstract interface class NetworkProvider {
   ///
   /// #### Parameters
   /// - `hash` - Block hash (hex)
+  /// - `shard` - Shard ID owning the block (0, 1, 2, or `4294967295` for the
+  ///   metachain). Required by the Gateway URL scheme
+  ///   (`block/{shard}/by-hash/{hash}`); ignored by the API provider, which
+  ///   indexes blocks globally by hash. Defaults to the metachain.
   ///
   /// #### Returns
   /// `BlockOnNetwork` - Block metadata including round, epoch, shard, nonce, prevHash
   ///
   /// #### Throws
   /// - `NetworkException` - If block is not found
-  Future<BlockOnNetwork> getBlock(String hash);
+  Future<BlockOnNetwork> getBlock(String hash, {int shard});
 
   /// Fetches the most recently observed block for the given shard.
   ///

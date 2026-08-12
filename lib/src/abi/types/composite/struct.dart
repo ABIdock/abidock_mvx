@@ -37,10 +37,6 @@ final class StructType extends CustomType {
     required this.fieldDefinitions,
     super.metadata,
   }) : super(cardinality: TypeCardinalityExtension.singular()) {
-    if (fieldDefinitions.isEmpty) {
-      throw ArgumentError('Struct must have at least one field');
-    }
-
     final Set<String> names = fieldDefinitions
         .map((FieldDefinition f) => f.name)
         .toSet();

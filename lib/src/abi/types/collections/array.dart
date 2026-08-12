@@ -6,8 +6,8 @@ import '../../core/type_system.dart';
 
 /// Fixed-length array type with N elements of type T.
 ///
-/// Represents smart contract array types with a fixed size known at
-/// compile time (e.g., `[u32; 3]` in Rust).
+/// Represents smart contract array types whose size is fixed by the type
+/// itself and never appears on the wire (e.g., `array3<u32>`).
 @immutable
 final class ArrayType extends AbiType {
   /// Creates an Array type with element type and length.
@@ -79,7 +79,7 @@ final class ArrayType extends AbiType {
   /// #### Example
   /// ```dart
   /// final arrayType = ArrayType(U32Type.type, 3);
-  /// final arrayValue = arrayType.createValue([10, 20, 30]);
+  /// final arrayValue = arrayType.createValue([10, 20, 30]) as ArrayValue;
   /// print(arrayValue.length); // 3
   /// print(arrayValue[1].nativeValue); // 20
   /// ```
@@ -223,7 +223,7 @@ final class ArrayValue extends TypedValue {
   /// #### Example
   /// ```dart
   /// final arrayType = ArrayType(U32Type.type, 3);
-  /// final original = arrayType.createValue([1, 2, 3]);
+  /// final original = arrayType.createValue([1, 2, 3]) as ArrayValue;
   ///
   /// final doubled = original.map((e) {
   ///   final u32 = e as U32Value;

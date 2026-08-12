@@ -10,11 +10,11 @@ Future<void> main() async {
     useColors: true,
   );
 
-  final pem = File('assets/alice.pem').readAsStringSync();
+  final pem = File('example/assets/alice.pem').readAsStringSync();
   final account = await Account.fromPem(pem);
   final aliceAddress = account.address;
 
-  final pemRelayer = File('assets/bob.pem').readAsStringSync();
+  final pemRelayer = File('example/assets/bob.pem').readAsStringSync();
   final accountRelayer = UserSigner.fromPem(pemRelayer);
   final relayerAddress = await accountRelayer.getAddress();
 
@@ -22,7 +22,7 @@ Future<void> main() async {
   final freshAccount = await provider.getAccount(aliceAddress);
   final Nonce currentNonce = freshAccount.nonce;
 
-  final abiJson = File('assets/pair.abi.json').readAsStringSync();
+  final abiJson = File('example/cookbook/pair.abi.json').readAsStringSync();
   final abi = SmartContractAbi.fromJson(abiJson);
   final contractAddress = SmartContractAddress.fromBech32(
     'erd1qqqqqqqqqqqqqpgqzw0d0tj25qme9e4ukverjjjqle6xamay0n4s5r0v9g',

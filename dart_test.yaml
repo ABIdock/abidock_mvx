@@ -1,0 +1,24 @@
+# Tests tagged `integration` reach out to live MultiversX endpoints (mainnet and
+# devnet gateways/APIs). They are skipped by default so that `dart test` — and
+# therefore CI — stays hermetic, deterministic and free of public-infrastructure
+# traffic.
+#
+#   dart test                                  # hermetic: integration suites skipped
+#   dart test -P integration                   # only the live-network suites
+#   dart test --tags integration --run-skipped # same, without the preset
+#
+# A bare `dart test --tags integration` still reports them as skipped: a tag-level
+# `skip` is honoured even when the tag is explicitly selected. `exclude_tags` is
+# deliberately not used here because it is unioned with any command-line
+# selection, which would make the suites unrunnable.
+
+tags:
+  integration:
+    skip: "Performs live network I/O. Run with: dart test -P integration"
+
+presets:
+  integration:
+    include_tags: integration
+    tags:
+      integration:
+        skip: false

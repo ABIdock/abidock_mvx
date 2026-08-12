@@ -179,7 +179,6 @@ final class ManagedDecimalType extends CustomType {
 /// final price = ManagedDecimalValue.fromDouble(19.99, scale: 2);
 /// print(price.toDecimalString()); // 19.99
 /// print(price.nativeValue); // BigInt(1999) - raw value
-/// print(price.toDouble()); // 19.99
 ///
 /// // From string
 /// final amount = ManagedDecimalValue.fromString('123.456', scale: 3);
@@ -312,7 +311,6 @@ final class ManagedDecimalValue extends TypedValue {
     BigInt fractionalPart = BigInt.zero;
     if (parts.length == 2) {
       if (scale == 0) {
-        // When scale is 0, a fractional part is only valid if it's all zeros
         final bool allZeros = parts[1].split('').every((String c) => c == '0');
         if (!allZeros) {
           throw ArgumentError.value(
@@ -321,7 +319,6 @@ final class ManagedDecimalValue extends TypedValue {
             'Fractional part exceeds scale of $scale',
           );
         }
-        // fractionalPart remains BigInt.zero
       } else {
         final String fractionalStr = parts[1].padRight(scale, '0');
         if (fractionalStr.length > scale) {

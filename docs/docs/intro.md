@@ -14,6 +14,11 @@ description: MultiversX SDK for Dart and Flutter - wallet management, smart cont
 
 ## Key Features
 
+### Entrypoints
+- One object per network: `DevnetEntrypoint`, `TestnetEntrypoint`, `MainnetEntrypoint`
+- Gateway counterparts for direct node access
+- Cached provider plus pre-configured factories and controllers
+
 ### Wallet Management
 - Create and manage wallets from mnemonics, PEM files, or keystores
 - HD wallet derivation following BIP39/BIP44 standards
@@ -48,6 +53,7 @@ description: MultiversX SDK for Dart and Flutter - wallet management, smart cont
 
 - [**Installation**](/docs/getting-started/installation) - Add abidock_mvx to your project
 - [**Quick Start**](/docs/getting-started/quick-start) - Create and send a transaction
+- [**Entrypoints**](/docs/network/entrypoints) - Connect to a network in one line
 - [**Wallet Guide**](/docs/wallet/overview) - Create and manage wallets
 - [**Smart Contracts**](/docs/smart-contracts/overview) - Interact with contracts
 - [**Cookbook**](/docs/cookbook/overview) - Runnable examples

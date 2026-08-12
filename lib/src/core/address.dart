@@ -1,8 +1,32 @@
 import 'dart:typed_data';
 import 'package:convert/convert.dart' as convert;
 import 'package:pointycastle/pointycastle.dart' show Digest;
+import '../utils/sdk_exceptions.dart';
 import '../wallet/crypto/bech32_encoder.dart';
 import 'nonce.dart';
+
+/// Exception thrown when an [Address] cannot be parsed or validated.
+///
+/// Used by [Address.fromBech32], [Address.fromHex], and shard helpers when
+/// the input is malformed. Inherits from [AbidockException] so callers can
+/// trap any SDK error with a single `on AbidockException catch (e)` clause.
+///
+/// #### Example
+/// ```dart
+/// try {
+///   Address.fromBech32('not-a-bech32');
+/// } on AddressException catch (e) {
+///   print('Bad address: ${e.message}');
+/// }
+/// ```
+class AddressException extends AbidockException {
+  /// Creates an address exception.
+  ///
+  /// #### Parameters
+  /// - `message` - Human-readable error description, typically including the
+  ///   offending input.
+  const AddressException(super.message, {super.cause, super.stackTrace});
+}
 
 /// MultiversX blockchain address.
 ///
@@ -33,18 +57,21 @@ class Address {
   /// - `hrp` - Human-readable part for Bech32 (default: 'erd')
   ///
   /// #### Throws
-  /// - `AssertionError` - If bytes length is not 32
+  /// - [AddressException] - If bytes length is not 32
   ///
   /// #### Example
   /// ```dart
   /// final bytes = List<int>.filled(32, 0);
   /// final addr = Address(bytes);
   /// ```
-  Address(this.bytes, {this.hrp = 'erd'})
-    : assert(
-        bytes.length == _addressLength,
-        'Address bytes length must be $_addressLength but it is ${bytes.length}',
+  Address(this.bytes, {this.hrp = 'erd'}) {
+    if (bytes.length != _addressLength) {
+      throw AddressException(
+        'Address bytes length must be $_addressLength '
+        'but it is ${bytes.length}',
       );
+    }
+  }
 
   /// Creates Address from Bech32-encoded string.
   ///
@@ -52,38 +79,63 @@ class Address {
   /// - `bech32` - Bech32 address string (e.g., 'erd1qqqqqqqqqqqqqpgq...')
   ///
   /// #### Throws
-  /// - Exception - If Bech32 decoding fails
+  /// - [AddressException] - If the string is not a well-formed Bech32 address:
+  ///   missing separator, invalid character, bad checksum, or a payload that
+  ///   does not decode to 32 bytes.
   ///
   /// #### Example
   /// ```dart
   /// final addr = Address.fromBech32('erd1qyu5wthldzr8wx5c9ucg8kjagg0jfs53s8nr3zpz3hypefsdd8ssycr6th');
   /// print(addr.hex);
   /// ```
-  Address.fromBech32(final String bech32)
-    : hrp = _extractHrp(bech32),
-      bytes = Bech32Encoder(hrp: _extractHrp(bech32)).decode(bech32);
+  factory Address.fromBech32(final String bech32) {
+    final String hrp = _extractHrp(bech32);
+    final List<int> decoded;
+    try {
+      decoded = Bech32Encoder(hrp: hrp).decode(bech32);
+    } on ArgumentError catch (e, s) {
+      throw AddressException(
+        'Invalid bech32 address "$bech32": ${e.message}',
+        cause: e,
+        stackTrace: s,
+      );
+    }
+    return Address(decoded, hrp: hrp);
+  }
 
   /// Creates Address from hexadecimal string.
   ///
   /// #### Parameters
-  /// - `hex` - Hexadecimal string (64 characters, with or without 0x prefix)
+  /// - `hex` - Hexadecimal string of 64 characters, without a `0x` prefix
   /// - `hrp` - Human-readable part (default: 'erd')
   ///
   /// #### Throws
-  /// - `FormatException` - If hex string is invalid
+  /// - [AddressException] - If the string is not valid hexadecimal or does not
+  ///   decode to exactly 32 bytes.
   ///
   /// #### Example
   /// ```dart
   /// final addr = Address.fromHex('0000000000000000050000000000000000000000000000000000000000000000');
   /// print(addr.bech32);
   /// ```
-  Address.fromHex(final String hex, {this.hrp = 'erd'})
-    : bytes = convert.hex.decode(hex) {
-    if (bytes.length != _addressLength) {
-      throw FormatException(
-        'Address hex must decode to $_addressLength bytes, got ${bytes.length}',
+  factory Address.fromHex(final String hex, {final String hrp = 'erd'}) {
+    final List<int> decoded;
+    try {
+      decoded = convert.hex.decode(hex);
+    } on FormatException catch (e, s) {
+      throw AddressException(
+        'Invalid hex address "$hex": ${e.message}',
+        cause: e,
+        stackTrace: s,
       );
     }
+    if (decoded.length != _addressLength) {
+      throw AddressException(
+        'Address hex must decode to $_addressLength bytes, '
+        'got ${decoded.length} (input: "$hex")',
+      );
+    }
+    return Address(decoded, hrp: hrp);
   }
 
   /// Validates Bech32-encoded address string.
@@ -109,8 +161,13 @@ class Address {
     }
   }
 
-  /// Creates empty address (0 bytes).
-  Address.empty({this.hrp = 'erd'}) : bytes = List.empty(growable: false);
+  /// Creates an empty address: 32 zero bytes with the default `erd` HRP.
+  ///
+  /// Use [isEmpty] to test whether an address equals this sentinel value.
+  ///
+  /// #### Returns
+  /// `Address` - All-zero 32-byte pubkey, hrp `erd`.
+  static Address empty() => Address.zero();
 
   /// Creates zero address (32 bytes all set to 0).
   Address.zero({this.hrp = 'erd'})
@@ -128,11 +185,8 @@ class Address {
   /// Address as Bech32-encoded string.
   String get bech32 => Bech32Encoder(hrp: hrp).encode(bytes);
 
-  /// Checks if address is empty (0 bytes).
-  bool get isEmpty => bytes.isEmpty;
-
-  /// Checks if address is the zero address (32 zero bytes).
-  bool get isZero {
+  /// Checks if this address equals the zero address (32 zero bytes).
+  bool get isEmpty {
     if (bytes.length != _addressLength) return false;
     for (int i = 0; i < _addressLength; i++) {
       if (bytes[i] != 0) return false;
@@ -140,22 +194,28 @@ class Address {
     return true;
   }
 
-  /// Checks if address is smart contract address.
+  /// Checks if address is the zero address (32 zero bytes).
+  bool get isZero => isEmpty;
+
+  /// Checks if address is a smart contract address.
+  ///
+  /// Contract pubkeys are minted with a zeroed prefix: the first 8 bytes are
+  /// all zero for system and user smart contracts alike.
   ///
   /// #### Returns
-  /// `bool` - True if address is a smart contract (bytes 8-9 are [0x05, 0x00])
+  /// `bool` - True when the leading 8 bytes are all zero.
   ///
   /// #### Example
   /// ```dart
   /// final contract = Address.fromBech32('erd1qqqqqqqqqqqqqpgq...');
   /// print(contract.isSmartContract); // true
-  ///
-  /// final user = Address.fromBech32('erd1qyu5wthldzr8wx5c...');
-  /// print(user.isSmartContract); // false
   /// ```
   bool get isSmartContract {
-    if (bytes.length < 10) return false;
-    return bytes[8] == 0x05 && bytes[9] == 0x00;
+    if (bytes.length < _scPrefixLength) return false;
+    for (int i = 0; i < _scPrefixLength; i++) {
+      if (bytes[i] != 0) return false;
+    }
+    return true;
   }
 
   @override
@@ -186,21 +246,30 @@ class Address {
   String toString() => bech32;
 
   static const int _addressLength = 32;
+  static const int _scPrefixLength = 8;
 
-  /// Extracts HRP from Bech32 address string.
+  /// Extracts the HRP from a Bech32 address string.
+  ///
+  /// Throws [AddressException] if no separator is present. Previously this
+  /// silently returned `erd` for any malformed input, which let invalid
+  /// strings round-trip through [Address.fromBech32].
   static String _extractHrp(String bech32) {
-    final separatorIndex = bech32.lastIndexOf('1');
-    if (separatorIndex <= 0) return 'erd';
+    final int separatorIndex = bech32.lastIndexOf('1');
+    if (separatorIndex <= 0) {
+      throw AddressException(
+        'Invalid bech32 address: missing separator in "$bech32"',
+      );
+    }
     return bech32.substring(0, separatorIndex);
   }
 
-  /// Gets shard of address using bit masking algorithm (matches blockchain implementation).
+  /// Gets shard of address by bit-masking the last pubkey byte, the same
+  /// derivation the chain uses to assign an account to a shard.
   static int getShardOfAddress(Address address, {int numberOfShards = 3}) {
     if (numberOfShards <= 0) {
-      throw ArgumentError.value(
-        numberOfShards,
-        'numberOfShards',
-        'must be positive',
+      throw AddressException(
+        'getShardOfAddress requires numberOfShards > 0, '
+        'got $numberOfShards',
       );
     }
 
@@ -244,10 +313,34 @@ class Address {
 class AddressComputer {
   AddressComputer._();
 
-  /// Computes smart contract address from deployer and nonce.
+  /// Computes a smart contract address from deployer and nonce.
+  ///
+  /// #### Parameters
+  /// - `deployer` - Account that deploys the contract.
+  /// - `nonce` - Account nonce at deployment time.
+  ///
+  /// #### Returns
+  /// `Address` - Newly minted contract address with the deployer's HRP.
   static Address computeContractAddress(Address deployer, Nonce nonce) {
-    final nonceBytes = _encodeU64LittleEndian(nonce.value);
-    final reversedNonce = nonceBytes.reversed.toList();
+    return computeContractAddressFromBigInt(deployer, BigInt.from(nonce.value));
+  }
+
+  /// Computes a smart contract address from deployer and `BigInt` nonce.
+  ///
+  /// Accepts nonces beyond the 64-bit range of [computeContractAddress].
+  ///
+  /// #### Parameters
+  /// - `deployer` - Account that deploys the contract.
+  /// - `nonce` - Account nonce at deployment time as a `BigInt`.
+  ///
+  /// #### Returns
+  /// `Address` - Newly minted contract address with the deployer's HRP.
+  static Address computeContractAddressFromBigInt(
+    Address deployer,
+    BigInt nonce,
+  ) {
+    final Uint8List nonceBytes = _encodeU64LittleEndianBigInt(nonce);
+    final List<int> reversedNonce = nonceBytes.reversed.toList();
 
     final List<int> bytesToHash = <int>[...deployer.bytes, ...reversedNonce];
 
@@ -266,10 +359,15 @@ class AddressComputer {
     return Address(contractBytes, hrp: deployer.hrp);
   }
 
-  /// Encodes integer as 8-byte u64 little-endian.
-  static Uint8List _encodeU64LittleEndian(int value) {
-    final bytes = Uint8List(8);
-    bytes.buffer.asByteData().setUint64(0, value, Endian.little);
+  /// Encodes a `BigInt` nonce as an 8-byte u64 little-endian buffer.
+  static Uint8List _encodeU64LittleEndianBigInt(BigInt value) {
+    final BigInt mask = BigInt.from(0xFF);
+    final Uint8List bytes = Uint8List(8);
+    BigInt v = value;
+    for (int i = 0; i < 8; i++) {
+      bytes[i] = (v & mask).toInt();
+      v = v >> 8;
+    }
     return bytes;
   }
 

@@ -172,18 +172,6 @@ final class ClaimDeveloperRewards extends DecodedTransaction {
   const ClaimDeveloperRewards({required super.transaction});
 }
 
-/// A relayed-v3 outer transaction wrapping one or more pre-signed inner
-/// transactions. Surfaces the bundle so explorers / relayers can walk each
-/// inner tx without re-parsing the protobuf.
-final class RelayedV3Transaction extends DecodedTransaction {
-  const RelayedV3Transaction({
-    required super.transaction,
-    required this.innerTransactions,
-  });
-
-  final List<Transaction> innerTransactions;
-}
-
 /// The data-field-level view of `<function>@<argHex>...`.
 class DecodedContractCall {
   const DecodedContractCall({required this.function, required this.arguments});
@@ -223,6 +211,12 @@ final class UnknownTransaction extends DecodedTransaction {
 ///     print('${transfers.length} tokens bundled');
 ///   case ContractCall(:final call):
 ///     print('call ${call.function}(${call.arguments.length} args)');
+///   case ContractDeploy(:final bytecode):
+///     print('deploy of ${bytecode.length} bytes');
+///   case ContractUpgrade(:final bytecode):
+///     print('upgrade to ${bytecode.length} bytes');
+///   case ContractChangeOwner() || ClaimDeveloperRewards():
+///     print('contract maintenance call');
 ///   case UnknownTransaction():
 ///     print('could not decode');
 /// }
@@ -233,15 +227,11 @@ class TransactionDecoder {
 
   /// Decodes [transaction] into a typed [DecodedTransaction].
   ///
+  /// A relayed transaction is a single flat transaction carrying a `relayer`
+  /// and a `relayerSignature`, so it decodes exactly like the call it wraps.
+  ///
   /// Never throws — anything unrecognized becomes [UnknownTransaction].
   DecodedTransaction decode(Transaction transaction) {
-    if (transaction.innerTransactions.isNotEmpty) {
-      return RelayedV3Transaction(
-        transaction: transaction,
-        innerTransactions: transaction.innerTransactions,
-      );
-    }
-
     final Uint8List data = transaction.data;
     if (data.isEmpty) {
       return NativeEgldTransfer(transaction: transaction);
@@ -279,8 +269,6 @@ class TransactionDecoder {
       return _decodeDeploy(transaction, parts);
     }
 
-    // Not a built-in. If the data contains `@`, treat it as a contract call;
-    // otherwise it's a free-form EGLD memo.
     if (parts.length == 1) {
       return NativeEgldTransfer(transaction: transaction, memo: text);
     }
@@ -295,8 +283,9 @@ class TransactionDecoder {
     return ContractCall(transaction: transaction, call: call);
   }
 
+  /// Decodes an `ESDTTransfer@<tokenIdentifierHex>@<amountHex>[@<function>@<arg>...]`
+  /// payload.
   DecodedTransaction _decodeEsdtTransfer(Transaction tx, List<String> parts) {
-    // ESDTTransfer@<tokenIdentifierHex>@<amountHex>[@<function>@<arg>...]
     if (parts.length < 3) {
       return UnknownTransaction(
         transaction: tx,
@@ -322,8 +311,9 @@ class TransactionDecoder {
     );
   }
 
+  /// Decodes an `ESDTNFTTransfer@<collectionHex>@<nonceHex>@<amountHex>@<destinationHex>[@<function>@<arg>...]`
+  /// payload.
   DecodedTransaction _decodeNftTransfer(Transaction tx, List<String> parts) {
-    // ESDTNFTTransfer@<collectionHex>@<nonceHex>@<amountHex>@<destinationHex>[@<function>@<arg>...]
     if (parts.length < 5) {
       return UnknownTransaction(
         transaction: tx,
@@ -354,8 +344,9 @@ class TransactionDecoder {
     );
   }
 
+  /// Decodes a `MultiESDTNFTTransfer@<destinationHex>@<countHex>@(<tokenHex>@<nonceHex>@<amountHex>)+[@<function>@<arg>...]`
+  /// payload.
   DecodedTransaction _decodeMultiTransfer(Transaction tx, List<String> parts) {
-    // MultiESDTNFTTransfer@<destinationHex>@<countHex>@(<tokenHex>@<nonceHex>@<amountHex>)+[@<function>@<arg>...]
     if (parts.length < 3) {
       return UnknownTransaction(
         transaction: tx,

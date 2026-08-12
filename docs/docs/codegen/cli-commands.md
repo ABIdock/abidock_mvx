@@ -34,7 +34,7 @@ abidock --interactive
 ```
 
 :::tip
-Make sure `~/.pub-cache/bin` (Linux/macOS) or `%APPDATA%\Pub\Cache\bin` (Windows) is in your PATH.
+Make sure `~/.pub-cache/bin` (Linux/macOS) or `%LOCALAPPDATA%\Pub\Cache\bin` (Windows) is in your PATH.
 :::
 
 ### Option 2: Project Dependency
@@ -43,7 +43,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dev_dependencies:
-  abidock_mvx: ^1.2.0
+  abidock_mvx: ^2.0.0
 ```
 
 Then run via:
@@ -91,6 +91,13 @@ Generate code for a single contract with positional arguments:
 abidock <abi_file> <output_dir> <contract_name> [flags]
 ```
 
+The same three positionals work after `generate`, which is handy when a script
+always calls the same subcommand:
+
+```bash
+abidock generate <abi_file> <output_dir> <contract_name> [flags]
+```
+
 ### Positional Arguments
 
 | Position | Required | Description |
@@ -105,7 +112,7 @@ abidock <abi_file> <output_dir> <contract_name> [flags]
 |------|-------------|
 | `--logger` | Auto-inject `ConsoleLogger` in generated controller |
 | `--autogas` | Generate automatic gas estimation via `simulateGas` |
-| `--transfers` | Generate transfer controller for EGLD/ESDT/NFT |
+| `--transfers` | Generate `TransferService` for EGLD/ESDT/NFT/multi transfers |
 | `--full` | Enable ALL features (logger + autogas + transfers) |
 
 ### Examples
@@ -352,20 +359,23 @@ watch:
 
 ## Generated Output
 
-The CLI creates a folder with the contract name containing:
+The CLI writes into the output directory you named:
 
 ```
 pair/
 ├── abi.dart                   # ABI constant
-├── controller.dart            # Main PairController class  
+├── controller.dart            # Main PairController class
 ├── pair.dart                  # Barrel export file
-├── models/                    # Structs and enums
-├── queries/                   # Query functions
-├── calls/                     # Call functions
-├── events/                    # Event streams (optional)
+├── transfer_service.dart      # TransferService (with --transfers)
+├── models/                    # Structs, enums, event models
+├── queries/                   # Query functions (one per view endpoint)
+├── calls/                     # Call functions, plus deploy.dart / upgrade.dart
+├── events/                    # Event streams (when the ABI declares events)
+│   ├── multi_event_polling_stream.dart
+│   ├── multi_event_websocket_stream.dart
 │   ├── polling_events/
 │   └── websocket_events/
-└── transfers/                 # Token transfers (with --transfers)
+└── transfers/                 # egld / esdt / nft / multi (with --transfers)
 ```
 
 ---
@@ -374,13 +384,15 @@ pair/
 
 ### --logger
 
-Injects a `ConsoleLogger` into the generated controller with detailed formatting:
+Injects a `ConsoleLogger` into the generated controller with detailed
+formatting. The parameter is typed as the abstract `Logger`, so you can pass
+any implementation instead:
 
 ```dart
 PairController({
   required dynamic contractAddress,
   required NetworkProvider networkProvider,
-  ConsoleLogger? logger,  // Optional logger parameter added
+  Logger? logger,  // Optional logger parameter added
 }) : logger = logger ?? ConsoleLogger(
        minLevel: LogLevel.debug,
        includeTimestamp: true,
@@ -393,7 +405,8 @@ PairController({
 
 ### --autogas
 
-Generated calls use `simulateGas` to automatically estimate gas:
+Generated calls use `simulateGas` to automatically estimate gas. Without the
+flag, each call takes a `required GasLimit gasLimit` instead:
 
 ```dart
 Future<Transaction> addLiquidity(
@@ -404,25 +417,31 @@ Future<Transaction> addLiquidity(
   BigInt secondTokenAmountMin,
   // ...
 ) async {
-  // Create transaction with max gas for simulation
-  final simulationTx = await controller.call(
-    account: sender,
+  // Build an unsigned probe transaction for simulation.
+  final factory = SmartContractCallFactory(
+    contractAddress: controller.contractAddress,
+    abi: controller.abi,
+    chainId: controller.networkProvider.chainId,
+  );
+  final probeTx = factory.createCall(
+    sender: sender.address,
     nonce: nonce,
     endpointName: 'addLiquidity',
-    arguments: [firstTokenAmountMin, secondTokenAmountMin],
-    options: BaseControllerInput(gasLimit: const GasLimit(600000000)),
-    // ...
+    arguments: <dynamic>[firstTokenAmountMin, secondTokenAmountMin],
+    gasLimit: const GasLimit(600000000),
+    value: value,
   );
 
-  // Estimate gas using simulation
-  final gasLimit = await simulateGas(simulationTx, controller.networkProvider);
+  // Estimate gas using simulation.
+  final gasLimit = await simulateGas(probeTx, controller.networkProvider);
 
-  // Create final transaction with estimated gas
+  // Sign once with the final gas limit. copyWith on a signed tx would
+  // invalidate the signature, so we never mutate gas after signing.
   return controller.call(
     account: sender,
     nonce: nonce,
     endpointName: 'addLiquidity',
-    arguments: [firstTokenAmountMin, secondTokenAmountMin],
+    arguments: <dynamic>[firstTokenAmountMin, secondTokenAmountMin],
     options: BaseControllerInput(gasLimit: gasLimit),
     // ...
   );
@@ -431,15 +450,21 @@ Future<Transaction> addLiquidity(
 
 ### --transfers
 
-Generates a transfer controller for sending EGLD, ESDT tokens, and NFTs:
+Generates `transfer_service.dart` with a stateless `TransferService` for
+sending EGLD, ESDT tokens, NFTs, and multi-token batches. It is built from a
+`NetworkProvider`, not from the contract controller:
 
 ```dart
-// Generated TransferController
-class TransferController {
-  Future<Transaction> sendEgld(...) async { ... }
-  Future<Transaction> sendEsdt(...) async { ... }
-  Future<Transaction> sendNft(...) async { ... }
-  Future<Transaction> sendMultiEsdtNft(...) async { ... }
+// Generated TransferService
+class TransferService {
+  const TransferService(this._provider);
+
+  Future<Transaction> egld(...);
+  Future<Transaction> esdt(...);
+  Future<Transaction> nft(...);
+  Future<Transaction> multi(...);
+
+  TransferTransactionsFactory get transferFactory;
 }
 ```
 
@@ -519,7 +544,7 @@ jobs:
 
 ```dart
 import 'package:abidock_mvx/abidock_mvx.dart';
-import 'lib/generated/pair/pair.dart';
+import 'package:my_app/generated/pair/pair.dart';
 
 void main() async {
   final provider = GatewayNetworkProvider.devnet();
@@ -531,7 +556,7 @@ void main() async {
   );
   
   // Type-safe queries
-  final reserve = await pair.getReserve('WEGLD-bd4d79');
+  final reserve = await pair.getReserve(TokenIdentifier('WEGLD-bd4d79'));
   final (res1, res2, total) = await pair.getReservesAndTotalSupply();
   
   print('Reserve: $reserve');

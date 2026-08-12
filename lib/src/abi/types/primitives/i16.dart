@@ -21,9 +21,12 @@ import 'numerical.dart';
 /// print(max.toBytes()); // [127, 255]
 ///
 /// // Use in struct definitions
-/// final structType = StructType(fields: [
-///   StructField('temperature', I16Type.type),
-/// ]);
+/// final structType = StructType(
+///   name: 'SensorReading',
+///   fieldDefinitions: [
+///     FieldDefinition(name: 'temperature', type: I16Type.type),
+///   ],
+/// );
 /// ```
 @immutable
 final class I16Type extends NumericalType {

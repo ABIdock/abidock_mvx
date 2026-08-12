@@ -119,7 +119,7 @@ void main() async {
   
   // Load contract ABI
   final abi = SmartContractAbi.fromJson(abiJson);
-  final contractAddress = SmartContractAddress.fromBech32('erd1qqq...');
+  final contractAddress = Address.fromBech32('erd1qqq...');
   
   final controller = SmartContractController(
     contractAddress: contractAddress,
@@ -250,31 +250,50 @@ void main() async {
 
 ## Gas Estimation
 
-ESDT transfers require more gas than EGLD:
+`TransferTransactionsFactory` computes the gas limit for you. It sums two
+terms:
 
-| Operation | Base Gas | Data Gas |
-|-----------|----------|----------|
-| Simple ESDT transfer | 500,000 | + data bytes |
-| ESDT to contract | 500,000 + function cost | + data bytes |
-| Multi-ESDT | 1,000,000 | + per token |
+```
+gasLimit = (minGasLimit + gasLimitPerByte * data.length) + executionGas
+```
+
+with `minGasLimit = 50,000` and `gasLimitPerByte = 1,500` by default. The
+execution term depends on the transfer protocol used:
+
+| Operation | Execution gas | Total |
+|-----------|---------------|-------|
+| Single fungible ESDT (`ESDTTransfer`) | 300,000 | 350,000 + 1,500 x data bytes |
+| Single NFT/SFT (`ESDTNFTTransfer`) | 1,000,000 | 1,050,000 + 1,500 x data bytes |
+| Multi-transfer of N tokens (`MultiESDTNFTTransfer`) | 800,000 + 200,000 x N | 850,000 + 200,000 x N + 1,500 x data bytes |
+
+Note that `createTransactionForEsdtTransfer` switches protocol on list length:
+one entry uses the single-transfer path, two or more use
+`MultiESDTNFTTransfer`.
+
+Pass an explicit `gasLimit` to override the calculation entirely:
 
 ```dart
-int estimateEsdtGas({
-  required String tokenId,
-  required BigInt amount,
-  String? functionName,
-  List<String>? arguments,
-}) {
-  var gas = 500000;
-  
-  if (functionName != null) {
-    gas += 5000000; // Base contract call
-    gas += (arguments?.length ?? 0) * 50000; // Per argument
-  }
-  
-  return gas;
-}
+final transfersFactory = TransferTransactionsFactory(
+  config: TransferTransactionsConfig(chainId: ChainId(config.chainId)),
+);
+
+final overriddenTx = transfersFactory.createTransactionForEsdtTransfer(
+  sender: account.address,
+  receiver: recipient,
+  tokenTransfers: [
+    TokenTransfer.fungible(
+      tokenIdentifier: 'WEGLD-bd4d79',
+      amount: BigInt.parse('10000000000000000'),
+    ),
+  ],
+  gasLimit: GasLimit(600000), // skips the automatic calculation
+);
 ```
+
+When you attach tokens to a contract call, the endpoint's own execution cost
+is on top of the transfer cost, so supply it through
+`BaseControllerInput(gasLimit: ...)` -- `SmartContractController.call` requires
+it.
 
 ## Next Steps
 

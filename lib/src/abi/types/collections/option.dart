@@ -6,8 +6,8 @@ import '../../core/type_system.dart';
 
 /// Optional type that can contain a value or be empty.
 ///
-/// Represents smart contract Option types for nullable values
-/// (e.g., `Option<T>` in Rust). Encoded as Some(value) or None.
+/// Represents smart contract `Option<T>` types for nullable values. Encoded as
+/// Some(value) or None.
 @immutable
 final class OptionType extends AbiType {
   /// Creates an Option type for the inner type.
@@ -57,11 +57,11 @@ final class OptionType extends AbiType {
   /// final optionType = OptionType(U32Type.type);
   ///
   /// // Create Some variant
-  /// final some = optionType.createValue(100);
+  /// final some = optionType.createValue(100) as OptionValue;
   /// print(some.isSome); // true
   ///
   /// // Create None variant
-  /// final none = optionType.createValue(null);
+  /// final none = optionType.createValue(null) as OptionValue;
   /// print(none.isNone); // true
   /// ```
   @override

@@ -5,6 +5,8 @@ import '../../core/address.dart';
 import '../../core/token_on_network.dart';
 import '../../core/transaction/chain_id.dart';
 import '../../core/transaction/transaction_on_network.dart';
+import '../../core/transaction/transaction_status.dart';
+import '../../core/transaction/transaction_watcher.dart';
 import '../../utils/helpers.dart';
 import '../../utils/sdk_exceptions.dart';
 import '../logging/logger.dart';
@@ -12,6 +14,7 @@ import 'base_network_provider.dart';
 import 'block_on_network.dart';
 import 'network_config.dart';
 import 'network_economics.dart';
+import 'network_provider_config.dart';
 import 'network_status.dart';
 import 'send_transactions_result.dart';
 
@@ -54,6 +57,7 @@ class ApiNetworkProvider extends BaseNetworkProvider {
     super.client,
     super.logger,
     super.enableCircuitBreaker,
+    super.config,
   });
 
   /// Creates provider for mainnet.
@@ -61,6 +65,7 @@ class ApiNetworkProvider extends BaseNetworkProvider {
     Dio? client,
     Logger? logger,
     bool enableCircuitBreaker = false,
+    NetworkProviderConfig? config,
   }) {
     return ApiNetworkProvider(
       baseUrl: 'https://api.multiversx.com',
@@ -68,6 +73,7 @@ class ApiNetworkProvider extends BaseNetworkProvider {
       client: client,
       logger: logger,
       enableCircuitBreaker: enableCircuitBreaker,
+      config: config,
     );
   }
 
@@ -76,6 +82,7 @@ class ApiNetworkProvider extends BaseNetworkProvider {
     Dio? client,
     Logger? logger,
     bool enableCircuitBreaker = false,
+    NetworkProviderConfig? config,
   }) {
     return ApiNetworkProvider(
       baseUrl: 'https://testnet-api.multiversx.com',
@@ -83,6 +90,7 @@ class ApiNetworkProvider extends BaseNetworkProvider {
       client: client,
       logger: logger,
       enableCircuitBreaker: enableCircuitBreaker,
+      config: config,
     );
   }
 
@@ -91,6 +99,7 @@ class ApiNetworkProvider extends BaseNetworkProvider {
     Dio? client,
     Logger? logger,
     bool enableCircuitBreaker = false,
+    NetworkProviderConfig? config,
   }) {
     return ApiNetworkProvider(
       baseUrl: 'https://devnet-api.multiversx.com',
@@ -98,7 +107,32 @@ class ApiNetworkProvider extends BaseNetworkProvider {
       client: client,
       logger: logger,
       enableCircuitBreaker: enableCircuitBreaker,
+      config: config,
     );
+  }
+
+  /// Awaits a transaction reaching the terminal `completed` state using
+  /// the default `TransactionWatcher` polling settings.
+  Future<TransactionOnNetwork> awaitTransactionCompleted(String txHash) {
+    return TransactionWatcher(networkProvider: this).awaitCompleted(txHash);
+  }
+
+  /// Awaits a transaction whose status satisfies `condition` via
+  /// `TransactionWatcher`.
+  ///
+  /// #### Parameters
+  /// - `txHash` - Transaction hash to poll
+  /// - `condition` - Predicate evaluated against the current `TransactionStatus`
+  ///
+  /// #### Returns
+  /// `Future<TransactionOnNetwork>` - The transaction once the predicate matches
+  Future<TransactionOnNetwork> awaitTransactionOnCondition(
+    String txHash,
+    bool Function(TransactionStatus status) condition,
+  ) {
+    return TransactionWatcher(
+      networkProvider: this,
+    ).awaitOnCondition(txHash, condition);
   }
 
   @override
@@ -107,8 +141,16 @@ class ApiNetworkProvider extends BaseNetworkProvider {
   @override
   String get errorPrefix => 'API Error';
 
+  /// Endpoint for account data, always requesting guardian information.
+  ///
+  /// `GET /accounts/:address` only populates `isGuarded` and the flat
+  /// `activeGuardian*` / `pendingGuardian*` fields when `withGuardianInfo=true`
+  /// is sent, so the flag is part of the path. `appendPagination` switches the
+  /// leading separator to `&`, keeping the query string valid for callers that
+  /// add their own parameters.
   @override
-  String accountEndpoint(Address address) => 'accounts/${address.bech32}';
+  String accountEndpoint(Address address) =>
+      'accounts/${address.bech32}?withGuardianInfo=true';
 
   @override
   String accountStorageEndpoint(Address address) =>
@@ -128,32 +170,54 @@ class ApiNetworkProvider extends BaseNetworkProvider {
   String networkStatusEndpoint({int shard = 4294967295}) =>
       'network/status/$shard';
 
+  /// Endpoint for transaction cost estimation.
+  ///
+  /// The API host proxies `POST /transaction/cost` straight through to the
+  /// gateway, so the same path the Gateway provider uses is served here too.
   @override
-  String? estimateTransactionCostEndpoint() => null;
+  String? estimateTransactionCostEndpoint() => 'transaction/cost';
 
   @override
   String sendMultipleTransactionsEndpoint() => 'transaction/send-multiple';
 
+  /// Endpoint for a single transaction by hash.
+  ///
+  /// `GET /transactions/:txHash` declares only `fields` and
+  /// `withActionTransferValue` as query parameters and already returns the
+  /// smart-contract results by default, so `withProcessStatus` adds nothing to
+  /// the path and is deliberately ignored.
   @override
   String getTransactionEndpoint(
     String txHash, {
     bool withProcessStatus = false,
   }) {
-    return withProcessStatus
-        ? 'transactions/$txHash?withResults=true'
-        : 'transactions/$txHash';
+    return 'transactions/$txHash';
   }
 
   @override
   String getTransactionStatusEndpoint(String txHash) =>
       'transactions/$txHash?fields=status';
 
+  /// Endpoint for transaction simulation.
+  ///
+  /// There is no `/transactions/simulate` route on the API; simulation is
+  /// served by the gateway passthrough `POST /transaction/simulate`, whose
+  /// `checkSignature` parameter defaults to skipping signature verification.
   @override
-  String simulateTransactionEndpoint() => 'transactions/simulate';
+  String simulateTransactionEndpoint() =>
+      'transaction/simulate?checkSignature=false';
 
+  /// Endpoint for a single token balance of an account.
+  ///
+  /// Extended identifiers carrying a nonce segment (`TICKER-abcdef-01`) are
+  /// served by `/accounts/{bech32}/nfts/{identifier}`; the `/tokens` route only
+  /// answers for fungible ESDTs and 404s on anything with a nonce.
   @override
-  String tokenOfAccountEndpoint(Address address, String tokenIdentifier) =>
-      'accounts/${address.bech32}/tokens/$tokenIdentifier';
+  String tokenOfAccountEndpoint(Address address, String tokenIdentifier) {
+    return _isExtendedIdentifier(tokenIdentifier)
+        ? 'accounts/${address.bech32}/nfts/$tokenIdentifier'
+        : 'accounts/${address.bech32}/tokens/$tokenIdentifier';
+  }
 
   @override
   String fungibleTokensEndpoint(Address address) =>
@@ -162,6 +226,31 @@ class ApiNetworkProvider extends BaseNetworkProvider {
   @override
   String nonFungibleTokensEndpoint(Address address) =>
       'accounts/${address.bech32}/nfts';
+
+  /// First index requested on `/accounts/{bech32}/tokens` and
+  /// `/accounts/{bech32}/nfts` when the caller passes none.
+  @override
+  int? get defaultTokenListingFrom => 0;
+
+  /// Page size requested on `/accounts/{bech32}/tokens` and
+  /// `/accounts/{bech32}/nfts` when the caller passes none.
+  ///
+  /// Both routes fall back to `size=25` when the parameter is omitted, which
+  /// truncates the holdings of most accounts with no error and no signal in
+  /// the payload. Requesting 100 keeps the common case whole; accounts holding
+  /// more must be paged explicitly through `from`/`size`.
+  @override
+  int? get defaultTokenListingSize => 100;
+
+  /// Endpoint for guardian data.
+  ///
+  /// The accounts controller exposes no `guardian-data` route; the API host
+  /// serves the gateway passthrough `GET /address/:address/guardian-data`,
+  /// which returns the envelope `GuardianData.fromHttpResponse` already
+  /// unwraps.
+  @override
+  String guardianDataEndpoint(Address address) =>
+      'address/${address.bech32}/guardian-data';
 
   @override
   String fungibleTokenDefinitionEndpoint(String identifier) =>
@@ -178,16 +267,18 @@ class ApiNetworkProvider extends BaseNetworkProvider {
   }
 
   @override
-  String blockByHashEndpoint(String hash) => 'blocks/$hash';
+  String blockByHashEndpoint(int shard, String hash) => 'blocks/$hash';
 
   @override
   String latestBlockEndpoint(int shard) => 'blocks?shard=$shard&size=1';
 
+  /// Endpoint for a hyperblock by nonce.
+  ///
+  /// Served by the gateway passthrough `GET /hyperblock/by-nonce/:nonce`, so
+  /// the payload arrives in the gateway envelope and is parsed the same way as
+  /// on the Gateway provider.
   @override
-  String hyperblockByNonceEndpoint(int nonce) => throw UnsupportedError(
-    'Hyperblocks are not exposed by the API provider. '
-    'Use GatewayNetworkProvider.getHyperblock instead.',
-  );
+  String hyperblockByNonceEndpoint(int nonce) => 'hyperblock/by-nonce/$nonce';
 
   @override
   NetworkConfig parseNetworkConfig(Map<String, dynamic> response) {
@@ -300,11 +391,20 @@ class ApiNetworkProvider extends BaseNetworkProvider {
     );
   }
 
+  /// Parses a simulation response.
+  ///
+  /// `/transaction/simulate` is a gateway passthrough, so the body is
+  /// gateway-shaped: the simulated transaction sits under `result` and its
+  /// payloads are plain UTF-8 rather than base64.
   @override
   TransactionOnNetwork parseSimulationResult(dynamic response) {
-    return TransactionOnNetwork.fromApiResponse(
-      requireAs<Map<String, dynamic>>(response, 'response'),
+    final Map<String, dynamic> data = requireAs<Map<String, dynamic>>(
+      response,
+      'response',
     );
+    final Map<String, dynamic> result =
+        optionalAs<Map<String, dynamic>>(data['result'], 'result') ?? data;
+    return TransactionOnNetwork.fromProxyResponse(result);
   }
 
   @override
@@ -440,10 +540,14 @@ class ApiNetworkProvider extends BaseNetworkProvider {
 
   @override
   HyperblockOnNetwork parseHyperblock(dynamic response) {
-    throw UnsupportedError(
-      'Hyperblocks are not exposed by the API provider. '
-      'Use GatewayNetworkProvider.getHyperblock instead.',
+    final Map<String, dynamic> data = requireAs<Map<String, dynamic>>(
+      response,
+      'response',
     );
+    final Map<String, dynamic> hyperblock =
+        optionalAs<Map<String, dynamic>>(data['hyperblock'], 'hyperblock') ??
+        data;
+    return HyperblockOnNetwork.fromJson(hyperblock);
   }
 
   @override
@@ -496,6 +600,10 @@ class ApiNetworkProvider extends BaseNetworkProvider {
     }
     return 'HTTP ${e.response?.statusCode ?? 'unknown'}: ${e.message}';
   }
+
+  /// Whether `identifier` carries a nonce segment (`TICKER-abcdef-01`).
+  static bool _isExtendedIdentifier(String identifier) =>
+      identifier.split('-').length >= 3;
 
   static String _nonceToEvenLengthHex(int nonce) {
     String hex = nonce.toRadixString(16);

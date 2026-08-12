@@ -195,7 +195,7 @@ final class SmartContractCallFactory {
   ///   endpointName: 'deposit',
   ///   arguments: [BigInt.from(1000)],
   ///   gasLimit: GasLimit(10000000),
-  ///   value: Balance.fromEgld('0.1'),
+  ///   value: Balance.fromEgld(0.1),
   /// );
   ///
   /// // Call with token transfers

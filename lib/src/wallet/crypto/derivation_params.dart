@@ -4,16 +4,53 @@ import 'dart:typed_data';
 import 'package:pointycastle/export.dart';
 
 /// Scrypt key derivation function parameters per RFC 7914.
+///
 /// Configures CPU/memory cost, block size, parallelization, and output length.
+/// `n = 4096` is the default carried by MultiversX keystore files, so
+/// keystores written with it load anywhere the format is supported.
 class ScryptKeyDerivationParams {
-  /// Creates Scrypt parameters with optional custom values.
+  /// Creates Scrypt parameters with the MultiversX keystore defaults.
+  ///
+  /// #### Parameters
+  /// - `n` - CPU/memory cost parameter (default 4096, must be a power of 2)
+  /// - `r` - Block size parameter (default 8)
+  /// - `p` - Parallelization parameter (default 1)
+  /// - `dklen` - Derived key length in bytes (default 32)
+  ///
+  /// #### Throws
+  /// - `ArgumentError` - If parameters are out of the allowed range.
+  ScryptKeyDerivationParams({
+    this.n = 4096,
+    this.r = 8,
+    this.p = 1,
+    this.dklen = 32,
+  }) {
+    if (n < 4096 || (n & (n - 1)) != 0) {
+      throw ArgumentError.value(n, 'n', 'must be power of 2 and >= 4096');
+    }
+    if (r < 8) {
+      throw ArgumentError.value(r, 'r', 'must be >= 8');
+    }
+    if (p < 1) {
+      throw ArgumentError.value(p, 'p', 'must be >= 1');
+    }
+    if (dklen != 32) {
+      throw ArgumentError.value(dklen, 'dklen', 'must be 32');
+    }
+  }
+
+  /// Creates Scrypt parameters with strict (more expensive) defaults.
+  ///
+  /// Use when you explicitly want a stronger KDF (`n = 16384`). The keystore
+  /// format stores `n` in its `kdfparams` header, so a raised cost travels
+  /// with the file and readers pick it up automatically.
   ///
   /// #### Parameters
   /// - `n` - CPU/memory cost parameter (default 16384)
   /// - `r` - Block size parameter (default 8)
   /// - `p` - Parallelization parameter (default 1)
   /// - `dklen` - Derived key length in bytes (default 32)
-  ScryptKeyDerivationParams({
+  ScryptKeyDerivationParams.strict({
     this.n = 16384,
     this.r = 8,
     this.p = 1,
@@ -33,8 +70,12 @@ class ScryptKeyDerivationParams {
     }
   }
 
+  /// Creates Scrypt parameters that accept legacy `n >= 1024` values.
+  ///
+  /// Used for loading older keystore files whose `kdfparams` carry weaker
+  /// cost settings than the current defaults.
   ScryptKeyDerivationParams.permissive({
-    this.n = 16384,
+    this.n = 4096,
     this.r = 8,
     this.p = 1,
     this.dklen = 32,
@@ -72,7 +113,7 @@ class ScryptKeyDerivationParams {
   /// - `salt` - Random salt bytes
   ///
   /// #### Returns
-  /// `Uint8List` - Derived key of length dklen bytes
+  /// `Uint8List` - Derived key of length `dklen` bytes.
   Uint8List generateDerivedKey(Uint8List password, Uint8List salt) {
     final Scrypt scrypt = Scrypt()
       ..init(ScryptParameters(n, r, p, dklen, salt));

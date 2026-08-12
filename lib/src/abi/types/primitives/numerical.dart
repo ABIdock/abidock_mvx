@@ -6,6 +6,7 @@ import 'package:meta/meta.dart';
 
 import '../../core/type_system.dart';
 
+export 'big_float.dart';
 export 'bigint.dart';
 export 'biguint.dart';
 export 'i16.dart';

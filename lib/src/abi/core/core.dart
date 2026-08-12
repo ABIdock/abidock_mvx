@@ -8,7 +8,11 @@ export 'endpoint_resolver.dart';
 export 'event.dart';
 export 'parameter.dart';
 export 'type_formula.dart';
-export 'type_formula_parser.dart';
+
+/// `Token` and `TokenType` from the ABI parser are internal lexer
+/// primitives. They are intentionally hidden from the public surface so the
+/// user-facing `Token` DTO from `core/tokens/token.dart` wins.
+export 'type_formula_parser.dart' hide Token, TokenType;
 export 'type_matchers.dart';
 export 'type_system.dart';
 export 'types.dart';

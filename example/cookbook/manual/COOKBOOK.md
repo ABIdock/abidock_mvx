@@ -48,7 +48,7 @@ Use `GatewayNetworkProvider` for transaction flows; switch to `ApiNetworkProvide
 ```dart
 import 'dart:io';
 
-final pem = File('assets/alice.pem').readAsStringSync();
+final pem = File('example/assets/alice.pem').readAsStringSync();
 final account = await Account.fromPem(pem);  // [1]
 print('Address: ${account.address.bech32}'); // [2]
 ```
@@ -123,7 +123,7 @@ Where:
 ### Parsing an ABI
 
 ```dart
-final abiJson = File('assets/pair.abi.json').readAsStringSync();
+final abiJson = File('example/cookbook/pair.abi.json').readAsStringSync();
 final abi = SmartContractAbi.fromJson(abiJson);
 ```
 
@@ -908,12 +908,12 @@ Future<void> main() async {
   final provider = ApiNetworkProvider.devnet(logger: logger);
 
   // Step 3: Load account
-  final pem = File('assets/alice.pem').readAsStringSync();
+  final pem = File('example/assets/alice.pem').readAsStringSync();
   final account = await Account.fromPem(pem);
   final accountOnNetwork = await provider.getAccount(account.address);
 
   // Step 4: Load ABI and create controller
-  final abiJson = File('assets/pair.abi.json').readAsStringSync();
+  final abiJson = File('example/cookbook/pair.abi.json').readAsStringSync();
   final abi = SmartContractAbi.fromJson(abiJson);
   final controller = SmartContractController(
     contractAddress: SmartContractAddress.fromBech32(

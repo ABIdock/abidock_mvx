@@ -231,6 +231,25 @@ class ArgSerializer {
 
         return (VariadicValue(items, itemType: type.itemType), currentIndex);
       }
+    } else if (type is MultiValueType) {
+      final List<TypedValue> inner = <TypedValue>[];
+      int currentIndex = bufferIndex;
+
+      for (int i = 0; i < type.arity; i++) {
+        if (currentIndex >= buffers.length) {
+          throw AbiArgumentSerializationException(
+            'Not enough buffers for MultiValue slot $i (arity ${type.arity})',
+          );
+        }
+        final TypedValue value = codec.decodeTopLevel(
+          buffers[currentIndex],
+          type.types[i],
+        );
+        inner.add(value);
+        currentIndex += 1;
+      }
+
+      return (MultiValueValue(type, inner), currentIndex);
     } else if (type is CompositeType) {
       final List<TypedValue> fields = <TypedValue>[];
       int currentIndex = bufferIndex;
@@ -324,6 +343,10 @@ class ArgSerializer {
       }
       for (final TypedValue item in value.items) {
         _handleValue(item, buffers);
+      }
+    } else if (value is MultiValueValue) {
+      for (final TypedValue inner in value.values) {
+        _handleValue(inner, buffers);
       }
     } else if (value is CompositeValue) {
       for (final TypedValue field in value.fields) {

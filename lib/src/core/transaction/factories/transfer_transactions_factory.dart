@@ -9,7 +9,15 @@ import '../../core.dart';
 /// Constants for gas estimation
 const int additionalGasForEsdtTransfer = 100000;
 const int additionalGasForEsdtNftTransfer = 800000;
-const String egldIdentifierForMultiTransfer = 'EGLD';
+
+/// Identifier for native EGLD inside a `MultiESDTNFTTransfer` payload.
+///
+/// Sending the bare 4-byte `EGLD` here is invalid on-chain; the wire form
+/// must be the full `EGLD-000000` sentinel.
+///
+/// DO NOT change this constant — `test/core/transaction/factories/egld_sentinel_pinning_test.dart`
+/// pins the value to prevent silent regressions.
+const String egldIdentifierForMultiTransfer = 'EGLD-000000';
 
 /// Configuration for transfer transactions.
 /// Defines gas limits for different transfer types based on data length and token complexity.
@@ -23,6 +31,24 @@ class TransferTransactionsConfig {
     this.gasLimitEsdtNftTransfer = 200000,
     this.gasLimitMultiEsdtNftTransfer = 200000,
   });
+
+  /// Builds a [TransferTransactionsConfig] from a shared [TransactionsFactoryConfig].
+  ///
+  /// #### Parameters
+  /// - `shared` - Aggregate factory config populated by `NetworkEntrypoint`.
+  ///
+  /// #### Returns
+  /// A new [TransferTransactionsConfig] mirroring `shared`'s relevant fields.
+  static TransferTransactionsConfig fromShared(
+    TransactionsFactoryConfig shared,
+  ) => TransferTransactionsConfig(
+    chainId: shared.chainId,
+    minGasLimit: shared.minGasLimit,
+    gasLimitPerByte: shared.gasLimitPerByte,
+    gasLimitEsdtTransfer: shared.gasLimitEsdtTransfer,
+    gasLimitEsdtNftTransfer: shared.gasLimitEsdtNftTransfer,
+    gasLimitMultiEsdtNftTransfer: shared.gasLimitMultiEsdtNftTransfer,
+  );
 
   final ChainId chainId;
   final int minGasLimit;

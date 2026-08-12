@@ -13,8 +13,8 @@ Transfer multiple ESDT tokens and/or NFTs in a single transaction.
 
 | Approach | Transactions | Gas |
 |----------|--------------|-----|
-| Separate transfers | N | N × 500,000+ |
-| Multi-transfer | 1 | ~1,100,000 + 100,000/token |
+| Separate fungible transfers | N | N x (350,000 + data-movement gas) |
+| Multi-transfer | 1 | ~850,000 + 200,000/token + data-movement gas |
 
 Benefits:
 - **Atomic**: All transfers succeed or all fail
@@ -120,7 +120,7 @@ void main() async {
   
   // Load contract ABI
   final abi = SmartContractAbi.fromJson(abiJson);
-  final contractAddress = SmartContractAddress.fromBech32('erd1qqq...');
+  final contractAddress = Address.fromBech32('erd1qqq...');
   
   final controller = SmartContractController(
     contractAddress: contractAddress,
@@ -271,23 +271,24 @@ void main() async {
 
 ## Gas Calculation
 
-```dart
-int calculateMultiTransferGas({
-  required int tokenCount,
-  String? functionName,
-  int argumentCount = 0,
-}) {
-  var gas = 1100000; // Base
-  gas += tokenCount * 100000; // Per token
-  
-  if (functionName != null) {
-    gas += 5000000; // Contract call base
-    gas += argumentCount * 50000; // Per argument
-  }
-  
-  return gas;
-}
+`TransferTransactionsFactory` computes the limit automatically. For a
+`MultiESDTNFTTransfer` of N tokens it is:
+
 ```
+gasLimit = minGasLimit                     //  50,000
+         + gasLimitPerByte * data.length   //   1,500 per byte of the payload
+         + 200,000 * N                     //  per bundled token
+         + 800,000                         //  multi-transfer base
+```
+
+so roughly `850,000 + 200,000 x N` plus the data-movement term. The data
+payload grows with each token, so the per-byte share is not negligible for
+large bundles -- prefer letting the factory measure it over hard-coding a
+constant.
+
+Pass `gasLimit:` to the factory to override the calculation, or
+`BaseControllerInput(gasLimit: ...)` when the transfer carries a contract call,
+where the endpoint's own execution cost is on top.
 
 ## Next Steps
 

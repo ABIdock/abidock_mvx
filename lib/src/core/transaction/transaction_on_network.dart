@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import '../../infrastructure/network/network_status.dart';
 import '../core.dart';
 
 /// Transaction on the MultiversX network.
@@ -45,7 +46,10 @@ class TransactionOnNetwork {
   /// - `hyperblockNonce` - Hyperblock nonce (optional)
   /// - `blockHash` - Block hash (optional)
   /// - `hyperblockHash` - Hyperblock hash (optional)
-  /// - `timestamp` - Execution timestamp (optional)
+  /// - `timestamp` - Execution timestamp, in the unit the provider reported —
+  ///   seconds or milliseconds depending on the route (optional; see
+  ///   [timestamp] for the hazard and [executedAt] for the safe accessor)
+  /// - `timestampMs` - Execution timestamp in milliseconds (optional)
   /// - `function` - Smart contract function name (optional)
   /// - `executionReceipt` - Gas usage receipt (optional)
   /// - `smartContractResults` - Generated results (optional)
@@ -72,11 +76,15 @@ class TransactionOnNetwork {
   /// - `isScCall` - Whether transaction is SC call (optional)
   /// - `scamInfo` - Scam detection information (optional)
   /// - `price` - EGLD price at transaction time (optional)
-  /// - `relayedVersion` - Version of relayed transaction protocol (optional)
+  /// - `relayedVersion` - Relayed protocol version, `'v1'`/`'v2'`/`'v3'` (optional)
   /// - `senderAssets` - Asset metadata for sender (optional)
   /// - `receiverAssets` - Asset metadata for receiver (optional)
   /// - `completedAt` - Completion timestamp from API (optional)
   /// - `initiallyPaidFee` - Initially paid fee (optional)
+  /// - `searchOrder` - Supernova: total ordering index used by the indexer
+  ///   for stable sort across shards (optional)
+  /// - `miniBlockType` - Supernova: miniblock-type label
+  ///   (e.g. `TxBlock`, `SmartContractResultBlock`) (optional)
   ///
   /// #### Example
   /// ```dart
@@ -97,6 +105,7 @@ class TransactionOnNetwork {
     this.blockHash,
     this.hyperblockHash,
     this.timestamp,
+    this.timestampMs,
     this.function,
     this.executionReceipt,
     this.smartContractResults,
@@ -128,6 +137,8 @@ class TransactionOnNetwork {
     this.receiverAssets,
     this.completedAt,
     this.initiallyPaidFee,
+    this.searchOrder,
+    this.miniBlockType,
   });
 
   /// Creates from API response.
@@ -154,7 +165,7 @@ class TransactionOnNetwork {
   ///   'blockNonce': 12345,
   ///   'timestamp': 1699999999,
   ///   'function': 'claimRewards',
-  ///   'smartContractResults': [...],
+  ///   'results': [...],
   ///   'logs': {...},
   /// };
   ///
@@ -239,6 +250,183 @@ class TransactionOnNetwork {
         'hyperblockHash',
       ),
       timestamp: (data['timestamp'] as num?)?.toInt(),
+      timestampMs: (data['timestampMs'] as num?)?.toInt(),
+      function: functionName,
+      executionReceipt: optionalAs<Map<String, dynamic>>(
+        data['receipt'],
+        'receipt',
+      ),
+      smartContractResults:
+          (optionalAs<List<dynamic>>(
+                data['results'] ?? data['smartContractResults'],
+                'results',
+              ))
+              ?.map(
+                (dynamic e) => SmartContractResult.fromJson(
+                  requireAs<Map<String, dynamic>>(e, 'results[]'),
+                ),
+              )
+              .toList(),
+      logs: logs,
+      gasUsed: (data['gasUsed'] as num?)?.toInt(),
+      fee: optionalAs<String>(data['fee'], 'fee'),
+      senderShard: (data['senderShard'] as num?)?.toInt(),
+      receiverShard: (data['receiverShard'] as num?)?.toInt(),
+      round: (data['round'] as num?)?.toInt(),
+      epoch: (data['epoch'] as num?)?.toInt(),
+      miniBlockHash: optionalAs<String>(data['miniBlockHash'], 'miniBlockHash'),
+      senderUsername: optionalAs<String>(
+        data['senderUsername'],
+        'senderUsername',
+      ),
+      receiverUsername: optionalAs<String>(
+        data['receiverUsername'],
+        'receiverUsername',
+      ),
+      action: optionalAs<Map<String, dynamic>>(data['action'], 'action'),
+      operations: (optionalAs<List<dynamic>>(
+        data['operations'],
+        'operations',
+      ))?.cast<Map<String, dynamic>>(),
+      type: optionalAs<String>(data['type'], 'type'),
+      originalTxHash: optionalAs<String>(
+        data['originalTxHash'],
+        'originalTxHash',
+      ),
+      pendingResults: optionalAs<bool>(
+        data['pendingResults'],
+        'pendingResults',
+      ),
+      guardianAddress: optionalAs<String>(
+        data['guardianAddress'],
+        'guardianAddress',
+      ),
+      guardianSignature: optionalAs<String>(
+        data['guardianSignature'],
+        'guardianSignature',
+      ),
+      isRelayed: optionalAs<bool>(data['isRelayed'], 'isRelayed'),
+      relayer: optionalAs<String>(data['relayer'], 'relayer'),
+      relayerSignature: optionalAs<String>(
+        data['relayerSignature'],
+        'relayerSignature',
+      ),
+      isScCall: optionalAs<bool>(data['isScCall'], 'isScCall'),
+      scamInfo: optionalAs<Map<String, dynamic>>(data['scamInfo'], 'scamInfo'),
+      price: (data['price'] as num?)?.toDouble(),
+      relayedVersion: data['relayedVersion']?.toString(),
+      senderAssets: optionalAs<Map<String, dynamic>>(
+        data['senderAssets'],
+        'senderAssets',
+      ),
+      receiverAssets: optionalAs<Map<String, dynamic>>(
+        data['receiverAssets'],
+        'receiverAssets',
+      ),
+      completedAt: (data['completedAt'] as num?)?.toInt(),
+      initiallyPaidFee: optionalAs<String>(
+        data['initiallyPaidFee'],
+        'initiallyPaidFee',
+      ),
+      searchOrder: (data['searchOrder'] as num?)?.toInt(),
+      miniBlockType: optionalAs<String>(
+        data['miniblockType'] ?? data['miniBlockType'],
+        'miniblockType',
+      ),
+    );
+  }
+
+  /// Creates from a Gateway/Proxy response.
+  ///
+  /// Gateway nodes encode SCR `data`/`returnData` and event `data`/`topics`
+  /// as plain UTF-8 / hex strings, whereas the public API base64-encodes the
+  /// same fields. Use this factory when wiring `/transaction/:hash` from a
+  /// gateway provider so payloads are decoded with the correct outer scheme.
+  ///
+  /// #### Parameters
+  /// - `data` - JSON map from the gateway response (the `transaction` sub-object)
+  /// - `txHash` - Transaction hash (optional, extracted from data if not provided)
+  ///
+  /// #### Returns
+  /// `TransactionOnNetwork` - Parsed transaction instance
+  factory TransactionOnNetwork.fromProxyResponse(
+    Map<String, dynamic> data, {
+    String? txHash,
+  }) {
+    final String statusStr =
+        optionalAs<String>(data['status'], 'status') ?? 'pending';
+    final TransactionStatus status = TransactionStatus(statusStr);
+    final String? dataStr = optionalAs<String>(data['data'], 'data');
+    Uint8List dataBytes;
+    if (dataStr != null) {
+      try {
+        dataBytes = Uint8List.fromList(base64Decode(dataStr));
+      } catch (_) {
+        dataBytes = Uint8List.fromList(utf8.encode(dataStr));
+      }
+    } else {
+      dataBytes = Uint8List(0);
+    }
+
+    final String? signatureStr = optionalAs<String>(
+      data['signature'],
+      'signature',
+    );
+    final Signature signature = signatureStr != null
+        ? Signature(signatureStr)
+        : const Signature.empty();
+
+    final Transaction transaction = Transaction(
+      sender: Address.fromBech32(requireAs<String>(data['sender'], 'sender')),
+      receiver: Address.fromBech32(
+        requireAs<String>(data['receiver'], 'receiver'),
+      ),
+      value: Balance.fromString(
+        optionalAs<String>(data['value'], 'value') ?? '0',
+      ),
+      nonce: Nonce((data['nonce'] as num?)?.toInt() ?? 0),
+      gasLimit: GasLimit((data['gasLimit'] as num?)?.toInt() ?? 0),
+      gasPrice: GasPrice((data['gasPrice'] as num?)?.toInt() ?? 1000000000),
+      data: dataBytes,
+      chainId: ChainId.fromApiResponse(
+        optionalAs<String>(data['chainID'], 'chainID'),
+      ),
+      version: TransactionVersion.validated(
+        (data['version'] as num?)?.toInt() ?? 1,
+      ),
+      signature: signature,
+    );
+
+    final TransactionLogs? logs = data['logs'] != null
+        ? TransactionLogs.fromProxyHttpResponse(
+            requireAs<Map<String, dynamic>>(data['logs'], 'logs'),
+          )
+        : null;
+
+    final String? functionName = optionalAs<String>(
+      data['function'],
+      'function',
+    );
+
+    final String resolvedTxHash =
+        txHash ??
+        optionalAs<String>(data['txHash'], 'txHash') ??
+        optionalAs<String>(data['hash'], 'hash') ??
+        '';
+
+    return TransactionOnNetwork(
+      transaction: transaction,
+      status: status,
+      txHash: resolvedTxHash,
+      blockNonce: (data['blockNonce'] as num?)?.toInt(),
+      hyperblockNonce: (data['hyperblockNonce'] as num?)?.toInt(),
+      blockHash: optionalAs<String>(data['blockHash'], 'blockHash'),
+      hyperblockHash: optionalAs<String>(
+        data['hyperblockHash'],
+        'hyperblockHash',
+      ),
+      timestamp: (data['timestamp'] as num?)?.toInt(),
+      timestampMs: (data['timestampMs'] as num?)?.toInt(),
       function: functionName,
       executionReceipt: optionalAs<Map<String, dynamic>>(
         data['receipt'],
@@ -250,7 +438,7 @@ class TransactionOnNetwork {
                 'smartContractResults',
               ))
               ?.map(
-                (dynamic e) => SmartContractResult.fromJson(
+                (dynamic e) => SmartContractResult.fromProxyJson(
                   requireAs<Map<String, dynamic>>(e, 'smartContractResults[]'),
                 ),
               )
@@ -302,7 +490,7 @@ class TransactionOnNetwork {
       isScCall: optionalAs<bool>(data['isScCall'], 'isScCall'),
       scamInfo: optionalAs<Map<String, dynamic>>(data['scamInfo'], 'scamInfo'),
       price: (data['price'] as num?)?.toDouble(),
-      relayedVersion: (data['relayedVersion'] as num?)?.toInt(),
+      relayedVersion: data['relayedVersion']?.toString(),
       senderAssets: optionalAs<Map<String, dynamic>>(
         data['senderAssets'],
         'senderAssets',
@@ -315,6 +503,11 @@ class TransactionOnNetwork {
       initiallyPaidFee: optionalAs<String>(
         data['initiallyPaidFee'],
         'initiallyPaidFee',
+      ),
+      searchOrder: (data['searchOrder'] as num?)?.toInt(),
+      miniBlockType: optionalAs<String>(
+        data['miniblockType'] ?? data['miniBlockType'],
+        'miniblockType',
       ),
     );
   }
@@ -340,8 +533,38 @@ class TransactionOnNetwork {
   /// Hyperblock hash containing transaction.
   final String? hyperblockHash;
 
-  /// Execution timestamp (Unix).
+  /// Execution timestamp, in whatever unit the provider reported.
+  ///
+  /// The unit is **not** stable across routes or epochs: the Gateway
+  /// `/transaction/:hash` route reports this field in milliseconds once the
+  /// Supernova upgrade is active, while its block routes and the public API
+  /// keep reporting seconds. Reading it as one unit therefore mis-dates the
+  /// transaction by a factor of 1000 on the other. Prefer [executedAt], which
+  /// normalises both.
   final int? timestamp;
+
+  /// Execution timestamp in milliseconds, when the provider reports one.
+  ///
+  /// Surfaced via the `timestampMs` JSON field, which the public API emits
+  /// alongside the unit-ambiguous [timestamp]. `null` when absent.
+  final int? timestampMs;
+
+  /// Execution instant, normalised to UTC regardless of the reported unit.
+  ///
+  /// Prefers [timestampMs] and falls back to [timestamp], applying
+  /// [ChainTimestamp] magnitude detection so a millisecond value is never
+  /// misread as seconds (which would place the transaction tens of thousands
+  /// of years in the future).
+  ///
+  /// #### Returns
+  /// `DateTime?` - UTC instant, or `null` when neither field is reported.
+  ///
+  /// #### Example
+  /// ```dart
+  /// final DateTime? at = transactionOnNetwork.executedAt;
+  /// ```
+  DateTime? get executedAt =>
+      ChainTimestamp.toDateTime(timestampMs ?? timestamp);
 
   /// Function name being called.
   final String? function;
@@ -429,8 +652,11 @@ class TransactionOnNetwork {
   /// EGLD price in USD at transaction time.
   final double? price;
 
-  /// Relayed transaction protocol version (1 or 2).
-  final int? relayedVersion;
+  /// Relayed transaction protocol version.
+  ///
+  /// The API reports this as one of the strings `'v1'`, `'v2'` or `'v3'`, and
+  /// only for transactions it classifies as relayed; `null` otherwise.
+  final String? relayedVersion;
 
   /// Asset metadata for sender address (name, icon, etc.).
   final Map<String, dynamic>? senderAssets;
@@ -443,6 +669,18 @@ class TransactionOnNetwork {
 
   /// Fee initially paid before refunds.
   final String? initiallyPaidFee;
+
+  /// Supernova: total ordering index used by the indexer for stable cross-shard sort.
+  ///
+  /// Surfaced via the `searchOrder` JSON field. `null` when absent (older chains).
+  final int? searchOrder;
+
+  /// Supernova: miniblock-type label (e.g. `TxBlock`, `SmartContractResultBlock`).
+  ///
+  /// Surfaced via the `miniblockType` JSON field, which the node spells with a
+  /// lower-case `b`. The upper-case `miniBlockType` spelling is still accepted
+  /// on the way in. `null` when absent.
+  final String? miniBlockType;
 
   /// Checks if transaction is completed.
   ///
@@ -553,6 +791,7 @@ class TransactionOnNetwork {
     String? blockHash,
     String? hyperblockHash,
     int? timestamp,
+    int? timestampMs,
     String? function,
     Map<String, dynamic>? executionReceipt,
     List<SmartContractResult>? smartContractResults,
@@ -579,11 +818,13 @@ class TransactionOnNetwork {
     bool? isScCall,
     Map<String, dynamic>? scamInfo,
     double? price,
-    int? relayedVersion,
+    String? relayedVersion,
     Map<String, dynamic>? senderAssets,
     Map<String, dynamic>? receiverAssets,
     int? completedAt,
     String? initiallyPaidFee,
+    int? searchOrder,
+    String? miniBlockType,
   }) {
     return TransactionOnNetwork(
       transaction: transaction ?? this.transaction,
@@ -594,6 +835,7 @@ class TransactionOnNetwork {
       blockHash: blockHash ?? this.blockHash,
       hyperblockHash: hyperblockHash ?? this.hyperblockHash,
       timestamp: timestamp ?? this.timestamp,
+      timestampMs: timestampMs ?? this.timestampMs,
       function: function ?? this.function,
       executionReceipt: executionReceipt ?? this.executionReceipt,
       smartContractResults: smartContractResults ?? this.smartContractResults,
@@ -625,6 +867,8 @@ class TransactionOnNetwork {
       receiverAssets: receiverAssets ?? this.receiverAssets,
       completedAt: completedAt ?? this.completedAt,
       initiallyPaidFee: initiallyPaidFee ?? this.initiallyPaidFee,
+      searchOrder: searchOrder ?? this.searchOrder,
+      miniBlockType: miniBlockType ?? this.miniBlockType,
     );
   }
 

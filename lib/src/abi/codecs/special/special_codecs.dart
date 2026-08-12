@@ -5,7 +5,9 @@ import 'dart:typed_data';
 import '../../../utils/sdk_exceptions.dart';
 import '../../core/type_system.dart';
 import '../../core/validation_mixin.dart';
+import '../../types/special/managed_byte_array.dart';
 import '../../types/special/managed_decimal.dart';
+import '../../types/special/multi_value.dart';
 import '../../types/special/optional.dart';
 import '../../types/special/variadic.dart';
 import '../../utils/binary_builder.dart';
@@ -38,31 +40,29 @@ class OptionalBinaryCodec with ValidationMixin {
     return OptionalValue.provided(type, innerValue);
   }
 
-  /// Decodes Optional from nested position.
+  /// Always throws; `Optional<T>` has no nested wire form.
+  ///
+  /// Per the MultiversX ABI spec `Optional<T>` is variadic-position only and
+  /// only meaningful as the last argument of an endpoint. Nested encodings
+  /// (inside structs, tuples, lists, etc.) are ambiguous, so this method
+  /// surfaces the ABI authoring error loudly instead of silently encoding the
+  /// inner type.
   ///
   /// #### Parameters
-  /// - `buffer` - Buffer to decode from
-  /// - `type` - OptionalType
-  /// - `offset` - Starting position
+  /// - `buffer` - Ignored
+  /// - `type` - Ignored
+  /// - `offset` - Ignored
   ///
-  /// #### Returns
-  /// `(OptionalValue, int)` - Tuple of (value, bytes consumed)
+  /// #### Throws
+  /// - `AbiBinaryCodecException` - Always
   (OptionalValue, int) decodeNested(
     Uint8List buffer,
     OptionalType type,
     int offset,
   ) {
-    if (offset >= buffer.length) {
-      return (OptionalValue.missing(type), 0);
-    }
-
-    final (TypedValue innerValue, int innerBytes) = binaryCodec.decodeNested(
-      buffer,
-      type.innerType,
-      offset,
+    throw const AbiBinaryCodecException(
+      'Optional<T> has no nested wire form; use it only at the end of an argument list',
     );
-
-    return (OptionalValue.provided(type, innerValue), innerBytes);
   }
 
   /// Encodes Optional for top-level.
@@ -85,24 +85,23 @@ class OptionalBinaryCodec with ValidationMixin {
     return binaryCodec.encodeTopLevel(value.value!);
   }
 
-  /// Encodes Optional for nested.
+  /// Always throws; `Optional<T>` has no nested wire form.
+  ///
+  /// Per the MultiversX ABI spec `Optional<T>` is variadic-position only and
+  /// only meaningful as the last argument of an endpoint. Nested encodings
+  /// (inside structs, tuples, lists, etc.) are ambiguous, so this method
+  /// surfaces the ABI authoring error loudly instead of silently encoding the
+  /// inner type.
   ///
   /// #### Parameters
-  /// - `value` - Optional value to encode
-  ///
-  /// #### Returns
-  /// `Uint8List` - Empty for missing, nested-encoded value for provided
+  /// - `value` - Ignored
   ///
   /// #### Throws
-  /// - `AbiBinaryCodecException` - if validation fails
+  /// - `AbiBinaryCodecException` - Always
   Uint8List encodeNested(OptionalValue value) {
-    _validateOptionalValue(value);
-
-    if (value.isMissing) {
-      return BinaryCodecUtils.emptyBuffer;
-    }
-
-    return binaryCodec.encodeNested(value.value!);
+    throw const AbiBinaryCodecException(
+      'Optional<T> has no nested wire form; use it only at the end of an argument list',
+    );
   }
 
   /// Validates Optional value structure.
@@ -221,45 +220,54 @@ class ManagedDecimalBinaryCodec with ValidationMixin {
     ManagedDecimalType type,
     int offset,
   ) {
-    int length;
-    Uint8List payload;
-
     if (buffer.length < offset + 4) {
       throw AbiBinaryCodecException(
-        'Buffer too short for ManagedDecimal length prefix: expected at least ${offset + 4} bytes, got ${buffer.length}',
+        'Buffer too short for ManagedDecimal length prefix: expected at '
+        'least ${offset + 4} bytes, got ${buffer.length}',
       );
     }
 
-    if (type.isVariable) {
-      final int bigUintLength =
-          (buffer[offset] << 24) |
-          (buffer[offset + 1] << 16) |
-          (buffer[offset + 2] << 8) |
-          buffer[offset + 3];
+    final int bigUintLength =
+        (buffer[offset] << 24) |
+        (buffer[offset + 1] << 16) |
+        (buffer[offset + 2] << 8) |
+        buffer[offset + 3];
 
-      length = 4 + bigUintLength + 4;
-      if (buffer.length < offset + length) {
-        throw AbiBinaryCodecException(
-          'Buffer too short for variable ManagedDecimal: expected ${offset + length} bytes, got ${buffer.length}',
-        );
-      }
-      payload = buffer.sublist(offset, offset + length);
-    } else {
-      length =
-          (buffer[offset] << 24) |
-          (buffer[offset + 1] << 16) |
-          (buffer[offset + 2] << 8) |
-          buffer[offset + 3];
-      if (buffer.length < offset + 4 + length) {
-        throw AbiBinaryCodecException(
-          'Buffer too short for fixed ManagedDecimal: expected ${offset + 4 + length} bytes, got ${buffer.length}',
-        );
-      }
-      payload = buffer.sublist(offset + 4, offset + 4 + length);
+    final int totalLength = type.isVariable
+        ? 4 + bigUintLength + 4
+        : 4 + bigUintLength;
+
+    if (buffer.length < offset + totalLength) {
+      throw AbiBinaryCodecException(
+        'Buffer too short for '
+        '${type.isVariable ? 'variable' : 'fixed'} ManagedDecimal: '
+        'expected ${offset + totalLength} bytes, got ${buffer.length}',
+      );
     }
 
-    final ManagedDecimalValue result = decodeTopLevel(payload, type);
-    return (result, type.isVariable ? length : 4 + length);
+    final Uint8List magnitudeBytes = buffer.sublist(
+      offset + 4,
+      offset + 4 + bigUintLength,
+    );
+
+    final BigInt value = type.isSigned
+        ? _decodeBigInt(magnitudeBytes)
+        : BinaryCodecUtils.bufferToBigInt(magnitudeBytes);
+
+    final int scale = type.isVariable
+        ? (buffer[offset + 4 + bigUintLength] << 24) |
+              (buffer[offset + 4 + bigUintLength + 1] << 16) |
+              (buffer[offset + 4 + bigUintLength + 2] << 8) |
+              buffer[offset + 4 + bigUintLength + 3]
+        : type.scale;
+
+    final ManagedDecimalValue result = ManagedDecimalValue(
+      value,
+      scale: scale,
+      isSigned: type.isSigned,
+      isVariable: type.isVariable,
+    );
+    return (result, totalLength);
   }
 
   /// Encodes ManagedDecimal for top-level.
@@ -292,14 +300,28 @@ class ManagedDecimalBinaryCodec with ValidationMixin {
 
   /// Encodes ManagedDecimal for nested.
   ///
+  /// Nested encoding is length-prefixed:
+  /// - Variable scale (`ManagedDecimal<usize>`):
+  ///   `[u32 dataLen][magnitude bytes][u32 scale]` — the magnitude is written
+  ///   as a nested BigUint (4-byte big-endian length, then the bytes), and the
+  ///   decimal count follows as a 4-byte big-endian unsigned integer.
+  /// - Fixed scale (`ManagedDecimal<N>`):
+  ///   `[u32 dataLen][magnitude bytes]` — only the magnitude reaches the wire;
+  ///   `N` is carried by the type, never by the bytes.
+  ///
+  /// The fixed-scale length prefix is **required** so sibling fields in a
+  /// struct/array/tuple decode at the correct offset. Without it,
+  /// `decodeNested` cannot tell where the magnitude stops and greedily
+  /// consumes the rest of the buffer.
+  ///
   /// #### Parameters
   /// - `value` - Decimal value to encode
   ///
   /// #### Returns
-  /// `Uint8List` - For variable: [4-byte length, scale, value], for fixed: [4-byte length, value]
+  /// `Uint8List` - Per the byte layout above.
   ///
   /// #### Throws
-  /// - `AbiBinaryCodecException` - If scale mismatch
+  /// - `AbiBinaryCodecException` - If scale is negative.
   Uint8List encodeNested(ManagedDecimalValue value) {
     if (value.scale < 0) {
       throw AbiBinaryCodecException(
@@ -307,23 +329,16 @@ class ManagedDecimalBinaryCodec with ValidationMixin {
       );
     }
 
-    final builder = BinaryBuilder();
+    final Uint8List valueBytes = value.isSigned
+        ? _encodeBigInt(value.value)
+        : BinaryCodecUtils.bigIntToBuffer(value.value);
+
+    final BinaryBuilder builder = BinaryBuilder()
+      ..addU32(valueBytes.length)
+      ..addBytes(valueBytes);
 
     if (value.isVariable) {
-      final Uint8List valueBytes = value.isSigned
-          ? _encodeBigInt(value.value)
-          : BinaryCodecUtils.bigIntToBuffer(value.value);
-
-      builder.addU32(valueBytes.length);
-      builder.addBytes(valueBytes);
       builder.addU32(value.scale);
-    } else {
-      final Uint8List valueBytes = value.isSigned
-          ? _encodeBigInt(value.value)
-          : BinaryCodecUtils.bigIntToBuffer(value.value);
-
-      builder.addU32(valueBytes.length);
-      builder.addBytes(valueBytes);
     }
 
     return builder.toBytes();
@@ -396,6 +411,13 @@ class ManagedDecimalBinaryCodec with ValidationMixin {
 /// Codec for Variadic values (variable number of items).
 ///
 /// Encodes multiple items by concatenation.
+///
+/// `counted-variadic<T>` has **no** single-buffer form. It exists only as a
+/// multi-argument shape: the count is top-encoded as its own argument
+/// (`2` → `0x02`, `0` → empty) and every item follows as a further separate
+/// argument. Encoding a count prefix into one buffer produces bytes no
+/// contract can parse, so every counted path here throws and callers must go
+/// through `ArgSerializer` / `ArgumentEncoder`.
 class VariadicBinaryCodec with ValidationMixin {
   const VariadicBinaryCodec(this.binaryCodec);
   final IBinaryCodec binaryCodec;
@@ -410,26 +432,16 @@ class VariadicBinaryCodec with ValidationMixin {
   /// `VariadicValue` - With list of decoded items
   ///
   /// #### Throws
-  /// - `AbiBinaryCodecException` - If decoding fails or buffer has leftover bytes
+  /// - `AbiBinaryCodecException` - If the type is counted, decoding fails, or
+  ///   the buffer has leftover bytes
   VariadicValue decodeTopLevel(Uint8List buffer, VariadicType type) {
+    _requireSingleBufferForm(isCounted: type.isCounted);
+
     final List<TypedValue> items = <TypedValue>[];
     int currentOffset = 0;
     int lastOffset = -1;
-    int? remaining;
 
-    if (type.isCounted) {
-      if (buffer.length < 4) {
-        throw AbiBinaryCodecException(
-          'Buffer too short for counted variadic count prefix: got ${buffer.length}',
-        );
-      }
-      final (int count, int consumed) = BinaryCodecUtils.readLength(buffer, 0);
-      currentOffset = consumed;
-      remaining = count;
-    }
-
-    while (currentOffset < buffer.length &&
-        (remaining == null || remaining > 0)) {
+    while (currentOffset < buffer.length) {
       if (currentOffset == lastOffset) {
         throw AbiBinaryCodecException(
           'Variadic item consumed zero bytes at offset $currentOffset',
@@ -444,7 +456,6 @@ class VariadicBinaryCodec with ValidationMixin {
       );
       items.add(item);
       currentOffset += itemBytes;
-      if (remaining != null) remaining--;
     }
 
     if (currentOffset != buffer.length) {
@@ -455,11 +466,7 @@ class VariadicBinaryCodec with ValidationMixin {
       );
     }
 
-    return VariadicValue(
-      items,
-      itemType: type.itemType,
-      isCounted: type.isCounted,
-    );
+    return VariadicValue(items, itemType: type.itemType);
   }
 
   /// Decodes Variadic from nested position.
@@ -473,12 +480,15 @@ class VariadicBinaryCodec with ValidationMixin {
   /// `(VariadicValue, int)` - Tuple of (value, bytes consumed)
   ///
   /// #### Throws
-  /// - `AbiBinaryCodecException` - If item consumes zero bytes
+  /// - `AbiBinaryCodecException` - If the type is counted or an item consumes
+  ///   zero bytes
   (VariadicValue, int) decodeNested(
     Uint8List buffer,
     VariadicType type,
     int offset,
   ) {
+    _requireSingleBufferForm(isCounted: type.isCounted);
+
     final List<TypedValue> items = <TypedValue>[];
     int currentOffset = offset;
     int lastOffset = offset - 1;
@@ -513,6 +523,9 @@ class VariadicBinaryCodec with ValidationMixin {
   ///
   /// #### Returns
   /// `Uint8List` - Concatenated top-level encodings of all items
+  ///
+  /// #### Throws
+  /// - `AbiBinaryCodecException` - If the value is counted
   Uint8List encodeTopLevel(VariadicValue value) {
     return encodeNested(value);
   }
@@ -524,17 +537,173 @@ class VariadicBinaryCodec with ValidationMixin {
   ///
   /// #### Returns
   /// `Uint8List` - Concatenated nested encodings of all items
+  ///
+  /// #### Throws
+  /// - `AbiBinaryCodecException` - If the value is counted
   Uint8List encodeNested(VariadicValue value) {
-    final builder = BinaryBuilder();
+    _requireSingleBufferForm(isCounted: value.isCounted);
 
-    if (value.isCounted) {
-      builder.addU32(value.length);
-    }
+    final builder = BinaryBuilder();
 
     for (final TypedValue item in value.items) {
       builder.addBytes(binaryCodec.encodeNested(item));
     }
 
     return builder.toBytes();
+  }
+
+  /// Rejects `counted-variadic<T>`, which spans several top-level arguments.
+  ///
+  /// #### Throws
+  /// - `AbiBinaryCodecException` - If `isCounted` is true
+  @pragma('vm:prefer-inline')
+  static void _requireSingleBufferForm({required bool isCounted}) {
+    if (isCounted) {
+      throw const AbiBinaryCodecException(
+        'counted-variadic has no single-buffer form; the count and each item '
+        'are separate top-level arguments - encode or decode via '
+        'ArgSerializer/ArgumentEncoder',
+      );
+    }
+  }
+}
+
+/// Codec for `ManagedByteArray<N>` values.
+///
+/// Always reads/writes exactly `type.length` bytes with no length prefix in
+/// either nested or top-level positions (the length is part of the type).
+class ManagedByteArrayBinaryCodec with ValidationMixin {
+  const ManagedByteArrayBinaryCodec();
+
+  /// Decodes `ManagedByteArray<N>` from a top-level buffer of exactly N bytes.
+  ///
+  /// #### Parameters
+  /// - `buffer` - Bytes of length `type.length`
+  /// - `type` - Owning type providing the fixed length
+  ///
+  /// #### Returns
+  /// `ManagedByteArrayValue` - With the buffer copied into a `Uint8List`
+  ///
+  /// #### Throws
+  /// - `AbiBinaryCodecException` - If buffer length != `type.length`
+  ManagedByteArrayValue decodeTopLevel(
+    Uint8List buffer,
+    ManagedByteArrayType type,
+  ) {
+    if (buffer.length != type.length) {
+      throw AbiBinaryCodecException(
+        'ManagedByteArray<${type.length}> requires exactly ${type.length} '
+        'bytes, got ${buffer.length}',
+      );
+    }
+    return ManagedByteArrayValue(type, buffer);
+  }
+
+  /// Decodes `ManagedByteArray<N>` from a nested position. Always consumes N.
+  ///
+  /// #### Parameters
+  /// - `buffer` - Source bytes
+  /// - `type` - Owning type providing the fixed length
+  /// - `offset` - Position of the first byte
+  ///
+  /// #### Returns
+  /// `(ManagedByteArrayValue, int)` - Tuple of (value, `type.length`)
+  ///
+  /// #### Throws
+  /// - `AbiBinaryCodecException` - If insufficient bytes remain
+  (ManagedByteArrayValue, int) decodeNested(
+    Uint8List buffer,
+    ManagedByteArrayType type,
+    int offset,
+  ) {
+    requireOffsetWithBytes(buffer, offset, type.length);
+    final Uint8List slice = Uint8List.sublistView(
+      buffer,
+      offset,
+      offset + type.length,
+    );
+    return (ManagedByteArrayValue(type, slice), type.length);
+  }
+
+  /// Encodes `ManagedByteArray<N>` for top-level (raw N bytes).
+  Uint8List encodeTopLevel(ManagedByteArrayValue value) => value.value;
+
+  /// Encodes `ManagedByteArray<N>` for nested (raw N bytes, no length prefix).
+  Uint8List encodeNested(ManagedByteArrayValue value) => value.value;
+}
+
+/// Codec for `MultiValue<...>` typed values.
+///
+/// `MultiValue<...>` groups several independent top-level arguments. The wire
+/// form is the concatenation of each inner value's top-level encoding when
+/// flattened into a single buffer stream; for argument decoding the
+/// `ArgSerializer.buffersToValues` flow consumes one buffer per inner type.
+/// There is no nested or single-buffer wire form, so both `encodeNested`,
+/// `decodeNested`, and the single-buffer `decodeTopLevel` throw.
+class MultiValueBinaryCodec with ValidationMixin {
+  /// Creates a [MultiValueBinaryCodec] delegating to an underlying codec.
+  ///
+  /// #### Parameters
+  /// - `binaryCodec` - Codec used to encode each inner value top-level.
+  const MultiValueBinaryCodec(this.binaryCodec);
+
+  /// Underlying binary codec used for inner top-level encodings.
+  final IBinaryCodec binaryCodec;
+
+  /// Encodes a [MultiValueValue] by concatenating top-level encodings.
+  ///
+  /// #### Parameters
+  /// - `value` - The multi-value whose inner values are encoded one-by-one.
+  ///
+  /// #### Returns
+  /// `Uint8List` - Concatenation of each inner top-level encoding.
+  Uint8List encodeTopLevel(MultiValueValue value) {
+    final BinaryBuilder builder = BinaryBuilder();
+    for (final TypedValue inner in value.values) {
+      builder.addBytes(binaryCodec.encodeTopLevel(inner));
+    }
+    return builder.toBytes();
+  }
+
+  /// Always throws; `MultiValue<...>` has no single-buffer top-level form.
+  ///
+  /// `MultiValue<...>` spans multiple top-level argument buffers; decoding
+  /// from a single buffer is undefined. Use `ArgSerializer.buffersToValues`
+  /// instead, which feeds one buffer per inner type.
+  ///
+  /// #### Throws
+  /// - `AbiBinaryCodecException` - Always.
+  MultiValueValue decodeTopLevel(Uint8List buffer, MultiValueType type) {
+    throw const AbiBinaryCodecException(
+      'MultiValue has no top-level wire form from a single buffer; '
+      'use ArgSerializer.buffersToValues',
+    );
+  }
+
+  /// Always throws; `MultiValue<...>` has no nested wire form.
+  ///
+  /// `MultiValue<...>` is only meaningful at the top-level argument boundary.
+  /// Use `Tuple<...>` for nested grouping of fixed-arity composite values.
+  ///
+  /// #### Throws
+  /// - `AbiBinaryCodecException` - Always.
+  Uint8List encodeNested(MultiValueValue value) {
+    throw const AbiBinaryCodecException(
+      'MultiValue has no nested wire form; use Tuple for nested',
+    );
+  }
+
+  /// Always throws; `MultiValue<...>` has no nested wire form.
+  ///
+  /// #### Throws
+  /// - `AbiBinaryCodecException` - Always.
+  (MultiValueValue, int) decodeNested(
+    Uint8List buffer,
+    MultiValueType type,
+    int offset,
+  ) {
+    throw const AbiBinaryCodecException(
+      'MultiValue has no nested wire form; use Tuple for nested',
+    );
   }
 }

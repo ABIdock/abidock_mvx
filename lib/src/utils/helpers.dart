@@ -12,9 +12,9 @@ import '../infrastructure/network/network_provider.dart';
 ///
 /// #### Example
 /// ```dart
-/// final name = requireAs<String>(json['name'], 'name');
-/// final count = requireAs<int>(json['count'], 'count');
-/// final items = requireAs<List<dynamic>>(json['items'], 'items');
+/// final name = requireAs<String>(jsonMap['name'], 'name');
+/// final count = requireAs<int>(jsonMap['count'], 'count');
+/// final items = requireAs<List<dynamic>>(jsonMap['items'], 'items');
 /// ```
 ///
 /// #### Parameters
@@ -37,7 +37,7 @@ T requireAs<T>(dynamic value, String field) {
 ///
 /// #### Example
 /// ```dart
-/// final name = optionalAs<String>(json['name'], 'name'); // null if missing
+/// final name = optionalAs<String>(jsonMap['name'], 'name'); // null if missing
 /// ```
 ///
 /// #### Parameters
@@ -79,11 +79,16 @@ T infer<T>(T value) => value;
 /// Rethrows [NetworkException], [SerializationException], and [ValidationException]
 /// as they already provide detailed error information.
 ///
-/// Example:
+/// #### Example
 /// ```dart
 /// return executeTransaction(
 ///   endpointName: 'acceptGlobalOffer',
-///   action: () => controller.createCallTransaction(...),
+///   action: () => controller.call(
+///     account: account,
+///     nonce: nonce,
+///     endpointName: 'acceptGlobalOffer',
+///     options: BaseControllerInput(gasLimit: GasLimit(10000000)),
+///   ),
 /// );
 /// ```
 Future<T> executeTransaction<T>({
@@ -145,7 +150,7 @@ Future<T> executeQuery<T>({
 ///
 /// #### Example
 /// ```dart
-/// final count = requireInt(json['count'], 'count');
+/// final count = requireInt(jsonMap['count'], 'count');
 /// ```
 ///
 /// #### Parameters
@@ -177,7 +182,7 @@ int requireInt(dynamic value, String field) {
 ///
 /// #### Example
 /// ```dart
-/// final count = optionalInt(json['count'], 'count'); // null if missing
+/// final count = optionalInt(jsonMap['count'], 'count'); // null if missing
 /// ```
 ///
 /// #### Parameters

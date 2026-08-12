@@ -18,6 +18,29 @@ After a transaction is processed, outcome parsers extract meaningful data from t
 | `SmartContractOutcomeParser` | Contract deployments and calls |
 | `TokenManagementOutcomeParser` | Token issuance, roles, NFT operations |
 | `DelegationOutcomeParser` | Delegation contract creation |
+| `GovernanceOutcomeParser` | Proposals, votes, proposal closing |
+
+:::info Where the outcome data is found
+Parsers do not stop at `transaction.logs`.
+
+`TokenManagementOutcomeParser` searches the transaction's own logs **and** the
+logs attached to every one of its smart contract results, in transaction-first
+order. This matters for cross-shard operations: several token-management
+endpoints -- role assignment, freeze/unfreeze/wipe, the local mint/burn pair --
+run as the system contract forwarding a built-in call to the target address.
+That call executes on the target's shard, so its event is reported on the
+resulting smart contract result rather than on the original transaction. A
+parser that only read `transaction.logs` would silently return an empty list.
+
+`SmartContractOutcomeParser.parseExecute` falls back to the smart contract
+results themselves when the transaction's own logs carry no direct outcome,
+reading `returnCode` and `returnData` off the result addressed back to the
+original sender. `parseDeploy` reads `transaction.logs` only, since `SCDeploy`
+is emitted there.
+
+`DelegationOutcomeParser` also reads `transaction.logs` only, which is
+sufficient for the `SCDeploy` event it needs.
+:::
 
 ## SmartContractOutcomeParser
 
@@ -43,9 +66,9 @@ Extract deployed contract addresses:
 final hash = await provider.sendTransaction(deployTx);
 
 // Wait for transaction to complete
-final transaction = await provider.getTransaction(hash);
+final txOnNetwork = await provider.getTransaction(hash);
 
-final outcome = parser.parseDeploy(transaction);
+final outcome = parser.parseDeploy(txOnNetwork);
 
 print('Return code: ${outcome.returnCode}');
 print('Contracts deployed: ${outcome.contracts.length}');
@@ -64,12 +87,12 @@ Extract return values from contract calls:
 ```dart
 // Send transaction
 final hash = await provider.sendTransaction(callTx);
-final transaction = await provider.getTransaction(hash);
+final txOnNetwork = await provider.getTransaction(hash);
 
 // Parse with ABI for decoded values
 final parserWithAbi = SmartContractOutcomeParser(abi: myAbi);
 final outcome = parserWithAbi.parseExecute(
-  transaction,
+  txOnNetwork,
   function: 'getBalance', // Function name for ABI lookup
 );
 
@@ -88,7 +111,7 @@ When no ABI is provided, raw buffers are returned:
 
 ```dart
 final parser = SmartContractOutcomeParser();
-final outcome = parser.parseExecute(transaction);
+final outcome = parser.parseExecute(txOnNetwork);
 
 // Values are Uint8List buffers
 for (final buffer in outcome.values) {
@@ -98,28 +121,32 @@ for (final buffer in outcome.values) {
 
 ### Result Types
 
-```dart
-// SmartContractDeployOutcome
-class SmartContractDeployOutcome {
-  final String returnCode;      // 'ok' or error code
-  final String returnMessage;   // Human-readable message
-  final List<DeployedContract> contracts;
-}
+`SmartContractDeployOutcome` -- returned by `parseDeploy`:
 
-// DeployedContract
-class DeployedContract {
-  final Address address;        // Contract address
-  final Address ownerAddress;   // Deployer address
-  final Uint8List codeHash;     // Contract code hash
-}
+| Field | Type | Description |
+|-------|------|-------------|
+| `returnCode` | `String` | `'ok'`, or the code taken from the error event |
+| `returnMessage` | `String` | Human-readable message; empty when successful |
+| `contracts` | `List<DeployedContract>` | One entry per `SCDeploy` event |
 
-// ParsedSmartContractCallOutcome
-class ParsedSmartContractCallOutcome {
-  final String returnCode;      // 'ok' or error code
-  final String returnMessage;   // Human-readable message
-  final List<dynamic> values;   // Decoded values or raw buffers
-}
-```
+`DeployedContract` -- one deployed contract:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `address` | `Address` | Contract address |
+| `ownerAddress` | `Address` | Deployer address |
+| `codeHash` | `Uint8List` | Contract code hash |
+
+`ParsedSmartContractCallOutcome` -- returned by `parseExecute`:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `returnCode` | `String` | Return code reported by the VM |
+| `returnMessage` | `String` | Error message, or the return code when there is none |
+| `values` | `List<dynamic>` | Decoded values when an ABI is supplied, raw `Uint8List` buffers otherwise |
+
+When the transaction has no logs at all, `parseDeploy` returns an outcome with
+empty `returnCode`/`returnMessage` and no contracts rather than throwing.
 
 ## TokenManagementOutcomeParser
 
@@ -135,8 +162,8 @@ final parser = TokenManagementOutcomeParser();
 
 ```dart
 // After issuing a fungible token
-final transaction = await provider.getTransaction(issueHash);
-final results = parser.parseIssueFungible(transaction);
+final txOnNetwork = await provider.getTransaction(issueHash);
+final results = parser.parseIssueFungible(txOnNetwork);
 
 for (final result in results) {
   print('Token identifier: ${result.tokenIdentifier}');
@@ -148,22 +175,22 @@ for (final result in results) {
 
 ```dart
 // After issuing NFT collection
-final results = parser.parseIssueNonFungible(transaction);
+final results = parser.parseIssueNonFungible(txOnNetwork);
 print('Collection: ${results.first.tokenIdentifier}');
 
 // After issuing SFT collection
-final sftResults = parser.parseIssueSemiFungible(transaction);
+final sftResults = parser.parseIssueSemiFungible(txOnNetwork);
 print('SFT Collection: ${sftResults.first.tokenIdentifier}');
 
 // After registering Meta-ESDT
-final metaResults = parser.parseRegisterMetaEsdt(transaction);
+final metaResults = parser.parseRegisterMetaEsdt(txOnNetwork);
 print('Meta-ESDT: ${metaResults.first.tokenIdentifier}');
 ```
 
 ### Parse Role Assignment
 
 ```dart
-final results = parser.parseSetSpecialRole(transaction);
+final results = parser.parseSetSpecialRole(txOnNetwork);
 
 for (final result in results) {
   print('User: ${result.userAddress.bech32}');
@@ -175,7 +202,7 @@ for (final result in results) {
 ### Parse NFT Creation
 
 ```dart
-final results = parser.parseNftCreate(transaction);
+final results = parser.parseNftCreate(txOnNetwork);
 
 for (final result in results) {
   print('Token: ${result.tokenIdentifier}');
@@ -188,11 +215,11 @@ for (final result in results) {
 
 ```dart
 // Local mint
-final mintResults = parser.parseLocalMint(transaction);
+final mintResults = parser.parseLocalMint(txOnNetwork);
 print('Minted: ${mintResults.first.mintedSupply}');
 
 // Local burn
-final burnResults = parser.parseLocalBurn(transaction);
+final burnResults = parser.parseLocalBurn(txOnNetwork);
 print('Burned: ${burnResults.first.burntSupply}');
 ```
 
@@ -200,19 +227,19 @@ print('Burned: ${burnResults.first.burntSupply}');
 
 ```dart
 // Pause
-final pauseResults = parser.parsePause(transaction);
+final pauseResults = parser.parsePause(txOnNetwork);
 print('Paused: ${pauseResults.first.tokenIdentifier}');
 
 // Unpause
-final unpauseResults = parser.parseUnpause(transaction);
+final unpauseResults = parser.parseUnpause(txOnNetwork);
 print('Unpaused: ${unpauseResults.first.tokenIdentifier}');
 
 // Freeze
-final freezeResults = parser.parseFreeze(transaction);
+final freezeResults = parser.parseFreeze(txOnNetwork);
 print('Frozen user: ${freezeResults.first.userAddress}');
 
 // Wipe
-final wipeResults = parser.parseWipe(transaction);
+final wipeResults = parser.parseWipe(txOnNetwork);
 print('Wiped balance: ${wipeResults.first.balance}');
 ```
 
@@ -220,35 +247,35 @@ print('Wiped balance: ${wipeResults.first.balance}');
 
 ```dart
 // Modify royalties
-final royaltiesResults = parser.parseModifyRoyalties(transaction);
+final royaltiesResults = parser.parseModifyRoyalties(txOnNetwork);
 print('New royalties: ${royaltiesResults.first.royalties}'); // basis points
 
 // Set new URIs
-final urisResults = parser.parseSetNewUris(transaction);
+final urisResults = parser.parseSetNewUris(txOnNetwork);
 print('New URIs: ${urisResults.first.uris}');
 
 // Modify creator
-final creatorResults = parser.parseModifyCreator(transaction);
+final creatorResults = parser.parseModifyCreator(txOnNetwork);
 print('Creator modified for: ${creatorResults.first.tokenIdentifier}');
 
 // Update metadata
-final metadataResults = parser.parseUpdateMetadata(transaction);
+final metadataResults = parser.parseUpdateMetadata(txOnNetwork);
 print('Metadata updated: ${metadataResults.first.metadata.length} bytes');
 
 // Metadata recreate
-final recreateResults = parser.parseMetadataRecreate(transaction);
+final recreateResults = parser.parseMetadataRecreate(txOnNetwork);
 print('Metadata recreated for nonce: ${recreateResults.first.nonce}');
 
 // Change token to dynamic
-final dynamicResults = parser.parseChangeTokenToDynamic(transaction);
+final dynamicResults = parser.parseChangeTokenToDynamic(txOnNetwork);
 print('Token type: ${dynamicResults.first.tokenType}');
 
 // Register dynamic token
-final registerResults = parser.parseRegisterDynamicToken(transaction);
+final registerResults = parser.parseRegisterDynamicToken(txOnNetwork);
 print('Registered: ${registerResults.first.tokenIdentifier}');
 
 // Register dynamic token with roles
-final registerRolesResults = parser.parseRegisterDynamicTokenAndSettingRoles(transaction);
+final registerRolesResults = parser.parseRegisterDynamicTokenAndSettingRoles(txOnNetwork);
 print('Registered with roles: ${registerRolesResults.first.tokenIdentifier}');
 ```
 
@@ -256,8 +283,8 @@ print('Registered with roles: ${registerRolesResults.first.tokenIdentifier}');
 
 ```dart
 // These methods validate that the operation succeeded but don't return data
-parser.parseSetBurnRoleGlobally(transaction);  // throws on error
-parser.parseUnsetBurnRoleGlobally(transaction);  // throws on error
+parser.parseSetBurnRoleGlobally(txOnNetwork);  // throws on error
+parser.parseUnsetBurnRoleGlobally(txOnNetwork);  // throws on error
 ```
 
 ### All Token Management Results
@@ -305,8 +332,8 @@ final parser = DelegationOutcomeParser();
 ### Parse Contract Creation
 
 ```dart
-final transaction = await provider.getTransaction(delegationHash);
-final results = parser.parseCreateNewDelegationContract(transaction);
+final txOnNetwork = await provider.getTransaction(delegationHash);
+final results = parser.parseCreateNewDelegationContract(txOnNetwork);
 
 for (final result in results) {
   print('Delegation contract: ${result.contractAddress}');
@@ -319,7 +346,7 @@ Parsers throw exceptions when transactions contain errors:
 
 ```dart
 try {
-  final results = parser.parseIssueFungible(transaction);
+  final results = parser.parseIssueFungible(txOnNetwork);
   print('Success: ${results.first.tokenIdentifier}');
 } on TokenManagementParseException catch (e) {
   print('Token operation failed: ${e.message}');
@@ -378,11 +405,11 @@ void main() async {
   await watcher.awaitCompleted(hash);
   
   // 3. Parse outcome
-  final transaction = await provider.getTransaction(hash);
+  final txOnNetwork = await provider.getTransaction(hash);
   final parser = TokenManagementOutcomeParser();
   
   try {
-    final results = parser.parseIssueFungible(transaction);
+    final results = parser.parseIssueFungible(txOnNetwork);
     final tokenId = results.first.tokenIdentifier;
     print('Token created: $tokenId');
     

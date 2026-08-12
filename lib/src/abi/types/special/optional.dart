@@ -61,7 +61,7 @@ final class OptionalType extends AbiType {
   ///
   /// #### Example
   /// ```dart
-  /// final optType = OptionalType(U32Type.type);
+  /// final optType = OptionalType.of(U32Type.type);
   ///
   /// final val1 = optType.createValue(42); // provided
   /// final val2 = optType.createValue(null); // missing
@@ -80,11 +80,10 @@ final class OptionalType extends AbiType {
 ///
 /// Holds either a provided value (Some) or missing value (None).
 /// Provides methods to check presence, unwrap safely, map over values, etc.
-/// Follows Rust/Scala Option pattern.
 ///
 /// #### Example
 /// ```dart
-/// final optType = OptionalType(U32Type.type);
+/// final optType = OptionalType.of(U32Type.type);
 ///
 /// // Provided variant
 /// final provided = OptionalValue.provided(optType, U32Value(100));
@@ -113,7 +112,7 @@ final class OptionalValue extends TypedValue {
   ///
   /// #### Example
   /// ```dart
-  /// final optType = OptionalType(BooleanType.type);
+  /// final optType = OptionalType.of(BooleanType.type);
   /// final provided = OptionalValue.provided(optType, BooleanValue(true));
   /// ```
   factory OptionalValue.provided(OptionalType type, TypedValue value) {
@@ -127,7 +126,7 @@ final class OptionalValue extends TypedValue {
   ///
   /// #### Example
   /// ```dart
-  /// final optType = OptionalType(AddressType.type);
+  /// final optType = OptionalType.of(AddressType.type);
   /// final missing = OptionalValue.missing(optType);
   /// print(missing.isMissing); // true
   /// ```
@@ -166,12 +165,12 @@ final class OptionalValue extends TypedValue {
   /// #### Example
   /// ```dart
   /// final provided = OptionalValue.provided(
-  ///   OptionalType(U32Type.type),
+  ///   OptionalType.of(U32Type.type),
   ///   U32Value(100),
   /// );
   /// print(provided.toBytes()); // [0, 0, 0, 100]
   ///
-  /// final missing = OptionalValue.missing(OptionalType(U32Type.type));
+  /// final missing = OptionalValue.missing(OptionalType.of(U32Type.type));
   /// print(missing.toBytes()); // []
   /// ```
   @pragma('vm:prefer-inline')
@@ -194,12 +193,12 @@ final class OptionalValue extends TypedValue {
   /// #### Example
   /// ```dart
   /// final provided = OptionalValue.provided(
-  ///   OptionalType(U32Type.type),
+  ///   OptionalType.of(U32Type.type),
   ///   U32Value(42),
   /// );
   /// print(provided.unwrap()); // U32Value(42)
   ///
-  /// final missing = OptionalValue.missing(OptionalType(U32Type.type));
+  /// final missing = OptionalValue.missing(OptionalType.of(U32Type.type));
   /// // missing.unwrap(); // Throws StateError
   /// ```
   TypedValue unwrap() {
@@ -219,7 +218,7 @@ final class OptionalValue extends TypedValue {
   ///
   /// #### Example
   /// ```dart
-  /// final missing = OptionalValue.missing(OptionalType(U32Type.type));
+  /// final missing = OptionalValue.missing(OptionalType.of(U32Type.type));
   /// final value = missing.unwrapOr(U32Value(0));
   /// print(value.nativeValue); // 0
   /// ```
@@ -238,14 +237,14 @@ final class OptionalValue extends TypedValue {
   /// #### Example
   /// ```dart
   /// final opt = OptionalValue.provided(
-  ///   OptionalType(U32Type.type),
+  ///   OptionalType.of(U32Type.type),
   ///   U32Value(10),
   /// );
   ///
   /// final doubled = opt.map((v) => U32Value((v as U32Value).value * 2));
   /// print(doubled.nativeValue); // 20
   ///
-  /// final missing = OptionalValue.missing(OptionalType(U32Type.type));
+  /// final missing = OptionalValue.missing(OptionalType.of(U32Type.type));
   /// final result = missing.map((v) => U32Value(999));
   /// print(result.isMissing); // true (map does nothing on missing)
   /// ```

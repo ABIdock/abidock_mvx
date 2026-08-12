@@ -121,7 +121,7 @@ void main() async {
   
   // Load contract ABI
   final abi = SmartContractAbi.fromJson(abiJson);
-  final contractAddress = SmartContractAddress.fromBech32('erd1qqq...');
+  final contractAddress = Address.fromBech32('erd1qqq...');
   
   final controller = SmartContractController(
     contractAddress: contractAddress,
@@ -207,9 +207,11 @@ void main() async {
     print('  [$i] ${nft.collection}-${nft.nonce.toRadixString(16)}: ${nft.name}');
   }
   
-  // Select first NFT for demo
+  // Select first NFT for demo. `collection` and `name` are read off the raw
+  // API payload and are nullable; `collectionIdentifier` is the non-nullable
+  // accessor that falls back to deriving the collection from the identifier.
   final selectedNft = nfts.first;
-  final collection = selectedNft.collection;
+  final collection = selectedNft.collectionIdentifier;
   final nonce = BigInt.from(selectedNft.nonce);
   
   // Recipient
@@ -256,11 +258,15 @@ void main() async {
 
 ## Gas for NFT Transfers
 
-| Operation | Gas Limit |
-|-----------|-----------|
-| Simple NFT transfer | 1,000,000 |
-| NFT to contract | 1,000,000 + function gas |
-| Multiple NFTs | 1,100,000 + 100,000 per NFT |
+`TransferTransactionsFactory` adds the data-movement term
+(`minGasLimit + gasLimitPerByte * data.length`, 50,000 + 1,500 per byte by
+default) on top of the protocol's execution gas:
+
+| Operation | Execution gas | Total |
+|-----------|---------------|-------|
+| Single NFT/SFT (`ESDTNFTTransfer`) | 1,000,000 | 1,050,000 + 1,500 x data bytes |
+| N NFTs in one transaction (`MultiESDTNFTTransfer`) | 800,000 + 200,000 x N | 850,000 + 200,000 x N + 1,500 x data bytes |
+| NFT to a contract endpoint | Transfer gas + endpoint cost | supply via `BaseControllerInput(gasLimit: ...)` |
 
 ## Next Steps
 

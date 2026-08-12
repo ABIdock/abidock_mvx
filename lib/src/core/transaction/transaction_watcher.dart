@@ -28,11 +28,19 @@ import 'transaction_status.dart';
 class TransactionAwaitingOptions {
   /// Creates awaiting options with custom timeouts.
   ///
+  /// Defaults are tuned to the chain's block cadence: polling every 600ms, a
+  /// 9-second hard timeout, and no post-completion patience. The pinning test
+  /// in `test/core/transaction/transaction_watcher_defaults_test.dart` exists
+  /// to prevent silent regressions of these values.
+  ///
   /// #### Parameters
-  /// - `timeout` - Maximum wait time before throwing timeout exception (default: 60s)
-  /// - `pollingInterval` - Delay between status checks (default: 400ms)
-  /// - `patience` - Extra wait after block detection for finalization (default: 800ms)
-  /// - `maxConsecutiveErrors` - Abort after this many consecutive fetch failures (default: 5)
+  /// - `timeout` - Maximum wait time before throwing timeout exception
+  ///   (default: 9s).
+  /// - `pollingInterval` - Delay between status checks (default: 600ms).
+  /// - `patience` - Extra wait after block detection for finalization
+  ///   (default: 0).
+  /// - `maxConsecutiveErrors` - Abort after this many consecutive fetch
+  ///   failures (default: 5).
   ///
   /// #### Example
   /// ```dart
@@ -43,9 +51,9 @@ class TransactionAwaitingOptions {
   /// );
   /// ```
   const TransactionAwaitingOptions({
-    this.timeout = const Duration(seconds: 60),
-    this.pollingInterval = const Duration(milliseconds: 400),
-    this.patience = const Duration(milliseconds: 800),
+    this.timeout = const Duration(seconds: 9),
+    this.pollingInterval = const Duration(milliseconds: 600),
+    this.patience = Duration.zero,
     this.maxConsecutiveErrors = 5,
     this.awaitCrossShardCompletion = false,
     this.numShards,
@@ -121,7 +129,7 @@ class TransactionWatcher {
   ///
   /// #### Example
   /// ```dart
-  /// final networkProvider = NetworkProvider.fromChain(Chain.devnet);
+  /// final networkProvider = ApiNetworkProvider.devnet();
   /// final watcher = TransactionWatcher(networkProvider: networkProvider);
   ///
   /// try {

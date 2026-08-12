@@ -315,20 +315,18 @@ class TransfersGenerator extends GeneratorBase {
   }
 
   void _writeBaseOptions(StringBuffer buffer, bool needsGasLimit) {
-    buffer.write('    baseOptions: ');
     final conditions = <String>[];
     if (needsGasLimit) conditions.add('gasLimit != null');
     conditions.add('relayer != null');
     conditions.add('guardian != null');
 
-    buffer.writeln(conditions.join(' || '));
-    buffer.write('        ? BaseControllerInput(');
     final params = <String>[];
     if (needsGasLimit) params.add('gasLimit: gasLimit');
     params.add('relayer: relayer');
     params.add('guardian: guardian');
-    buffer.writeln(params.join(', '));
-    buffer.writeln('        )');
+
+    buffer.writeln('    baseOptions: ${conditions.join(' || ')}');
+    buffer.writeln('        ? BaseControllerInput(${params.join(', ')})');
     buffer.writeln('        : const BaseControllerInput(),');
   }
 
@@ -477,6 +475,8 @@ class TransfersGenerator extends GeneratorBase {
       buffer.writeln('    required Balance amount,');
       buffer.writeln('    Uint8List? data,');
       buffer.writeln('    GasLimit? gasLimit,');
+      buffer.writeln('    Address? relayer,');
+      buffer.writeln('    Address? guardian,');
       buffer.writeln('  }) {');
       buffer.writeln(
         '    return transferFactory.createTransactionForNativeTokenTransfer(',
@@ -486,7 +486,9 @@ class TransfersGenerator extends GeneratorBase {
       buffer.writeln('      nativeAmount: amount,');
       buffer.writeln('      data: data,');
       buffer.writeln('      gasLimit: gasLimit,');
-      buffer.writeln('    ).copyWith(newNonce: nonce);');
+      buffer.writeln(
+        '    ).copyWith(newNonce: nonce, newRelayer: relayer, newGuardian: guardian);',
+      );
       buffer.writeln('  }');
       buffer.writeln();
       buffer.writeln('  /// Unsigned ESDT transfer for offline batching.');
@@ -497,6 +499,8 @@ class TransfersGenerator extends GeneratorBase {
       buffer.writeln('    required String tokenId,');
       buffer.writeln('    required BigInt amount,');
       buffer.writeln('    GasLimit? gasLimit,');
+      buffer.writeln('    Address? relayer,');
+      buffer.writeln('    Address? guardian,');
       buffer.writeln('  }) {');
       buffer.writeln(
         '    return transferFactory.createTransactionForEsdtTransfer(',
@@ -509,7 +513,9 @@ class TransfersGenerator extends GeneratorBase {
       );
       buffer.writeln('      ],');
       buffer.writeln('      gasLimit: gasLimit,');
-      buffer.writeln('    ).copyWith(newNonce: nonce);');
+      buffer.writeln(
+        '    ).copyWith(newNonce: nonce, newRelayer: relayer, newGuardian: guardian);',
+      );
       buffer.writeln('  }');
       buffer.writeln();
       buffer.writeln('  /// Unsigned NFT/SFT transfer for offline batching.');
@@ -521,6 +527,8 @@ class TransfersGenerator extends GeneratorBase {
       buffer.writeln('    required int tokenNonce,');
       buffer.writeln('    required BigInt amount,');
       buffer.writeln('    GasLimit? gasLimit,');
+      buffer.writeln('    Address? relayer,');
+      buffer.writeln('    Address? guardian,');
       buffer.writeln('  }) {');
       buffer.writeln(
         '    return transferFactory.createTransactionForEsdtTransfer(',
@@ -533,7 +541,9 @@ class TransfersGenerator extends GeneratorBase {
       );
       buffer.writeln('      ],');
       buffer.writeln('      gasLimit: gasLimit,');
-      buffer.writeln('    ).copyWith(newNonce: nonce);');
+      buffer.writeln(
+        '    ).copyWith(newNonce: nonce, newRelayer: relayer, newGuardian: guardian);',
+      );
       buffer.writeln('  }');
       buffer.writeln();
       buffer.writeln(
@@ -545,6 +555,8 @@ class TransfersGenerator extends GeneratorBase {
       buffer.writeln('    required Address receiver,');
       buffer.writeln('    required List<TokenTransfer> transfers,');
       buffer.writeln('    GasLimit? gasLimit,');
+      buffer.writeln('    Address? relayer,');
+      buffer.writeln('    Address? guardian,');
       buffer.writeln('  }) {');
       buffer.writeln(
         '    return transferFactory.createTransactionForEsdtTransfer(',
@@ -553,7 +565,9 @@ class TransfersGenerator extends GeneratorBase {
       buffer.writeln('      receiver: receiver,');
       buffer.writeln('      tokenTransfers: transfers,');
       buffer.writeln('      gasLimit: gasLimit,');
-      buffer.writeln('    ).copyWith(newNonce: nonce);');
+      buffer.writeln(
+        '    ).copyWith(newNonce: nonce, newRelayer: relayer, newGuardian: guardian);',
+      );
       buffer.writeln('  }');
     }
 

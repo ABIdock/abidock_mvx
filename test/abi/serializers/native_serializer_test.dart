@@ -280,7 +280,6 @@ void main() {
 
     group('CodeMetadata', () {
       test('CodeMetadataType from int', () {
-        // Flags per MultiversX spec: upgradeable=0x0100, readable=0x0400, payable=0x0002
         final result = _convertSingle(0x0502, CodeMetadataType.type);
         expect(result, isA<CodeMetadataValue>());
         expect((result as CodeMetadataValue).isUpgradeable, true);
@@ -289,7 +288,6 @@ void main() {
       });
 
       test('CodeMetadataType from 2-byte list', () {
-        // bytes [0x05, 0x02] = big-endian 0x0502 = upgradeable | readable | payable
         final result = _convertSingle([0x05, 0x02], CodeMetadataType.type);
         expect(result, isA<CodeMetadataValue>());
         expect((result as CodeMetadataValue).flags, 0x0502);

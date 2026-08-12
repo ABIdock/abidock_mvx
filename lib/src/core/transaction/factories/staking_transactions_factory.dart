@@ -4,8 +4,8 @@
 /// Covers `stake`, `unStake`, `unBond`, `claim`, `changeRewardAddress`,
 /// `changeValidatorKeys`, `unJail`, `reStakeUnStakedNodes`. The BLS
 /// signatures accompanying validator-public-key arguments must be produced
-/// outside this SDK (via `mx-chain-tools-go` or an operator tool that owns
-/// the validator secret keys).
+/// outside this SDK, by whichever operator tool holds the validator secret
+/// keys.
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -20,9 +20,24 @@ import '../gas_models/gas_limit.dart';
 import '../gas_models/gas_price.dart';
 import '../transaction.dart';
 import '../transaction_version.dart';
+import '../transactions_factory_config.dart';
 
+/// Validator ("auction") system smart contract address, in hex; its last four
+/// bytes are `0001ffff`.
+///
+/// Direct staking calls are addressed here, not to the staking system
+/// contract: every entry point on the staking contract requires the caller to
+/// be the validator contract itself, so a wallet-signed transaction sent
+/// straight to the staking contract can never succeed.
+///
+/// DO NOT change this constant: it is the on-chain address of a fixed system
+/// contract, and [stakingContractBech32] is its bech32 form of the same bytes.
+const String stakingContractAddressHex =
+    '000000000000000000010000000000000000000000000000000000000001ffff';
+
+/// Validator ("auction") system smart contract address, in bech32 form.
 const String stakingContractBech32 =
-    'erd1qqqqqqqqqqqqqqqpqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqllls0lczs7';
+    'erd1qqqqqqqqqqqqqqqpqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqplllst77y4l';
 
 /// Gas + per-op defaults for the staking factory.
 class StakingTransactionsConfig {
@@ -41,6 +56,27 @@ class StakingTransactionsConfig {
     this.gasLimitUnjailCost = '2500000000000000000',
     this.defaultGasPrice = 1000000000,
   });
+
+  /// Derives a [StakingTransactionsConfig] from a shared
+  /// [TransactionsFactoryConfig].
+  ///
+  /// #### Parameters
+  /// - `shared` - Aggregate factory config populated by `NetworkEntrypoint`.
+  ///
+  /// #### Returns
+  /// `StakingTransactionsConfig` populated from the shared chain id and
+  /// stake / unstake / unbond / unjail / restake gas-limit fields.
+  static StakingTransactionsConfig fromShared(
+    TransactionsFactoryConfig shared,
+  ) => StakingTransactionsConfig(
+    chainId: shared.chainId,
+    minGasLimit: shared.minGasLimit,
+    gasLimitPerByte: shared.gasLimitPerByte,
+    gasLimitStake: shared.gasLimitStake,
+    gasLimitUnstake: shared.gasLimitUnstake,
+    gasLimitUnbond: shared.gasLimitUnbond,
+    gasLimitRestakeUnstakedNodes: shared.gasLimitRestakeUnstakedNodes,
+  );
 
   final ChainId chainId;
   final int minGasLimit;
@@ -113,7 +149,7 @@ class StakingTransactionsFactory {
         ..write('@')
         ..write(convert.hex.encode(Address.fromBech32(rewardAddress).bytes));
     }
-    final int gas = config.gasLimitStake * numNodes + config.minGasLimit;
+    final int gas = config.gasLimitStake * numNodes;
     return _build(
       sender: sender,
       data: data.toString(),
@@ -150,11 +186,7 @@ class StakingTransactionsFactory {
 
   /// Claim accrued validator rewards.
   Transaction createTransactionForClaimingRewards({required Address sender}) {
-    return _build(
-      sender: sender,
-      data: 'claim',
-      gas: config.gasLimitClaim + config.minGasLimit,
-    );
+    return _build(sender: sender, data: 'claim', gas: config.gasLimitClaim);
   }
 
   /// Re-stake rewards that are currently in the unstaked bucket.
@@ -180,7 +212,7 @@ class StakingTransactionsFactory {
     return _build(
       sender: sender,
       data: data,
-      gas: config.gasLimitChangeRewardAddress + config.minGasLimit,
+      gas: config.gasLimitChangeRewardAddress,
     );
   }
 
@@ -208,7 +240,7 @@ class StakingTransactionsFactory {
     return _build(
       sender: sender,
       data: data.toString(),
-      gas: config.gasLimitChangeValidatorKeys + config.minGasLimit,
+      gas: config.gasLimitChangeValidatorKeys,
     );
   }
 
@@ -228,7 +260,7 @@ class StakingTransactionsFactory {
     return _build(
       sender: sender,
       data: data.toString(),
-      gas: config.gasLimitUnjail * publicKeys.length + config.minGasLimit,
+      gas: config.gasLimitUnjail * publicKeys.length,
       value: amount,
     );
   }
@@ -248,7 +280,7 @@ class StakingTransactionsFactory {
     return _build(
       sender: sender,
       data: data.toString(),
-      gas: gasPerKey * publicKeys.length + config.minGasLimit,
+      gas: gasPerKey * publicKeys.length,
     );
   }
 
@@ -259,7 +291,8 @@ class StakingTransactionsFactory {
     Balance? value,
   }) {
     final Uint8List bytes = Uint8List.fromList(utf8.encode(data));
-    final int finalGas = gas + bytes.length * config.gasLimitPerByte;
+    final int finalGas =
+        config.minGasLimit + bytes.length * config.gasLimitPerByte + gas;
     return Transaction(
       nonce: const Nonce(0),
       sender: sender,

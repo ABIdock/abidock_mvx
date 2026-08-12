@@ -26,9 +26,12 @@ import 'numerical.dart';
 /// print(zero.toBytes().isEmpty); // true (empty buffer for zero)
 ///
 /// // Use in struct definitions
-/// final structType = StructType(fields: [
-///   StructField('largeNumber', BigUIntType.type),
-/// ]);
+/// final structType = StructType(
+///   name: 'TokenAmounts',
+///   fieldDefinitions: [
+///     FieldDefinition(name: 'largeNumber', type: BigUIntType.type),
+///   ],
+/// );
 /// ```
 @immutable
 final class BigUIntType extends NumericalType {

@@ -1,4 +1,5 @@
 import 'package:abidock_mvx/src/abi/abi.dart';
+import '../core/import_manager.dart';
 import '../core/name_sanitizer.dart';
 import '../core/type_mapper.dart';
 import '../models/file_output.dart';
@@ -10,6 +11,12 @@ class CallsGenerator extends GeneratorBase {
   final NameSanitizer nameSanitizer;
   final bool generateUnsigned;
   final bool useAutoGas;
+
+  /// Gas limit used when building the *probe* transaction we feed to
+  /// `simulateGas` in the auto-gas path. 600M is the MultiversX per-tx
+  /// ceiling — it guarantees the probe doesn't get rejected for
+  /// insufficient gas before the simulator can compute an estimate.
+  static const String _simulationProbeGas = 'const GasLimit(600000000)';
 
   CallsGenerator({
     required this.abi,
@@ -36,21 +43,20 @@ class CallsGenerator extends GeneratorBase {
     final functionName = nameSanitizer.sanitizeParamName(endpoint.name);
     final filename = 'calls/${nameSanitizer.toSnakeCase(endpoint.name)}.dart';
 
-    final imports = <String>[];
+    final importManager = ImportManager();
 
-    final needsTypedData = _needsTypedData(endpoint);
-    if (needsTypedData) {
-      imports.add('import \'dart:typed_data\';');
+    if (_needsTypedData(endpoint)) {
+      importManager.addDartImport('dart:typed_data');
     }
 
-    imports.add('import \'package:abidock_mvx/abidock_mvx.dart\';');
+    importManager.addPackageImport('package:abidock_mvx/abidock_mvx.dart');
 
     final customTypes = _collectCustomTypes(endpoint);
     for (final typeName in customTypes.toList()..sort()) {
       final typeFile = nameSanitizer.toSnakeCase(typeName);
-      imports.add('import \'../models/$typeFile.dart\';');
+      importManager.addRelativeImport('../models/$typeFile.dart');
     }
-    _writeSortedImports(buffer, imports);
+    buffer.write(importManager.generate());
     buffer.writeln();
 
     buffer.writeln('/// Calls ${endpoint.name} endpoint.');
@@ -61,7 +67,7 @@ class CallsGenerator extends GeneratorBase {
         if (line.trim().isEmpty) {
           buffer.writeln('///');
         } else {
-          buffer.writeln('/// $line');
+          buffer.writeln('/// ${escapeDocLine(line)}');
         }
       }
     }
@@ -117,19 +123,10 @@ class CallsGenerator extends GeneratorBase {
     buffer.writeln('  IAccount sender,');
     buffer.writeln('  Nonce nonce,');
 
+    final argsList = <String>[];
     for (final input in endpoint.inputs) {
-      var paramName = nameSanitizer.sanitizeParamName(input.name);
-      if ({
-        'sender',
-        'nonce',
-        'gasLimit',
-        'value',
-        'relayer',
-        'guardian',
-        'controller',
-      }.contains(paramName)) {
-        paramName = '${paramName}Param';
-      }
+      final paramName = nameSanitizer.sanitizeParamName(input.name);
+      argsList.add(typeMapper.wrapArgumentExpression(input.type, paramName));
       final dartType = typeMapper.mapToDartType(input.type);
       buffer.writeln('  $dartType $paramName,');
     }
@@ -149,28 +146,30 @@ class CallsGenerator extends GeneratorBase {
     buffer.writeln('  }');
     buffer.writeln(') async {');
 
-    // Build arguments list
-    final argsList = <String>[];
-    for (final input in endpoint.inputs) {
-      var paramName = nameSanitizer.sanitizeParamName(input.name);
-      if ({
-        'sender',
-        'nonce',
-        'gasLimit',
-        'value',
-        'relayer',
-        'guardian',
-        'controller',
-      }.contains(paramName)) {
-        paramName = '${paramName}Param';
-      }
-      argsList.add(paramName);
-    }
-
     if (useAutoGas) {
-      // Auto gas estimation: create tx with max gas, simulate, then update gas
-      buffer.writeln('  // Create transaction with max gas for simulation');
-      buffer.writeln('  final tx = await controller.call(');
+      buffer.writeln('  final factory = SmartContractCallFactory(');
+      buffer.writeln('    contractAddress: controller.contractAddress,');
+      buffer.writeln('    abi: controller.abi,');
+      buffer.writeln('    chainId: controller.networkProvider.chainId,');
+      buffer.writeln('  );');
+      buffer.writeln('  final probeTx = factory.createCall(');
+      buffer.writeln('    sender: sender.address,');
+      buffer.writeln('    nonce: nonce,');
+      buffer.writeln('    endpointName: \'${endpoint.name}\',');
+      if (argsList.isNotEmpty) {
+        buffer.writeln('    arguments: <dynamic>[${argsList.join(', ')}],');
+      }
+      if (endpoint.isPayable) {
+        buffer.writeln('    tokenTransfers: tokenTransfers,');
+      }
+      buffer.writeln('    gasLimit: $_simulationProbeGas,');
+      buffer.writeln('    value: value,');
+      buffer.writeln('  );');
+      buffer.writeln(
+        '  final gasLimit = await simulateGas(probeTx, controller.networkProvider);',
+      );
+      buffer.writeln();
+      buffer.writeln('  return controller.call(');
       buffer.writeln('    account: sender,');
       buffer.writeln('    nonce: nonce,');
       buffer.writeln('    endpointName: \'${endpoint.name}\',');
@@ -182,19 +181,11 @@ class CallsGenerator extends GeneratorBase {
       }
       buffer.writeln('    value: value,');
       buffer.writeln('    options: BaseControllerInput(');
-      buffer.writeln('      gasLimit: const GasLimit(600000000),');
+      buffer.writeln('      gasLimit: gasLimit,');
       buffer.writeln('      relayer: relayer,');
       buffer.writeln('      guardian: guardian,');
       buffer.writeln('    ),');
       buffer.writeln('  );');
-      buffer.writeln();
-      buffer.writeln('  // Estimate gas using simulation');
-      buffer.writeln(
-        '  final gasLimit = await simulateGas(tx, controller.networkProvider);',
-      );
-      buffer.writeln();
-      buffer.writeln('  // Return transaction with estimated gas');
-      buffer.writeln('  return tx.copyWith(newGasLimit: gasLimit);');
     } else {
       buffer.writeln('  return controller.call(');
       buffer.writeln('    account: sender,');
@@ -289,7 +280,6 @@ class CallsGenerator extends GeneratorBase {
     buffer.writeln('/// ```');
 
     if (useAutoGas) {
-      // Async version with auto gas estimation
       buffer.writeln('Future<Transaction> ${functionName}Unsigned(');
       buffer.writeln('  SmartContractCallFactory factory,');
       buffer.writeln('  NetworkProvider networkProvider,');
@@ -302,19 +292,10 @@ class CallsGenerator extends GeneratorBase {
       buffer.writeln('  Nonce nonce,');
     }
 
+    final argsList = <String>[];
     for (final input in endpoint.inputs) {
-      var paramName = nameSanitizer.sanitizeParamName(input.name);
-      if ({
-        'sender',
-        'nonce',
-        'gasLimit',
-        'value',
-        'relayer',
-        'guardian',
-        'factory',
-      }.contains(paramName)) {
-        paramName = '${paramName}Param';
-      }
+      final paramName = nameSanitizer.sanitizeParamName(input.name);
+      argsList.add(typeMapper.wrapArgumentExpression(input.type, paramName));
       final dartType = typeMapper.mapToDartType(input.type);
       buffer.writeln('  $dartType $paramName,');
     }
@@ -337,27 +318,7 @@ class CallsGenerator extends GeneratorBase {
       buffer.writeln(') {');
     }
 
-    // Build arguments list
-    final argsList = <String>[];
-    for (final input in endpoint.inputs) {
-      var paramName = nameSanitizer.sanitizeParamName(input.name);
-      if ({
-        'sender',
-        'nonce',
-        'gasLimit',
-        'value',
-        'relayer',
-        'guardian',
-        'factory',
-      }.contains(paramName)) {
-        paramName = '${paramName}Param';
-      }
-      argsList.add(paramName);
-    }
-
     if (useAutoGas) {
-      // Auto gas estimation: create tx with max gas, simulate, then update gas
-      buffer.writeln('  // Create transaction with max gas for simulation');
       buffer.writeln('  final tx = factory.createCall(');
       buffer.writeln('    sender: sender,');
       buffer.writeln('    nonce: nonce,');
@@ -368,19 +329,16 @@ class CallsGenerator extends GeneratorBase {
       if (endpoint.isPayable) {
         buffer.writeln('    tokenTransfers: tokenTransfers,');
       }
-      buffer.writeln('    gasLimit: const GasLimit(600000000),');
+      buffer.writeln('    gasLimit: $_simulationProbeGas,');
       buffer.writeln('    value: value,');
       buffer.writeln('  );');
       buffer.writeln();
-      buffer.writeln('  // Estimate gas using simulation');
       buffer.writeln(
         '  final gasLimit = await simulateGas(tx, networkProvider);',
       );
       buffer.writeln();
-      buffer.writeln('  // Return transaction with estimated gas');
       buffer.writeln('  return tx.copyWith(newGasLimit: gasLimit);');
     } else {
-      // Use createCall for all cases (handles both with and without tokens)
       buffer.writeln('  return factory.createCall(');
       buffer.writeln('    sender: sender,');
       buffer.writeln('    nonce: nonce,');
@@ -428,6 +386,10 @@ class CallsGenerator extends GeneratorBase {
       for (final field in type.fieldTypes) {
         _collectTypeNames(field, types);
       }
+    } else if (type is MultiValueType) {
+      for (final t in type.types) {
+        _collectTypeNames(t, types);
+      }
     }
   }
 
@@ -439,44 +401,5 @@ class CallsGenerator extends GeneratorBase {
       if (typeMapper.needsTypedData(param.type)) return true;
     }
     return false;
-  }
-
-  void _writeSortedImports(StringBuffer buffer, List<String> imports) {
-    final dartImports = <String>[];
-    final packageImports = <String>[];
-    final relativeImports = <String>[];
-
-    for (final import in imports) {
-      if (import.contains('dart:')) {
-        dartImports.add(import);
-      } else if (import.contains('package:')) {
-        packageImports.add(import);
-      } else {
-        relativeImports.add(import);
-      }
-    }
-
-    dartImports.sort();
-    packageImports.sort();
-    relativeImports.sort();
-
-    for (final import in dartImports) {
-      buffer.writeln(import);
-    }
-    if (dartImports.isNotEmpty &&
-        (packageImports.isNotEmpty || relativeImports.isNotEmpty)) {
-      buffer.writeln();
-    }
-
-    for (final import in packageImports) {
-      buffer.writeln(import);
-    }
-    if (packageImports.isNotEmpty && relativeImports.isNotEmpty) {
-      buffer.writeln();
-    }
-
-    for (final import in relativeImports) {
-      buffer.writeln(import);
-    }
   }
 }

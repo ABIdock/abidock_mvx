@@ -1,5 +1,5 @@
 /// User secret and public key classes for ed25519.
-/// Uses libsodium FFI for memory control and security.
+/// Secret key buffers are zeroed on disposal and on garbage collection.
 ///
 ///  UserPublicKey derives blockchain addresses and verifies signatures.
 import 'dart:math' show Random;
@@ -259,7 +259,7 @@ class UserPublicKey {
   /// ```
   Future<bool> verify(Uint8List data, Uint8List signature) async {
     try {
-      return Ed25519Crypto.verify(_buffer, data, signature);
+      return await Ed25519Crypto.verify(_buffer, data, signature);
     } catch (e) {
       return false;
     }

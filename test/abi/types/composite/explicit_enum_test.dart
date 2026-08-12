@@ -234,10 +234,21 @@ void main() {
       expect(value.nativeValue, equals('InvalidInput'));
     });
 
-    test('toBytes encodes correctly', () {
+    test('toBytes encodes the variant name as UTF-8', () {
       final value = errorCodes.createValue('None') as ExplicitEnumValue;
       final bytes = value.toBytes();
       expect(bytes, isA<Uint8List>());
+      expect(bytes, equals(<int>[78, 111, 110, 101]));
+    });
+
+    test('toBytes never emits the synthesised discriminant', () {
+      final value = errorCodes.createValue('InvalidInput') as ExplicitEnumValue;
+      expect(value.discriminant, equals(100));
+      expect(value.toBytes(), isNot(equals(<int>[100])));
+      expect(
+        value.toBytes(),
+        equals(<int>[73, 110, 118, 97, 108, 105, 100, 73, 110, 112, 117, 116]),
+      );
     });
 
     group('equality', () {

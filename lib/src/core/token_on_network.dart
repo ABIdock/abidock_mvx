@@ -28,6 +28,7 @@
 /// print(token.marketCap); // 1000000
 /// ```
 
+import '../infrastructure/network/network_status.dart';
 import '../utils/helpers.dart';
 
 class TokenOnNetwork {
@@ -112,8 +113,34 @@ class TokenOnNetwork {
   /// Collection identifier.
   String? get collection => optionalAs<String>(raw['collection'], 'collection');
 
-  /// Timestamp when token was created.
+  /// Timestamp in seconds when the token was created, if reported.
+  ///
+  /// Prefer [createdAt], which does not depend on the reported unit.
   int? get timestamp => optionalAs<int>(raw['timestamp'], 'timestamp');
+
+  /// Timestamp in milliseconds when the token was created, if reported.
+  ///
+  /// Only the collection route carries this key; the token, NFT and
+  /// account-holding routes report [timestamp] alone.
+  int? get timestampMs => optionalAs<int>(raw['timestampMs'], 'timestampMs');
+
+  /// Creation instant of the token, normalised to UTC.
+  ///
+  /// Prefers [timestampMs] and falls back to [timestamp], deciding the unit of
+  /// whichever value it uses by magnitude via [ChainTimestamp].
+  ///
+  /// #### Returns
+  /// `DateTime?` - UTC instant, or `null` when neither timestamp was reported
+  ///
+  /// #### Example
+  /// ```dart
+  /// final TokenOnNetwork token = await provider.getDefinitionOfTokenCollection(
+  ///   'MEDAL-ae4d56',
+  /// );
+  /// print(token.createdAt);
+  /// ```
+  DateTime? get createdAt =>
+      ChainTimestamp.toDateTime(timestampMs ?? timestamp);
 
   /// Token attributes.
   String? get attributes => optionalAs<String>(raw['attributes'], 'attributes');

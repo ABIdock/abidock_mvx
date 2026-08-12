@@ -74,26 +74,28 @@ void main() {
         expect(parsed.types.containsKey('Outer'), isTrue);
       });
 
-      test('throws on circular type dependencies', () {
-        const circularJson = '''{
-          "name": "Test",
-          "endpoints": [],
-          "types": {
-            "A": {
-              "type": "struct",
-              "fields": [{"name": "b", "type": "B"}]
-            },
-            "B": {
-              "type": "struct",
-              "fields": [{"name": "a", "type": "A"}]
+      test(
+        'permits mutually-recursive types (two-phase resolution, H2-11)',
+        () {
+          const circularJson = '''{
+            "name": "Test",
+            "endpoints": [],
+            "types": {
+              "A": {
+                "type": "struct",
+                "fields": [{"name": "b", "type": "B"}]
+              },
+              "B": {
+                "type": "struct",
+                "fields": [{"name": "a", "type": "A"}]
+              }
             }
-          }
-        }''';
-        expect(
-          () => SmartContractAbi.fromJson(circularJson),
-          throwsFormatException,
-        );
-      });
+          }''';
+          final SmartContractAbi abi = SmartContractAbi.fromJson(circularJson);
+          expect(abi.getStruct('A'), isNotNull);
+          expect(abi.getStruct('B'), isNotNull);
+        },
+      );
     });
 
     group('empty constructor', () {

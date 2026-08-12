@@ -89,7 +89,7 @@ class IssueInput {
 ///   initialSupply: BigInt.from(1000000) * BigInt.from(10).pow(18),
 ///   numDecimals: BigInt.from(18),
 ///   canFreeze: true,
-///   canMint: true,
+///   canUpgrade: true,
 /// );
 /// ```
 class IssueFungibleInput extends IssueInput {
@@ -483,9 +483,13 @@ class RegisteringDynamicTokenInput {
     required this.tokenName,
     required this.tokenTicker,
     required this.tokenType,
+    this.numDecimals,
   });
 
   final String tokenName;
   final String tokenTicker;
   final String tokenType;
+
+  /// Decimal precision, honoured only when `tokenType` is `META`.
+  final BigInt? numDecimals;
 }

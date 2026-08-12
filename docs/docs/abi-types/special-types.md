@@ -2,12 +2,27 @@
 id: special-types
 title: Special Types
 sidebar_position: 5
-description: Handle MultiversX domain-specific ABI types including Address, TokenIdentifier, H256 hashes, and CodeMetadata.
+description: Handle MultiversX domain-specific ABI types including Address, TokenIdentifier, H256, CodeMetadata and ManagedDecimal.
 ---
 
 # Special Types
 
-Special types handle domain-specific MultiversX data like addresses, tokens, and hashes.
+Special types handle domain-specific MultiversX data: addresses, tokens, hashes, contract metadata
+and fixed-point decimals.
+
+## Wire format
+
+| Type | Top-level | Nested |
+|------|-----------|--------|
+| `Address` | exactly 32 bytes | exactly 32 bytes |
+| `TokenIdentifier`, `TokenId` | UTF-8 bytes, no prefix | `[u32 length][UTF-8]` |
+| `EgldOrEsdtTokenIdentifier` | UTF-8 bytes; native EGLD is a **zero-length** payload | `[u32 length][UTF-8]` |
+| `H256` | exactly 32 bytes | exactly 32 bytes |
+| `ManagedByteArray<N>` | exactly N bytes | exactly N bytes, no prefix |
+| `CodeMetadata` | exactly 2 bytes, big-endian | exactly 2 bytes, big-endian |
+| `ManagedDecimal<N>` | magnitude only (scale lives in the type) | `[u32 length][magnitude]` |
+| `ManagedDecimal<usize>` | `[u32 length][magnitude][u32 scale]` | `[u32 length][magnitude][u32 scale]` |
+| `Nothing` | empty | empty (consumes 0 bytes) |
 
 ## Address
 
@@ -23,10 +38,9 @@ final address = AddressType.create(
 final bech32 = address.nativeValue; // String: 'erd1qqq...'
 print(bech32);
 
-// For bytes or hex representation, use the AddressValue methods
-final addressValue = address as AddressValue;
-print(addressValue.toBech32()); // erd1qqq...
-print(addressValue.toHex());    // 0000...
+// Bytes and hex are available on the value itself
+print(address.toBech32()); // erd1qqq...
+print(address.toHex());    // 0000...
 ```
 
 ### Creating Address Values
@@ -42,7 +56,7 @@ final addr2 = AddressValue.fromBech32(
   'erd1qyu5wthldzr8wx5c9ucg8kjagg0jfs53s8nr3zpz3hypefsdd8ssycr6th'
 );
 
-// Method 3: Via type singleton
+// Method 3: Via type instance
 final addr3 = AddressType.type.createValue(
   'erd1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq6gq4hu'
 );
@@ -55,9 +69,11 @@ final fromHex = AddressType.create(
 // From bytes
 final fromBytes = AddressType.create(List<int>.filled(32, 0));
 
-// Zero address (system address)
+// Zero address (32 zero bytes, used as the deploy receiver)
 final zeroAddr = AddressType.createZero();
 ```
+
+`AddressType.create` treats a string starting with `erd1` as bech32 and anything else as hex.
 
 ## TokenIdentifier
 
@@ -72,6 +88,8 @@ print(token.nativeValue); // 'USDC-123456'
 final nft = TokenIdentifierType.create('MYNFT-abc123');
 ```
 
+`TokenId` in an ABI is the same type with the same wire form.
+
 ### Token Identifier Format
 
 ```
@@ -81,30 +99,55 @@ TICKER-randomhex
  chars   chars
 ```
 
+The value class validates this shape: an upper-case ticker of 3-10 alphanumerics starting with a
+letter, a dash, exactly 6 lower-case hex characters, and -- for NFT/SFT/MetaESDT instances -- an
+optional `-<hexnonce>` suffix. Anything else throws `ArgumentError`.
+
 Examples:
 - `WEGLD-bd4d79` - Wrapped EGLD
 - `USDC-c76f1f` - USD Coin
 - `MEX-455c57` - MEX token
+- `MYNFT-abc123-0a` - a single NFT of the `MYNFT-abc123` collection
 
 ## EgldOrEsdtTokenIdentifier
 
-Either EGLD or an ESDT token:
+Either native EGLD or an ESDT token -- the type payable endpoints use:
 
 ```dart
 // EGLD
 final egld = EgldOrEsdtTokenIdentifierType.create('EGLD');
 print(egld.nativeValue); // 'EGLD'
+print(egld.isEgld);      // true
 
 // ESDT
 final esdt = EgldOrEsdtTokenIdentifierType.create('USDC-123456');
 print(esdt.nativeValue); // 'USDC-123456'
+print(esdt.isEsdt);      // true
 ```
 
-This is commonly used in payable endpoints that accept either EGLD or tokens.
+Native EGLD has two accepted spellings: the canonical `EGLD-000000`, which encodes as a
+**zero-length** payload, and the legacy `EGLD` sentinel, which encodes as its 4 ASCII bytes.
+Decoding always canonicalises -- an empty payload and `EGLD` both come back as `EGLD-000000`.
 
-## EsdtTokenPayment
+## Token payment structs
 
-Complete token payment information:
+`EsdtTokenPayment`, `EgldOrEsdtTokenPayment`, `EgldOrMultiEsdtPayment`, `Payment` and
+`FungiblePayment` are built into the framework: contracts use them without ever listing them in the
+ABI's `types` map, and the SDK recognises the names intrinsically.
+
+| Struct | Fields, in wire order |
+|--------|----------------------|
+| `EsdtTokenPayment` | `token_identifier: TokenIdentifier`, `token_nonce: u64`, `amount: BigUint` |
+| `EgldOrEsdtTokenPayment` | `token_identifier: EgldOrEsdtTokenIdentifier`, `token_nonce: u64`, `amount: BigUint` |
+| `Payment` | `token_identifier: TokenId`, `token_nonce: u64`, `amount: NonZeroBigUint` |
+| `FungiblePayment` | `token_identifier: TokenId`, `amount: NonZeroBigUint` |
+| `EgldOrMultiEsdtPayment` | `egld_amount: BigUint`, `multi_esdt: List<EsdtTokenPayment>` |
+
+`TokenId` shares the wire form of `TokenIdentifier` and `NonZeroBigUint` that of `BigUint`, so a
+`Payment` is `[u32 len][utf8 id][8-byte BE nonce][u32 len][magnitude]` when nested, and a
+`FungiblePayment` is `[u32 len][utf8 id][u32 len][magnitude]` in both positions.
+
+Define an equivalent struct yourself when you want to build one by hand:
 
 ```dart
 // Define EsdtTokenPayment type
@@ -115,38 +158,33 @@ final paymentType = StructBuilder('EsdtTokenPayment')
     .build();
 
 // Create payment value
-final payment = paymentType.createValue({
+final payment = paymentType.createValue(<String, dynamic>{
   'token_identifier': 'USDC-123456',
-  'token_nonce': BigInt.zero,  // 0 for fungible
+  'token_nonce': BigInt.zero, // 0 for fungible
   'amount': BigInt.from(1000000),
-});
+}) as StructValue;
 ```
 
 ### NFT Payment
 
 ```dart
-// Define EsdtTokenPayment type
-final paymentType = StructBuilder('EsdtTokenPayment')
-    .field('token_identifier', TokenIdentifierType.type)
-    .field('token_nonce', U64Type.type)
-    .field('amount', BigUIntType.type)
-    .build();
-
 // NFT with nonce
-final nftPayment = paymentType.createValue({
+final nftPayment = paymentType.createValue(<String, dynamic>{
   'token_identifier': 'MYNFT-abc123',
-  'token_nonce': BigInt.from(42),  // NFT nonce
+  'token_nonce': BigInt.from(42), // NFT nonce
   'amount': BigInt.one,
-});
+}) as StructValue;
 ```
+
+For *sending* tokens with a contract call, use `TokenTransferValue.fromPrimitives(...)` and the
+`tokenTransfers` parameter instead -- the controller builds the `ESDTTransfer` /
+`MultiESDTNFTTransfer` data field for you.
 
 ## H256
 
 32-byte hash values (256 bits):
 
 ```dart
-import 'dart:typed_data';
-
 // From bytes (must be exactly 32 bytes)
 final hash = H256Type.create(List<int>.filled(32, 0));
 print(hash.nativeValue); // Uint8List of 32 bytes
@@ -159,34 +197,46 @@ final hashHex = H256Type.create(
 // Common use: transaction hashes, merkle roots
 ```
 
+## ManagedByteArray
+
+A fixed-size byte buffer whose length is part of the type. `arrayN<u8>` in an ABI parses to
+`ManagedByteArray<N>`:
+
+```dart
+final keyType = ManagedByteArrayType(32);
+final key = ManagedByteArrayValue(keyType, Uint8List(32));
+print(key.value.length); // 32
+```
+
+It is written as exactly N raw bytes in both positions -- no length prefix anywhere, because the
+length is already known from the type.
+
 ## CodeMetadata
 
-Smart contract deployment metadata stored as 16-bit integer (2 bytes, big-endian):
+Smart contract deployment metadata, a 16-bit value stored as 2 big-endian bytes:
 
 ```dart
 // From integer flags
-final metadata = CodeMetadataType.create(0x0506); // upgradeable + readable + payable + payableBySc
+final metadata = CodeMetadataType.create(0x0506); // upgradeable + readable + payable + payableBySC
 
 // Check individual flags on the value
-print(metadata.isUpgradeable);  // true
-print(metadata.isReadable);     // true
-print(metadata.isPayable);      // true
-print(metadata.isPayableBySc);  // true
+print(metadata.isUpgradeable); // true
+print(metadata.isReadable);    // true
+print(metadata.isPayable);     // true
+print(metadata.isPayableBySC); // true
 
 // From byte array (2 bytes, big-endian)
-final fromBytes = CodeMetadataType.create([0x05, 0x06]); // All flags set
+final fromBytes = CodeMetadataType.create(<int>[0x05, 0x06]);
 ```
 
 ### Metadata Flags (Big-Endian Layout)
 
-CodeMetadata uses a 2-byte big-endian format where flags are split across both bytes:
-
-| Flag | Hex Value | Byte | Bit | Description |
+| Flag | Hex value | Byte | Bit | Description |
 |------|-----------|------|-----|-------------|
 | `upgradeable` | `0x0100` | 0 | 0 | Contract can be upgraded |
 | `readable` | `0x0400` | 0 | 2 | Other contracts can read storage |
 | `payable` | `0x0002` | 1 | 1 | Can receive EGLD |
-| `payableBySc` | `0x0004` | 1 | 2 | Can receive from smart contracts |
+| `payableBySC` | `0x0004` | 1 | 2 | Can receive from smart contracts |
 
 ### Common Flag Combinations
 
@@ -203,23 +253,48 @@ final upgradePay = CodeMetadataType.create(0x0102);
 // Upgradeable + readable + payable
 final standard = CodeMetadataType.create(0x0502);
 
-// All flags (upgradeable + readable + payable + payableBySc)
+// All flags (upgradeable + readable + payable + payableBySC)
 final allFlags = CodeMetadataType.create(0x0506);
 ```
 
+`0x0506` is also the default metadata used by `createTransactionForDeploy`.
+
 ## ManagedDecimal
 
-Fixed-point decimal numbers:
+Fixed-point decimals. The **raw** value is an integer; the scale says where the decimal point sits.
 
 ```dart
-// Decimal with 18 places (like EGLD)
+// ManagedDecimalType.create(scale, value)
 final decimal = ManagedDecimalType.create(
-  BigInt.parse('1500000000000000000'), // 1.5 * 10^18
-  18, // scale
+  18,                                     // scale: 18 decimal places
+  BigInt.parse('1500000000000000000'),    // raw value = 1.5 * 10^18
 );
 
-// The value represents 1.5
+print(decimal.toDecimalString()); // '1.500000000000000000'
+print(decimal.nativeValue);       // BigInt 1500000000000000000 (raw)
 ```
+
+Scale comes **first**. The type carries the scale, the value carries the digits:
+
+```dart
+final priceType = ManagedDecimalType.of(2);             // ManagedDecimal<2>
+final price = priceType.createValue(19.99) as ManagedDecimalValue;   // from double
+final same = priceType.createValue('19.99') as ManagedDecimalValue;  // from string
+final raw = priceType.createValue(BigInt.from(1999)) as ManagedDecimalValue; // raw digits
+
+// Signed and runtime-scaled variants
+final signedType = ManagedDecimalType.signed(4);        // ManagedDecimalSigned<4>
+final variableType = ManagedDecimalType.variable(2);    // ManagedDecimal<usize>
+```
+
+Wire rules worth remembering:
+
+- **Fixed scale** (`ManagedDecimal<N>`): only the magnitude travels; `N` is never written. Nested,
+  it is still length-prefixed (`[u32 length][magnitude]`) so the following field can be found.
+- **Variable scale** (`ManagedDecimal<usize>`): the scale follows the magnitude as a 4-byte
+  big-endian integer, in both positions.
+- A `variadic<ManagedDecimal>` with more than one item is rejected, because the items' boundaries
+  would be ambiguous.
 
 ## Nothing
 
@@ -230,69 +305,66 @@ final nothing = NothingType.create();
 print(nothing.nativeValue); // null
 ```
 
-Used for endpoints that don't return a value.
+Used for endpoints that return no value; it encodes to nothing and consumes no bytes.
 
 ## Complete Example
 
 ```dart
-import 'package:abidock_mvx/abidock_mvx.dart';
 import 'dart:typed_data';
+
+import 'package:abidock_mvx/abidock_mvx.dart';
 
 void main() {
   print('=== Special Types Demo ===\n');
-  
+
   // === Address ===
-  print('Address:');
   final address = AddressType.create(
     'erd1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq6gq4hu'
   );
-  final bech32 = address.nativeValue;  // String
-  final addressValue = address as AddressValue;
-  print('  Bech32: $bech32');
-  print('  Hex: ${addressValue.toHex().substring(0, 16)}...');
-  
+  print('  Bech32: ${address.nativeValue}');
+  print('  Hex: ${address.toHex().substring(0, 16)}...');
+
   // === TokenIdentifier ===
   final token = TokenIdentifierType.create('WEGLD-bd4d79');
   print('  Token: ${token.nativeValue}');
-  
+
   // === EgldOrEsdtTokenIdentifier ===
   final egld = EgldOrEsdtTokenIdentifierType.create('EGLD');
   final esdt = EgldOrEsdtTokenIdentifierType.create('MEX-455c57');
-  print('  EGLD: ${egld.nativeValue}');
+  print('  EGLD: ${egld.nativeValue} (isEgld: ${egld.isEgld})');
   print('  ESDT: ${esdt.nativeValue}');
-  
+
   // === EsdtTokenPayment ===
-  
-  // Define the type
   final paymentType = StructBuilder('EsdtTokenPayment')
       .field('token_identifier', TokenIdentifierType.type)
       .field('token_nonce', U64Type.type)
       .field('amount', BigUIntType.type)
       .build();
-  
-  // Create the value
-  final payment = paymentType.createValue({
+
+  final payment = paymentType.createValue(<String, dynamic>{
     'token_identifier': 'USDC-c76f1f',
     'token_nonce': BigInt.zero,
     'amount': BigInt.from(1000000),
-  });
+  }) as StructValue;
   print('  Payment: ${payment.nativeValue}');
-  
+
   // === H256 ===
   final hash = H256Type.create(
-    Uint8List.fromList(List.generate(32, (i) => i * 8))
+    Uint8List.fromList(List<int>.generate(32, (int i) => i * 8))
   );
-  final hashBytes = hash.nativeValue as Uint8List;
-  print('  First 8 bytes: ${hashBytes.take(8).toList()}');
-  print('  Length: ${hashBytes.length} bytes');
-  
+  print('  First 8 bytes: ${hash.nativeValue.take(8).toList()}');
+  print('  Length: ${hash.nativeValue.length} bytes');
+
   // === CodeMetadata ===
-  final metadata = CodeMetadataType.create(0x0502); // upgradeable + readable + payable
-  final metaVal = metadata as CodeMetadataValue;
-  print('  Upgradeable: ${metaVal.isUpgradeable}');
-  print('  Payable: ${metaVal.isPayable}');
+  final metadata = CodeMetadataType.create(0x0502);
+  print('  Upgradeable: ${metadata.isUpgradeable}');
+  print('  Payable: ${metadata.isPayable}');
   print('  Metadata: ${metadata.nativeValue}');
-  
+
+  // === ManagedDecimal ===
+  final price = ManagedDecimalType.create(2, 19.99);
+  print('  Price: ${price.toDecimalString()}');
+
   // === Nothing ===
   final nothing = NothingType.create();
   print('  Value: ${nothing.nativeValue}'); // null
@@ -306,9 +378,9 @@ void main() {
 ```dart
 // Format token amount with decimals
 String formatAmount(BigInt amount, int decimals) {
-  final divisor = BigInt.from(10).pow(decimals);
-  final whole = amount ~/ divisor;
-  final fraction = (amount % divisor).toString().padLeft(decimals, '0');
+  final BigInt divisor = BigInt.from(10).pow(decimals);
+  final BigInt whole = amount ~/ divisor;
+  final String fraction = (amount % divisor).toString().padLeft(decimals, '0');
   return '$whole.$fraction';
 }
 
@@ -317,15 +389,19 @@ final amount = BigInt.parse('1500000000000000000'); // 1.5 EGLD
 print(formatAmount(amount, 18)); // '1.500000000000000000'
 ```
 
+`Balance.toDenominated` / `toDenominatedTrimmed` do the same for EGLD amounts, and
+`ManagedDecimalValue.toDecimalString()` for decimals that carry their own scale.
+
 ### Working with Token Payments
 
 ```dart
-// Parse EsdtTokenPayment from query result
+// Parse an EsdtTokenPayment-shaped struct from a query result
 void parsePayment(StructValue payment) {
-  final tokenId = payment.getFieldValue('token_identifier')?.nativeValue;
-  final nonce = payment.getFieldValue('token_nonce')?.nativeValue as BigInt;
-  final amount = payment.getFieldValue('amount')?.nativeValue as BigInt;
-  
+  final tokenId =
+      payment.getFieldValue('token_identifier').nativeValue as String;
+  final nonce = payment.getFieldValue('token_nonce').nativeValue as BigInt;
+  final amount = payment.getFieldValue('amount').nativeValue as BigInt;
+
   if (nonce == BigInt.zero) {
     print('Fungible: $tokenId, Amount: $amount');
   } else {

@@ -14,11 +14,13 @@ final class AbiParameter {
   /// - `type` - Parameter type (required)
   /// - `multiResult` - Whether this is a multi_result output (variable count)
   /// - `documentation` - Optional docs
+  /// - `specificType` - Optional semantic refinement of the wire type
   const AbiParameter({
     required this.name,
     required this.type,
     this.multiResult = false,
     this.documentation,
+    this.specificType,
   });
 
   /// Creates parameter from type string.
@@ -28,6 +30,7 @@ final class AbiParameter {
   /// - `typeString` - Type as string (e.g., 'BigUInt', 'List<Address>')
   /// - `documentation` - Optional docs
   /// - `typeFactory` - Optional AbiTypeFactory for custom type resolution
+  /// - `specificType` - Optional semantic refinement of the wire type
   ///
   /// #### Returns
   /// `AbiParameter` - Parameter instance
@@ -37,6 +40,7 @@ final class AbiParameter {
     bool multiResult = false,
     String? documentation,
     AbiTypeFactory? typeFactory,
+    String? specificType,
   }) {
     final AbiTypeFactory factory = typeFactory ?? AbiTypeFactory();
     return AbiParameter(
@@ -44,13 +48,15 @@ final class AbiParameter {
       type: factory.fromString(typeString),
       multiResult: multiResult,
       documentation: documentation,
+      specificType: specificType,
     );
   }
 
   /// Creates parameter from JSON map.
   ///
   /// #### Parameters
-  /// - `data` - Map with 'name', 'type', optional 'docs'/'documentation'
+  /// - `data` - Map with 'name', 'type', optional 'specificType' and
+  ///   'docs'/'documentation'
   /// - `typeFactory` - Optional AbiTypeFactory for custom type resolution
   ///
   /// #### Returns
@@ -64,6 +70,10 @@ final class AbiParameter {
         optionalAs<String>(data['type'], 'type') ?? 'bytes';
     final bool multiResult =
         optionalAs<bool>(data['multi_result'], 'multi_result') ?? false;
+    final String? specificType = optionalAs<String>(
+      data['specificType'],
+      'specificType',
+    );
 
     String? docs;
     if (data.containsKey('docs')) {
@@ -90,6 +100,7 @@ final class AbiParameter {
       type: factory.fromString(typeString),
       multiResult: multiResult,
       documentation: docs,
+      specificType: specificType,
     );
   }
 
@@ -104,6 +115,18 @@ final class AbiParameter {
 
   /// Optional documentation.
   final String? documentation;
+
+  /// Semantic refinement of the wire type declared by the ABI.
+  ///
+  /// An ABI may narrow a plain integer to a named meaning, for example a `u64`
+  /// declared as `TimestampMillis`, `TimestampSeconds`, `DurationMillis` or
+  /// `DurationSeconds`. This distinction matters because the chain exposes both
+  /// second-resolution and millisecond-resolution time values, and the wire
+  /// type alone cannot tell them apart.
+  ///
+  /// This is metadata only: the value is still encoded and decoded as [type].
+  /// Null when the ABI declares no refinement.
+  final String? specificType;
 
   /// Validates if value is compatible with parameter type.
   ///
@@ -124,6 +147,10 @@ final class AbiParameter {
       'type': type.name,
     };
 
+    if (specificType != null) {
+      result['specificType'] = specificType;
+    }
+
     if (multiResult) {
       result['multi_result'] = true;
     }
@@ -143,10 +170,12 @@ final class AbiParameter {
           name == other.name &&
           type.name == other.type.name &&
           multiResult == other.multiResult &&
-          documentation == other.documentation;
+          documentation == other.documentation &&
+          specificType == other.specificType;
 
   @override
-  int get hashCode => Object.hash(name, type.name, multiResult, documentation);
+  int get hashCode =>
+      Object.hash(name, type.name, multiResult, documentation, specificType);
 
   @override
   String toString() {

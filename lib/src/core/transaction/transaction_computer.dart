@@ -8,10 +8,6 @@ import 'package:pointycastle/export.dart';
 import '../../utils/hex_utils.dart';
 import '../address.dart';
 import '../network_configuration.dart';
-import 'controllers/base_controller.dart'
-    show
-        extraGasLimitForGuardedTransactions,
-        extraGasLimitForRelayedTransactions;
 import 'proto_serializer.dart';
 import 'transaction.dart';
 import 'transaction_constants.dart';
@@ -75,7 +71,10 @@ class TransactionComputer {
   }
 
   /// Computes Keccak256 hash for hash signing transactions.
+  /// Validates required fields before serialization.
   Uint8List computeHashForSigning(Transaction transaction) {
+    _ensureValidTransactionFields(transaction);
+
     final Map<String, dynamic> plainObject = toPlainObject(transaction);
     final String jsonString = jsonEncode(plainObject);
     final Uint8List bytes = utf8.encode(jsonString);
@@ -180,6 +179,20 @@ class TransactionComputer {
   }
 
   /// Converts transaction to plain map for JSON serialization.
+  ///
+  /// The emitted keys and their order are the signing payload the node itself
+  /// rebuilds when it verifies a transaction. No other key may ever be added:
+  /// the node discards unknown keys on ingest, so an extra key makes the
+  /// signature verify against different bytes and the transaction is rejected.
+  ///
+  /// #### Parameters
+  /// - `transaction` - The transaction to convert
+  /// - `withSignature` - When `true`, include the sender, guardian and relayer
+  ///   signatures. They are never part of the signing payload.
+  ///
+  /// #### Returns
+  /// `Map<String, dynamic>` - Plain JSON-ready object in the exact key order
+  /// the chain hashes
   Map<String, dynamic> toPlainObject(
     Transaction transaction, {
     bool withSignature = false,
@@ -239,15 +252,6 @@ class TransactionComputer {
         transaction.relayer != null &&
         transaction.relayerSignature.isNotEmpty) {
       map['relayerSignature'] = transaction.relayerSignature.hex;
-    }
-
-    if (transaction.innerTransactions.isNotEmpty) {
-      map['innerTransactions'] = transaction.innerTransactions
-          .map(
-            (Transaction inner) =>
-                toPlainObject(inner, withSignature: withSignature),
-          )
-          .toList();
     }
 
     return map;
@@ -323,16 +327,9 @@ class TransactionComputer {
     NetworkConfiguration networkConfig,
   ) {
     final int dataLength = transaction.data.length;
-    BigInt moveBalanceGas =
+    final BigInt moveBalanceGas =
         networkConfig.minGasLimit.toBigInt +
         BigInt.from(dataLength) * BigInt.from(networkConfig.gasPerDataByte);
-
-    if (hasOptionsSetForGuardedTransaction(transaction)) {
-      moveBalanceGas += BigInt.from(extraGasLimitForGuardedTransactions);
-    }
-    if (isRelayedV3Transaction(transaction)) {
-      moveBalanceGas += BigInt.from(extraGasLimitForRelayedTransactions);
-    }
 
     if (transaction.gasLimit.toBigInt < moveBalanceGas) {
       throw ArgumentError(

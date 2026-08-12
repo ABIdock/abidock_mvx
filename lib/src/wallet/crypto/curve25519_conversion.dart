@@ -11,8 +11,6 @@
 ///   - RFC 8032 (Ed25519) §5.1
 ///   - D. J. Bernstein, "Curve25519: new Diffie-Hellman speed records"
 ///     §3, eq. (4): u = (1 + y) / (1 - y) mod p.
-///   - libsodium: `crypto_sign_ed25519_pk_to_curve25519`,
-///     `crypto_sign_ed25519_sk_to_curve25519`.
 import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
@@ -85,7 +83,8 @@ Uint8List ed25519PublicKeyToX25519(Uint8List edPub) {
 /// keypair is derived) into the X25519 scalar that performs ECDH on the
 /// Montgomery representation of the same curve.
 ///
-/// Matches libsodium's `crypto_sign_ed25519_sk_to_curve25519`:
+/// The conversion is fixed by RFC 8032 §5.1.5, which defines the Ed25519
+/// scalar as the clamped low half of the seed's SHA-512 digest:
 ///   1. SHA-512 the seed.
 ///   2. Take the first 32 bytes.
 ///   3. Apply the RFC 7748 clamping:

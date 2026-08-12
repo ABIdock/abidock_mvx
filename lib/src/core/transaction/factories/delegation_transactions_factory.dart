@@ -23,6 +23,31 @@ class DelegationTransactionsConfig {
     this.additionalGasLimitForDelegationOperations = 100000,
     this.defaultGasPrice = 1000000000,
   });
+
+  /// Builds a [DelegationTransactionsConfig] from a shared [TransactionsFactoryConfig].
+  ///
+  /// #### Parameters
+  /// - `shared` - Aggregate factory config populated by `NetworkEntrypoint`.
+  ///
+  /// #### Returns
+  /// A new [DelegationTransactionsConfig] mirroring `shared`'s delegation fields.
+  static DelegationTransactionsConfig fromShared(
+    TransactionsFactoryConfig shared,
+  ) => DelegationTransactionsConfig(
+    chainId: shared.chainId,
+    minGasLimit: shared.minGasLimit,
+    gasLimitPerByte: shared.gasLimitPerByte,
+    gasLimitStake: shared.gasLimitStake,
+    gasLimitUnstake: shared.gasLimitUnstake,
+    gasLimitUnbond: shared.gasLimitUnbond,
+    gasLimitCreateDelegationContract: shared.gasLimitCreateDelegationContract,
+    gasLimitDelegationOperations: shared.gasLimitDelegationOperations,
+    additionalGasLimitPerValidatorNode:
+        shared.additionalGasLimitPerValidatorNode,
+    additionalGasLimitForDelegationOperations:
+        shared.additionalGasLimitForDelegationOperations,
+  );
+
   final ChainId chainId;
   final int minGasLimit;
   final int gasLimitPerByte;
@@ -74,7 +99,7 @@ class DelegationTransactionsFactory {
       BigUIntValue(serviceFee),
     ];
 
-    final int gasLimit =
+    final int executionGasLimit =
         config.gasLimitCreateDelegationContract +
         config.additionalGasLimitForDelegationOperations;
 
@@ -84,7 +109,7 @@ class DelegationTransactionsFactory {
       functionName: 'createNewDelegationContract',
       args: args,
       value: amount,
-      gasLimit: gasLimit,
+      executionGasLimit: executionGasLimit,
       nonce: nonce,
     );
   }
@@ -132,7 +157,7 @@ class DelegationTransactionsFactory {
     }
 
     final Uint8List data = utf8.encode(dataParts.join('@'));
-    final int gasLimit = _computeExecutionGasLimitForNodesManagement(
+    final int executionGasLimit = _computeExecutionGasLimitForNodesManagement(
       publicKeys.length,
     );
 
@@ -141,7 +166,7 @@ class DelegationTransactionsFactory {
       receiver: delegationContract,
       data: data,
       nonce: nonce ?? const Nonce(0),
-      gasLimit: GasLimit(gasLimit),
+      gasLimit: GasLimit(_totalGasLimit(executionGasLimit, data)),
       gasPrice: GasPrice(config.defaultGasPrice),
       value: Balance.zero(),
       chainId: config.chainId,
@@ -175,7 +200,7 @@ class DelegationTransactionsFactory {
     }
 
     final Uint8List data = utf8.encode(dataParts.join('@'));
-    final int gasLimit = _computeExecutionGasLimitForNodesManagement(
+    final int executionGasLimit = _computeExecutionGasLimitForNodesManagement(
       publicKeys.length,
     );
 
@@ -184,7 +209,7 @@ class DelegationTransactionsFactory {
       receiver: delegationContract,
       data: data,
       nonce: nonce ?? const Nonce(0),
-      gasLimit: GasLimit(gasLimit),
+      gasLimit: GasLimit(_totalGasLimit(executionGasLimit, data)),
       gasPrice: GasPrice(config.defaultGasPrice),
       value: Balance.zero(),
       chainId: config.chainId,
@@ -223,7 +248,7 @@ class DelegationTransactionsFactory {
     final BigInt additionalGasForAllNodes =
         BigInt.from(numNodes) *
         BigInt.from(config.additionalGasLimitPerValidatorNode);
-    final int gasLimit =
+    final int executionGasLimit =
         additionalGasForAllNodes.toInt() +
         config.gasLimitStake +
         config.gasLimitDelegationOperations;
@@ -233,7 +258,7 @@ class DelegationTransactionsFactory {
       receiver: delegationContract,
       data: data,
       nonce: nonce ?? const Nonce(0),
-      gasLimit: GasLimit(gasLimit),
+      gasLimit: GasLimit(_totalGasLimit(executionGasLimit, data)),
       gasPrice: GasPrice(config.defaultGasPrice),
       value: Balance.zero(),
       chainId: config.chainId,
@@ -269,7 +294,7 @@ class DelegationTransactionsFactory {
     final Uint8List data = utf8.encode(dataParts.join('@'));
 
     final int numNodes = publicKeys.length;
-    final BigInt gasLimit =
+    final BigInt executionGasLimit =
         BigInt.from(numNodes) *
             BigInt.from(config.additionalGasLimitPerValidatorNode) +
         BigInt.from(config.gasLimitUnstake) +
@@ -280,7 +305,7 @@ class DelegationTransactionsFactory {
       receiver: delegationContract,
       data: data,
       nonce: nonce ?? const Nonce(0),
-      gasLimit: GasLimit(gasLimit.toInt()),
+      gasLimit: GasLimit(_totalGasLimit(executionGasLimit.toInt(), data)),
       gasPrice: GasPrice(config.defaultGasPrice),
       value: Balance.zero(),
       chainId: config.chainId,
@@ -317,7 +342,7 @@ class DelegationTransactionsFactory {
     final Uint8List data = utf8.encode(dataParts.join('@'));
 
     final int numNodes = publicKeys.length;
-    final BigInt gasLimit =
+    final BigInt executionGasLimit =
         BigInt.from(numNodes) *
             BigInt.from(config.additionalGasLimitPerValidatorNode) +
         BigInt.from(config.gasLimitUnbond) +
@@ -328,7 +353,7 @@ class DelegationTransactionsFactory {
       receiver: delegationContract,
       data: data,
       nonce: nonce ?? const Nonce(0),
-      gasLimit: GasLimit(gasLimit.toInt()),
+      gasLimit: GasLimit(_totalGasLimit(executionGasLimit.toInt(), data)),
       gasPrice: GasPrice(config.defaultGasPrice),
       value: Balance.zero(),
       chainId: config.chainId,
@@ -365,7 +390,7 @@ class DelegationTransactionsFactory {
     }
 
     final Uint8List data = utf8.encode(dataParts.join('@'));
-    final int gasLimit = _computeExecutionGasLimitForNodesManagement(
+    final int executionGasLimit = _computeExecutionGasLimitForNodesManagement(
       publicKeys.length,
     );
 
@@ -374,7 +399,7 @@ class DelegationTransactionsFactory {
       receiver: delegationContract,
       data: data,
       nonce: nonce ?? const Nonce(0),
-      gasLimit: GasLimit(gasLimit),
+      gasLimit: GasLimit(_totalGasLimit(executionGasLimit, data)),
       gasPrice: GasPrice(config.defaultGasPrice),
       value: amount,
       chainId: config.chainId,
@@ -392,7 +417,7 @@ class DelegationTransactionsFactory {
   }) {
     final List<TypedValue> args = <TypedValue>[BigUIntValue(serviceFee)];
 
-    final int gasLimit =
+    final int executionGasLimit =
         config.gasLimitDelegationOperations +
         config.additionalGasLimitForDelegationOperations;
 
@@ -401,7 +426,7 @@ class DelegationTransactionsFactory {
       receiver: delegationContract,
       functionName: 'changeServiceFee',
       args: args,
-      gasLimit: gasLimit,
+      executionGasLimit: executionGasLimit,
       nonce: nonce,
     );
   }
@@ -415,7 +440,7 @@ class DelegationTransactionsFactory {
   }) {
     final List<TypedValue> args = <TypedValue>[BigUIntValue(delegationCap)];
 
-    final int gasLimit =
+    final int executionGasLimit =
         config.gasLimitDelegationOperations +
         config.additionalGasLimitForDelegationOperations;
 
@@ -424,7 +449,7 @@ class DelegationTransactionsFactory {
       receiver: delegationContract,
       functionName: 'modifyTotalDelegationCap',
       args: args,
-      gasLimit: gasLimit,
+      executionGasLimit: executionGasLimit,
       nonce: nonce,
     );
   }
@@ -437,7 +462,7 @@ class DelegationTransactionsFactory {
   }) {
     final List<TypedValue> args = <TypedValue>[StringValue('true')];
 
-    final int gasLimit =
+    final int executionGasLimit =
         config.gasLimitDelegationOperations +
         config.additionalGasLimitForDelegationOperations;
 
@@ -446,7 +471,7 @@ class DelegationTransactionsFactory {
       receiver: delegationContract,
       functionName: 'setAutomaticActivation',
       args: args,
-      gasLimit: gasLimit,
+      executionGasLimit: executionGasLimit,
       nonce: nonce,
     );
   }
@@ -459,7 +484,7 @@ class DelegationTransactionsFactory {
   }) {
     final List<TypedValue> args = <TypedValue>[StringValue('false')];
 
-    final int gasLimit =
+    final int executionGasLimit =
         config.gasLimitDelegationOperations +
         config.additionalGasLimitForDelegationOperations;
 
@@ -468,7 +493,7 @@ class DelegationTransactionsFactory {
       receiver: delegationContract,
       functionName: 'setAutomaticActivation',
       args: args,
-      gasLimit: gasLimit,
+      executionGasLimit: executionGasLimit,
       nonce: nonce,
     );
   }
@@ -481,7 +506,7 @@ class DelegationTransactionsFactory {
   }) {
     final List<TypedValue> args = <TypedValue>[StringValue('true')];
 
-    final int gasLimit =
+    final int executionGasLimit =
         config.gasLimitDelegationOperations +
         config.additionalGasLimitForDelegationOperations;
 
@@ -490,7 +515,7 @@ class DelegationTransactionsFactory {
       receiver: delegationContract,
       functionName: 'setCheckCapOnReDelegateRewards',
       args: args,
-      gasLimit: gasLimit,
+      executionGasLimit: executionGasLimit,
       nonce: nonce,
     );
   }
@@ -503,7 +528,7 @@ class DelegationTransactionsFactory {
   }) {
     final List<TypedValue> args = <TypedValue>[StringValue('false')];
 
-    final int gasLimit =
+    final int executionGasLimit =
         config.gasLimitDelegationOperations +
         config.additionalGasLimitForDelegationOperations;
 
@@ -512,7 +537,7 @@ class DelegationTransactionsFactory {
       receiver: delegationContract,
       functionName: 'setCheckCapOnReDelegateRewards',
       args: args,
-      gasLimit: gasLimit,
+      executionGasLimit: executionGasLimit,
       nonce: nonce,
     );
   }
@@ -532,7 +557,7 @@ class DelegationTransactionsFactory {
       StringValue(identifier),
     ];
 
-    final int gasLimit =
+    final int executionGasLimit =
         config.gasLimitDelegationOperations +
         config.additionalGasLimitForDelegationOperations;
 
@@ -541,7 +566,7 @@ class DelegationTransactionsFactory {
       receiver: delegationContract,
       functionName: 'setMetaData',
       args: args,
-      gasLimit: gasLimit,
+      executionGasLimit: executionGasLimit,
       nonce: nonce,
     );
   }
@@ -553,7 +578,7 @@ class DelegationTransactionsFactory {
     required Balance amount,
     Nonce? nonce,
   }) {
-    final int gasLimit =
+    final int executionGasLimit =
         config.gasLimitDelegationOperations +
         config.additionalGasLimitForDelegationOperations;
 
@@ -563,7 +588,7 @@ class DelegationTransactionsFactory {
       functionName: 'delegate',
       args: <TypedValue>[],
       value: amount,
-      gasLimit: gasLimit,
+      executionGasLimit: executionGasLimit,
       nonce: nonce,
     );
   }
@@ -574,7 +599,7 @@ class DelegationTransactionsFactory {
     required Address delegationContract,
     Nonce? nonce,
   }) {
-    final int gasLimit =
+    final int executionGasLimit =
         config.gasLimitDelegationOperations +
         config.additionalGasLimitForDelegationOperations;
 
@@ -583,7 +608,7 @@ class DelegationTransactionsFactory {
       receiver: delegationContract,
       functionName: 'claimRewards',
       args: <TypedValue>[],
-      gasLimit: gasLimit,
+      executionGasLimit: executionGasLimit,
       nonce: nonce,
     );
   }
@@ -594,7 +619,7 @@ class DelegationTransactionsFactory {
     required Address delegationContract,
     Nonce? nonce,
   }) {
-    final int gasLimit =
+    final int executionGasLimit =
         config.gasLimitDelegationOperations +
         config.additionalGasLimitForDelegationOperations;
 
@@ -603,7 +628,7 @@ class DelegationTransactionsFactory {
       receiver: delegationContract,
       functionName: 'reDelegateRewards',
       args: <TypedValue>[],
-      gasLimit: gasLimit,
+      executionGasLimit: executionGasLimit,
       nonce: nonce,
     );
   }
@@ -617,7 +642,7 @@ class DelegationTransactionsFactory {
   }) {
     final List<TypedValue> args = <TypedValue>[BigUIntValue(amount.value)];
 
-    final int gasLimit =
+    final int executionGasLimit =
         config.gasLimitDelegationOperations +
         config.additionalGasLimitForDelegationOperations;
 
@@ -626,7 +651,7 @@ class DelegationTransactionsFactory {
       receiver: delegationContract,
       functionName: 'unDelegate',
       args: args,
-      gasLimit: gasLimit,
+      executionGasLimit: executionGasLimit,
       nonce: nonce,
     );
   }
@@ -637,7 +662,7 @@ class DelegationTransactionsFactory {
     required Address delegationContract,
     Nonce? nonce,
   }) {
-    final int gasLimit =
+    final int executionGasLimit =
         config.gasLimitDelegationOperations +
         config.additionalGasLimitForDelegationOperations;
 
@@ -646,7 +671,7 @@ class DelegationTransactionsFactory {
       receiver: delegationContract,
       functionName: 'withdraw',
       args: <TypedValue>[],
-      gasLimit: gasLimit,
+      executionGasLimit: executionGasLimit,
       nonce: nonce,
     );
   }
@@ -657,13 +682,20 @@ class DelegationTransactionsFactory {
     return config.gasLimitDelegationOperations + additionalGasForAllNodes;
   }
 
+  /// Adds the gas the chain charges for moving [data] across the network to an
+  /// execution gas allowance.
+  int _totalGasLimit(int executionGasLimit, Uint8List data) =>
+      config.minGasLimit +
+      config.gasLimitPerByte * data.length +
+      executionGasLimit;
+
   Transaction _buildTransaction({
     required Address sender,
     required Address receiver,
     required String functionName,
     required List<TypedValue> args,
     Balance? value,
-    required int gasLimit,
+    required int executionGasLimit,
     Nonce? nonce,
   }) {
     final ValuesToStringResult result = _argSerializer.valuesToString(args);
@@ -679,7 +711,7 @@ class DelegationTransactionsFactory {
       receiver: receiver,
       data: data,
       nonce: nonce ?? const Nonce(0),
-      gasLimit: GasLimit(gasLimit),
+      gasLimit: GasLimit(_totalGasLimit(executionGasLimit, data)),
       gasPrice: GasPrice(config.defaultGasPrice),
       value: value ?? Balance.zero(),
       chainId: config.chainId,

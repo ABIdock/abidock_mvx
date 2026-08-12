@@ -19,9 +19,12 @@ import '../../core/type_system.dart';
 /// print(trueValue.nativeValue); // true
 ///
 /// // Use in struct definitions
-/// final structType = StructType(fields: [
-///   StructField('isActive', BooleanType.type),
-/// ]);
+/// final structType = StructType(
+///   name: 'Flags',
+///   fieldDefinitions: [
+///     FieldDefinition(name: 'isActive', type: BooleanType.type),
+///   ],
+/// );
 /// ```
 @immutable
 final class BooleanType extends PrimitiveType {

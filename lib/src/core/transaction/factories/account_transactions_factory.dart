@@ -22,6 +22,28 @@ class AccountTransactionsConfig {
     this.gasLimitUnguardAccount = 250000,
     this.defaultGasPrice = 1000000000,
   });
+
+  /// Derives an [AccountTransactionsConfig] from a shared
+  /// [TransactionsFactoryConfig].
+  ///
+  /// #### Parameters
+  /// - `shared` - Aggregate factory config populated by `NetworkEntrypoint`.
+  ///
+  /// #### Returns
+  /// `AccountTransactionsConfig` populated from the shared chain id and the
+  /// guard / key-value gas-limit fields.
+  static AccountTransactionsConfig fromShared(
+    TransactionsFactoryConfig shared,
+  ) => AccountTransactionsConfig(
+    chainId: shared.chainId,
+    minGasLimit: shared.minGasLimit,
+    gasLimitPerByte: shared.gasLimitPerByte,
+    gasLimitStorePerByte: shared.gasLimitStorePerByte,
+    gasLimitSetGuardian: shared.gasLimitSetGuardian,
+    gasLimitGuardAccount: shared.gasLimitGuardAccount,
+    gasLimitUnguardAccount: shared.gasLimitUnguardAccount,
+  );
+
   final ChainId chainId;
   final int minGasLimit;
   final int gasLimitPerByte;
@@ -71,16 +93,13 @@ class AccountTransactionsFactory {
     final Uint8List data = utf8.encode(dataParts.join('@'));
 
     final int extraGas = _computeExtraGasForSavingKeyValue(keyValuePairs);
-    final int dataMovementGas =
-        config.minGasLimit + config.gasLimitPerByte * data.length;
-    final int totalGas = dataMovementGas + extraGas;
 
     return Transaction(
       sender: sender,
       receiver: sender,
       data: data,
       nonce: nonce ?? const Nonce(0),
-      gasLimit: GasLimit(totalGas),
+      gasLimit: GasLimit(_totalGasLimit(extraGas, data)),
       gasPrice: GasPrice(config.defaultGasPrice),
       value: Balance.zero(),
       chainId: config.chainId,
@@ -102,7 +121,7 @@ class AccountTransactionsFactory {
   /// - `nonce` - Optional transaction nonce
   ///
   /// #### Returns
-  /// `Transaction` - Unsigned transaction with fixed gas limit
+  /// `Transaction` - Unsigned transaction with calculated gas limit
   Transaction createTransactionForSettingGuardian({
     required Address sender,
     required Address guardianAddress,
@@ -122,7 +141,7 @@ class AccountTransactionsFactory {
       receiver: sender,
       data: data,
       nonce: nonce ?? const Nonce(0),
-      gasLimit: GasLimit(config.gasLimitSetGuardian),
+      gasLimit: GasLimit(_totalGasLimit(config.gasLimitSetGuardian, data)),
       gasPrice: GasPrice(config.defaultGasPrice),
       value: Balance.zero(),
       chainId: config.chainId,
@@ -142,7 +161,7 @@ class AccountTransactionsFactory {
   /// - `nonce` - Optional transaction nonce
   ///
   /// #### Returns
-  /// `Transaction` - Unsigned transaction with fixed gas limit
+  /// `Transaction` - Unsigned transaction with calculated gas limit
   Transaction createTransactionForGuardingAccount({
     required Address sender,
     Nonce? nonce,
@@ -155,7 +174,7 @@ class AccountTransactionsFactory {
       receiver: sender,
       data: data,
       nonce: nonce ?? const Nonce(0),
-      gasLimit: GasLimit(config.gasLimitGuardAccount),
+      gasLimit: GasLimit(_totalGasLimit(config.gasLimitGuardAccount, data)),
       gasPrice: GasPrice(config.defaultGasPrice),
       value: Balance.zero(),
       chainId: config.chainId,
@@ -177,7 +196,7 @@ class AccountTransactionsFactory {
   /// - `nonce` - Optional transaction nonce
   ///
   /// #### Returns
-  /// `Transaction` - Unsigned transaction with fixed gas limit
+  /// `Transaction` - Unsigned transaction with calculated gas limit
   Transaction createTransactionForUnguardingAccount({
     required Address sender,
     Address? guardian,
@@ -191,7 +210,7 @@ class AccountTransactionsFactory {
       receiver: sender,
       data: data,
       nonce: nonce ?? const Nonce(0),
-      gasLimit: GasLimit(config.gasLimitUnguardAccount),
+      gasLimit: GasLimit(_totalGasLimit(config.gasLimitUnguardAccount, data)),
       gasPrice: GasPrice(config.defaultGasPrice),
       value: Balance.zero(),
       chainId: config.chainId,
@@ -202,6 +221,13 @@ class AccountTransactionsFactory {
       options: guardian != null ? transactionOptionsTxGuarded : 0,
     );
   }
+
+  /// Adds the gas the chain charges for moving [data] across the network to an
+  /// execution gas allowance.
+  int _totalGasLimit(int executionGasLimit, Uint8List data) =>
+      config.minGasLimit +
+      config.gasLimitPerByte * data.length +
+      executionGasLimit;
 
   /// Computes extra gas needed for storing key-value pairs.
   int _computeExtraGasForSavingKeyValue(

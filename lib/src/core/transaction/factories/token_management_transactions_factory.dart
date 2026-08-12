@@ -10,6 +10,23 @@ import '../../core.dart';
 const String esdtContractAddressHex =
     '000000000000000000010000000000000000000000000000000000000002ffff';
 
+/// Token type argument denoting a fungible ESDT.
+const String tokenTypeFungible = 'FNG';
+
+/// Token type argument denoting a MetaESDT.
+const String tokenTypeMeta = 'META';
+
+/// Token type arguments accepted by `registerAndSetAllRoles`.
+const Set<String> tokenTypes = <String>{
+  'NFT',
+  'SFT',
+  tokenTypeMeta,
+  tokenTypeFungible,
+};
+
+/// Token type arguments accepted by the dynamic registration endpoints.
+const Set<String> dynamicTokenTypes = <String>{'NFT', 'SFT', tokenTypeMeta};
+
 /// Configuration for token management transactions.
 /// Defines gas limits and costs for ESDT token operations.
 class TokenManagementConfig {
@@ -42,6 +59,41 @@ class TokenManagementConfig {
     this.issueCost = '50000000000000000',
   });
 
+  /// Builds a [TokenManagementConfig] from a shared [TransactionsFactoryConfig].
+  ///
+  /// #### Parameters
+  /// - `shared` - Aggregate factory config populated by `NetworkEntrypoint`.
+  ///
+  /// #### Returns
+  /// A new [TokenManagementConfig] mirroring `shared`'s token-management fields.
+  static TokenManagementConfig fromShared(TransactionsFactoryConfig shared) =>
+      TokenManagementConfig(
+        chainId: shared.chainId,
+        minGasLimit: shared.minGasLimit,
+        gasLimitPerByte: shared.gasLimitPerByte,
+        gasLimitIssue: shared.gasLimitIssue,
+        gasLimitToggleBurnRoleGlobally: shared.gasLimitToggleBurnRoleGlobally,
+        gasLimitEsdtLocalMint: shared.gasLimitEsdtLocalMint,
+        gasLimitEsdtLocalBurn: shared.gasLimitEsdtLocalBurn,
+        gasLimitSetSpecialRole: shared.gasLimitSetSpecialRole,
+        gasLimitPausing: shared.gasLimitPausing,
+        gasLimitFreezing: shared.gasLimitFreezing,
+        gasLimitWiping: shared.gasLimitWiping,
+        gasLimitEsdtNftCreate: shared.gasLimitEsdtNftCreate,
+        gasLimitEsdtNftUpdateAttributes: shared.gasLimitEsdtNftUpdateAttributes,
+        gasLimitEsdtNftAddQuantity: shared.gasLimitEsdtNftAddQuantity,
+        gasLimitEsdtNftBurn: shared.gasLimitEsdtNftBurn,
+        gasLimitStorePerByte: shared.gasLimitStorePerByte,
+        gasLimitEsdtModifyRoyalties: shared.gasLimitEsdtModifyRoyalties,
+        gasLimitEsdtModifyCreator: shared.gasLimitEsdtModifyCreator,
+        gasLimitEsdtMetadataUpdate: shared.gasLimitEsdtMetadataUpdate,
+        gasLimitSetNewUris: shared.gasLimitSetNewUris,
+        gasLimitNftMetadataRecreate: shared.gasLimitNftMetadataRecreate,
+        gasLimitNftChangeToDynamic: shared.gasLimitNftChangeToDynamic,
+        gasLimitUpdateTokenId: shared.gasLimitUpdateTokenId,
+        gasLimitRegisterDynamic: shared.gasLimitRegisterDynamic,
+      );
+
   final ChainId chainId;
   final int minGasLimit;
   final int gasLimitPerByte;
@@ -66,7 +118,9 @@ class TokenManagementConfig {
   final int gasLimitNftChangeToDynamic;
   final int gasLimitUpdateTokenId;
   final int gasLimitRegisterDynamic;
-  final String issueCost; // In atomic units
+
+  /// Issuance cost, in atomic units (attoEGLD).
+  final String issueCost;
 }
 
 /// Token properties for issuance.
@@ -138,7 +192,7 @@ class TokenManagementTransactionsFactory {
       StringValue(tokenTicker),
       BigUIntValue(initialSupply),
       BigUIntValue(BigInt.from(decimals)),
-      ..._propertiesAsArgs(properties),
+      ..._propertiesAsArgs(properties, includeTransferNftCreateRole: false),
     ];
 
     return _buildTransaction(
@@ -146,7 +200,7 @@ class TokenManagementTransactionsFactory {
       functionName: 'issue',
       args: args,
       value: Balance.fromString(config.issueCost),
-      gasLimit: config.gasLimitIssue,
+      executionGasLimit: config.gasLimitIssue,
     );
   }
 
@@ -176,7 +230,7 @@ class TokenManagementTransactionsFactory {
     final List<TypedValue> args = <TypedValue>[
       StringValue(tokenName),
       StringValue(tokenTicker),
-      ..._propertiesAsArgs(properties),
+      ..._propertiesAsArgs(properties, includeTransferNftCreateRole: true),
     ];
 
     return _buildTransaction(
@@ -184,7 +238,7 @@ class TokenManagementTransactionsFactory {
       functionName: 'issueSemiFungible',
       args: args,
       value: Balance.fromString(config.issueCost),
-      gasLimit: config.gasLimitIssue,
+      executionGasLimit: config.gasLimitIssue,
     );
   }
 
@@ -201,7 +255,7 @@ class TokenManagementTransactionsFactory {
     final List<TypedValue> args = <TypedValue>[
       StringValue(tokenName),
       StringValue(tokenTicker),
-      ..._propertiesAsArgs(properties),
+      ..._propertiesAsArgs(properties, includeTransferNftCreateRole: true),
     ];
 
     return _buildTransaction(
@@ -209,7 +263,7 @@ class TokenManagementTransactionsFactory {
       functionName: 'issueNonFungible',
       args: args,
       value: Balance.fromString(config.issueCost),
-      gasLimit: config.gasLimitIssue,
+      executionGasLimit: config.gasLimitIssue,
     );
   }
 
@@ -228,7 +282,7 @@ class TokenManagementTransactionsFactory {
       StringValue(tokenName),
       StringValue(tokenTicker),
       BigUIntValue(BigInt.from(decimals)),
-      ..._propertiesAsArgs(properties),
+      ..._propertiesAsArgs(properties, includeTransferNftCreateRole: true),
     ];
 
     return _buildTransaction(
@@ -236,26 +290,44 @@ class TokenManagementTransactionsFactory {
       functionName: 'registerMetaESDT',
       args: args,
       value: Balance.fromString(config.issueCost),
-      gasLimit: config.gasLimitIssue,
+      executionGasLimit: config.gasLimitIssue,
     );
   }
 
   /// Creates transaction for registering and setting all roles.
+  ///
+  /// The ESDT system contract accepts exactly four arguments for this endpoint —
+  /// token name, ticker, token type and number of decimals — and rejects any
+  /// other argument count. Token properties are therefore not emitted here.
+  ///
+  /// #### Parameters
+  /// - `sender` - Address that will own and manage the token
+  /// - `tokenName` - Full token name
+  /// - `tokenTicker` - Token ticker symbol
+  /// - `tokenType` - One of `NFT`, `SFT`, `META`, `FNG`
+  /// - `decimals` - Number of decimal places
+  ///
+  /// #### Returns
+  /// `Transaction` - Unsigned transaction with 0.05 EGLD payment
+  ///
+  /// #### Throws
+  /// - `ArgumentError` - When `tokenType` is not a recognised token type
   Transaction createTransactionForRegisteringAndSettingRoles({
     required Address sender,
     required String tokenName,
     required String tokenTicker,
+    required String tokenType,
     required int decimals,
-    TokenProperties properties = const TokenProperties(),
   }) {
     _validateTokenName(tokenName);
     _validateTokenTicker(tokenTicker);
+    _validateTokenType(tokenType);
 
     final List<TypedValue> args = <TypedValue>[
       StringValue(tokenName),
       StringValue(tokenTicker),
+      StringValue(tokenType),
       BigUIntValue(BigInt.from(decimals)),
-      ..._propertiesAsArgs(properties),
     ];
 
     return _buildTransaction(
@@ -263,7 +335,7 @@ class TokenManagementTransactionsFactory {
       functionName: 'registerAndSetAllRoles',
       args: args,
       value: Balance.fromString(config.issueCost),
-      gasLimit: config.gasLimitIssue,
+      executionGasLimit: config.gasLimitIssue,
     );
   }
 
@@ -276,7 +348,7 @@ class TokenManagementTransactionsFactory {
       sender: sender,
       functionName: 'setBurnRoleGlobally',
       args: <TypedValue>[TokenIdentifierValue(tokenIdentifier)],
-      gasLimit: config.gasLimitToggleBurnRoleGlobally,
+      executionGasLimit: config.gasLimitToggleBurnRoleGlobally,
     );
   }
 
@@ -289,7 +361,7 @@ class TokenManagementTransactionsFactory {
       sender: sender,
       functionName: 'unsetBurnRoleGlobally',
       args: <TypedValue>[TokenIdentifierValue(tokenIdentifier)],
-      gasLimit: config.gasLimitToggleBurnRoleGlobally,
+      executionGasLimit: config.gasLimitToggleBurnRoleGlobally,
     );
   }
 
@@ -310,7 +382,7 @@ class TokenManagementTransactionsFactory {
       sender: sender,
       functionName: 'setSpecialRole',
       args: args,
-      gasLimit: config.gasLimitSetSpecialRole,
+      executionGasLimit: config.gasLimitSetSpecialRole,
     );
   }
 
@@ -331,7 +403,7 @@ class TokenManagementTransactionsFactory {
       sender: sender,
       functionName: 'unSetSpecialRole',
       args: args,
-      gasLimit: config.gasLimitSetSpecialRole,
+      executionGasLimit: config.gasLimitSetSpecialRole,
     );
   }
 
@@ -396,7 +468,8 @@ class TokenManagementTransactionsFactory {
       sender: sender,
       functionName: 'ESDTNFTCreate',
       args: args,
-      gasLimit: config.gasLimitEsdtNftCreate + extraGas,
+      executionGasLimit: config.gasLimitEsdtNftCreate + extraGas,
+      receiverIsSender: true,
     );
   }
 
@@ -417,7 +490,8 @@ class TokenManagementTransactionsFactory {
       sender: sender,
       functionName: 'ESDTLocalMint',
       args: args,
-      gasLimit: config.gasLimitEsdtLocalMint,
+      executionGasLimit: config.gasLimitEsdtLocalMint,
+      receiverIsSender: true,
     );
   }
 
@@ -438,7 +512,8 @@ class TokenManagementTransactionsFactory {
       sender: sender,
       functionName: 'ESDTLocalBurn',
       args: args,
-      gasLimit: config.gasLimitEsdtLocalBurn,
+      executionGasLimit: config.gasLimitEsdtLocalBurn,
+      receiverIsSender: true,
     );
   }
 
@@ -461,7 +536,8 @@ class TokenManagementTransactionsFactory {
       sender: sender,
       functionName: 'ESDTNFTUpdateAttributes',
       args: args,
-      gasLimit: config.gasLimitEsdtNftUpdateAttributes + extraGas,
+      executionGasLimit: config.gasLimitEsdtNftUpdateAttributes + extraGas,
+      receiverIsSender: true,
     );
   }
 
@@ -482,7 +558,8 @@ class TokenManagementTransactionsFactory {
       sender: sender,
       functionName: 'ESDTNFTAddQuantity',
       args: args,
-      gasLimit: config.gasLimitEsdtNftAddQuantity,
+      executionGasLimit: config.gasLimitEsdtNftAddQuantity,
+      receiverIsSender: true,
     );
   }
 
@@ -505,7 +582,8 @@ class TokenManagementTransactionsFactory {
       sender: sender,
       functionName: 'ESDTNFTBurn',
       args: args,
-      gasLimit: config.gasLimitEsdtNftBurn,
+      executionGasLimit: config.gasLimitEsdtNftBurn,
+      receiverIsSender: true,
     );
   }
 
@@ -518,7 +596,7 @@ class TokenManagementTransactionsFactory {
       sender: sender,
       functionName: 'pause',
       args: <TypedValue>[TokenIdentifierValue(tokenIdentifier)],
-      gasLimit: config.gasLimitPausing,
+      executionGasLimit: config.gasLimitPausing,
     );
   }
 
@@ -531,7 +609,7 @@ class TokenManagementTransactionsFactory {
       sender: sender,
       functionName: 'unPause',
       args: <TypedValue>[TokenIdentifierValue(tokenIdentifier)],
-      gasLimit: config.gasLimitPausing,
+      executionGasLimit: config.gasLimitPausing,
     );
   }
 
@@ -550,7 +628,7 @@ class TokenManagementTransactionsFactory {
       sender: sender,
       functionName: 'freeze',
       args: args,
-      gasLimit: config.gasLimitFreezing,
+      executionGasLimit: config.gasLimitFreezing,
     );
   }
 
@@ -569,7 +647,7 @@ class TokenManagementTransactionsFactory {
       sender: sender,
       functionName: 'unFreeze',
       args: args,
-      gasLimit: config.gasLimitFreezing,
+      executionGasLimit: config.gasLimitFreezing,
     );
   }
 
@@ -590,7 +668,7 @@ class TokenManagementTransactionsFactory {
       sender: sender,
       functionName: 'wipe',
       args: args,
-      gasLimit: config.gasLimitWiping,
+      executionGasLimit: config.gasLimitWiping,
     );
   }
 
@@ -611,7 +689,8 @@ class TokenManagementTransactionsFactory {
       sender: sender,
       functionName: 'ESDTModifyRoyalties',
       args: args,
-      gasLimit: config.gasLimitEsdtModifyRoyalties,
+      executionGasLimit: config.gasLimitEsdtModifyRoyalties,
+      receiverIsSender: true,
     );
   }
 
@@ -636,7 +715,8 @@ class TokenManagementTransactionsFactory {
       sender: sender,
       functionName: 'ESDTSetNewURIs',
       args: args,
-      gasLimit: config.gasLimitSetNewUris + extraGas,
+      executionGasLimit: config.gasLimitSetNewUris + extraGas,
+      receiverIsSender: true,
     );
   }
 
@@ -655,7 +735,86 @@ class TokenManagementTransactionsFactory {
       sender: sender,
       functionName: 'ESDTModifyCreator',
       args: args,
-      gasLimit: config.gasLimitEsdtModifyCreator,
+      executionGasLimit: config.gasLimitEsdtModifyCreator,
+      receiverIsSender: true,
+    );
+  }
+
+  /// Updates NFT metadata via the new `ESDTNFTUpdate` endpoint
+  /// (supernova). Differs from `createTransactionForUpdatingMetadata`
+  /// (`ESDTMetaDataUpdate`) in that it targets the per-NFT update flow
+  /// gated by `ESDTRoleNFTUpdate`. Data layout:
+  /// `ESDTNFTUpdate@tokenId@nonce@name@royalties@hash@attributes@uris...`.
+  Transaction createTransactionForNftUpdate({
+    required Address sender,
+    required String tokenIdentifier,
+    required int nonce,
+    required String newName,
+    required int newRoyalties,
+    String? newHash,
+    Uint8List? newAttributes,
+    List<String>? newUris,
+  }) {
+    final List<TypedValue> args = <TypedValue>[
+      TokenIdentifierValue(tokenIdentifier),
+      U64Value(BigInt.from(nonce)),
+      StringValue(newName),
+      BigUIntValue(BigInt.from(newRoyalties)),
+      BytesValue(newHash != null ? utf8.encode(newHash) : Uint8List(0)),
+      BytesValue(newAttributes ?? Uint8List(0)),
+      ...?newUris?.map((String uri) => StringValue(uri)),
+    ];
+
+    final int attributesLength = newAttributes?.length ?? 0;
+    final int urisLength =
+        newUris?.fold<int>(0, (int sum, String uri) => sum + uri.length) ?? 0;
+    final int extraGas =
+        (attributesLength + urisLength) * config.gasLimitStorePerByte;
+
+    return _buildTransaction(
+      sender: sender,
+      functionName: 'ESDTNFTUpdate',
+      args: args,
+      executionGasLimit: config.gasLimitEsdtMetadataUpdate + extraGas,
+      receiverIsSender: true,
+    );
+  }
+
+  /// Recreates an NFT instance via the new `ESDTNFTRecreate` endpoint
+  /// (supernova). Same payload shape as `createTransactionForNftUpdate`
+  /// but gated by `ESDTRoleNFTRecreate`.
+  Transaction createTransactionForNftRecreate({
+    required Address sender,
+    required String tokenIdentifier,
+    required int nonce,
+    required String newName,
+    required int newRoyalties,
+    String? newHash,
+    Uint8List? newAttributes,
+    List<String>? newUris,
+  }) {
+    final List<TypedValue> args = <TypedValue>[
+      TokenIdentifierValue(tokenIdentifier),
+      U64Value(BigInt.from(nonce)),
+      StringValue(newName),
+      BigUIntValue(BigInt.from(newRoyalties)),
+      BytesValue(newHash != null ? utf8.encode(newHash) : Uint8List(0)),
+      BytesValue(newAttributes ?? Uint8List(0)),
+      ...?newUris?.map((String uri) => StringValue(uri)),
+    ];
+
+    final int attributesLength = newAttributes?.length ?? 0;
+    final int urisLength =
+        newUris?.fold<int>(0, (int sum, String uri) => sum + uri.length) ?? 0;
+    final int extraGas =
+        (attributesLength + urisLength) * config.gasLimitStorePerByte;
+
+    return _buildTransaction(
+      sender: sender,
+      functionName: 'ESDTNFTRecreate',
+      args: args,
+      executionGasLimit: config.gasLimitNftMetadataRecreate + extraGas,
+      receiverIsSender: true,
     );
   }
 
@@ -690,7 +849,8 @@ class TokenManagementTransactionsFactory {
       sender: sender,
       functionName: 'ESDTMetaDataUpdate',
       args: args,
-      gasLimit: config.gasLimitEsdtMetadataUpdate + extraGas,
+      executionGasLimit: config.gasLimitEsdtMetadataUpdate + extraGas,
+      receiverIsSender: true,
     );
   }
 
@@ -725,7 +885,8 @@ class TokenManagementTransactionsFactory {
       sender: sender,
       functionName: 'ESDTMetaDataRecreate',
       args: args,
-      gasLimit: config.gasLimitNftMetadataRecreate + extraGas,
+      executionGasLimit: config.gasLimitNftMetadataRecreate + extraGas,
+      receiverIsSender: true,
     );
   }
 
@@ -738,24 +899,47 @@ class TokenManagementTransactionsFactory {
       sender: sender,
       functionName: 'changeToDynamic',
       args: <TypedValue>[TokenIdentifierValue(tokenIdentifier)],
-      gasLimit: config.gasLimitNftChangeToDynamic,
+      executionGasLimit: config.gasLimitNftChangeToDynamic,
     );
   }
 
-  /// Registers dynamic NFT.
+  /// Registers a dynamic NFT, SFT or MetaESDT token.
+  ///
+  /// The token type is mandatory and must occupy the third argument slot.
+  /// Only `META` carries a decimal precision; the ESDT system contract reads
+  /// every argument past the token type as a property pair, so no other type
+  /// may append one.
+  ///
+  /// #### Parameters
+  /// - `sender` - Address that will own and manage the token
+  /// - `tokenName` - Full token name
+  /// - `tokenTicker` - Token ticker symbol
+  /// - `tokenType` - One of `NFT`, `SFT`, `META`
+  /// - `numDecimals` - Decimal precision, emitted only for `META`
+  ///
+  /// #### Returns
+  /// `Transaction` - Unsigned transaction with 0.05 EGLD payment
+  ///
+  /// #### Throws
+  /// - `ArgumentError` - When `tokenType` is `FNG`, which cannot be dynamic, or
+  ///   is not a recognised token type
   Transaction createTransactionForRegisteringDynamic({
     required Address sender,
     required String tokenName,
     required String tokenTicker,
-    TokenProperties properties = const TokenProperties(),
+    required String tokenType,
+    int? numDecimals,
   }) {
     _validateTokenName(tokenName);
     _validateTokenTicker(tokenTicker);
+    _validateDynamicTokenType(tokenType);
 
     final List<TypedValue> args = <TypedValue>[
       StringValue(tokenName),
       StringValue(tokenTicker),
-      ..._propertiesAsArgs(properties),
+      StringValue(tokenType),
+      if (tokenType == tokenTypeMeta && numDecimals != null)
+        BigUIntValue(BigInt.from(numDecimals)),
     ];
 
     return _buildTransaction(
@@ -763,7 +947,7 @@ class TokenManagementTransactionsFactory {
       functionName: 'registerDynamic',
       args: args,
       value: Balance.fromString(config.issueCost),
-      gasLimit: config.gasLimitRegisterDynamic,
+      executionGasLimit: config.gasLimitRegisterDynamic,
     );
   }
 
@@ -781,14 +965,15 @@ class TokenManagementTransactionsFactory {
         TokenIdentifierValue(tokenIdentifier),
         AddressValue(newOwner.bytes),
       ],
-      gasLimit: config.gasLimitSetSpecialRole,
+      executionGasLimit: config.gasLimitSetSpecialRole,
     );
   }
 
-  /// Toggles token property flags (`canFreeze`, `canWipe`, `canPause`,
-  /// `canChangeOwner`, `canUpgrade`, `canAddSpecialRoles`) post-issuance.
-  /// Only `true` flags are emitted; pass [TokenProperties] reflecting the
-  /// new desired state.
+  /// Toggles token property flags post-issuance.
+  ///
+  /// Pass a [TokenProperties] describing the complete desired end state, not
+  /// just the properties to enable: every flag is written, so a property can
+  /// be switched off as well as on.
   Transaction createTransactionForControllingProperties({
     required Address sender,
     required String tokenIdentifier,
@@ -796,13 +981,13 @@ class TokenManagementTransactionsFactory {
   }) {
     final List<TypedValue> args = <TypedValue>[
       TokenIdentifierValue(tokenIdentifier),
-      ..._propertiesAsArgs(properties),
+      ..._propertiesAsArgs(properties, includeTransferNftCreateRole: true),
     ];
     return _buildTransaction(
       sender: sender,
       functionName: 'controlChanges',
       args: args,
-      gasLimit: config.gasLimitSetSpecialRole,
+      executionGasLimit: config.gasLimitSetSpecialRole,
     );
   }
 
@@ -827,7 +1012,8 @@ class TokenManagementTransactionsFactory {
       sender: sender,
       functionName: 'ESDTNFTAddURI',
       args: args,
-      gasLimit: config.gasLimitSetNewUris,
+      executionGasLimit: config.gasLimitSetNewUris,
+      receiverIsSender: true,
     );
   }
 
@@ -840,7 +1026,7 @@ class TokenManagementTransactionsFactory {
       sender: sender,
       functionName: 'stopNFTCreate',
       args: <TypedValue>[TokenIdentifierValue(tokenIdentifier)],
-      gasLimit: config.gasLimitSetSpecialRole,
+      executionGasLimit: config.gasLimitSetSpecialRole,
     );
   }
 
@@ -861,41 +1047,48 @@ class TokenManagementTransactionsFactory {
         AddressValue(oldCreator.bytes),
         AddressValue(newCreator.bytes),
       ],
-      gasLimit: config.gasLimitSetSpecialRole,
-    );
-  }
-
-  /// Unsets the global burn role for [tokenIdentifier] (the counterpart to
-  /// `createTransactionForSettingBurnRoleGlobally`).
-  Transaction createTransactionForUnsettingBurnRoleForAll({
-    required Address sender,
-    required String tokenIdentifier,
-  }) {
-    return _buildTransaction(
-      sender: sender,
-      functionName: 'unsetBurnRoleGlobally',
-      args: <TypedValue>[TokenIdentifierValue(tokenIdentifier)],
-      gasLimit: config.gasLimitToggleBurnRoleGlobally,
+      executionGasLimit: config.gasLimitSetSpecialRole,
     );
   }
 
   /// Registers a token and sets all roles for the caller in a single tx
   /// with a dynamic variant (distinct from the non-dynamic helper).
+  ///
+  /// Only `META` carries a decimal precision. For dynamic `NFT` and `SFT` the
+  /// ESDT system contract treats everything past the token type as property
+  /// pairs, so appending a lone decimals argument makes the call fail on an
+  /// odd argument count.
+  ///
+  /// #### Parameters
+  /// - `sender` - Address that will own and manage the token
+  /// - `tokenName` - Full token name
+  /// - `tokenTicker` - Token ticker symbol
+  /// - `tokenType` - One of `NFT`, `SFT`, `META`
+  /// - `numDecimals` - Decimal precision, emitted only for `META`
+  ///
+  /// #### Returns
+  /// `Transaction` - Unsigned transaction with 0.05 EGLD payment
+  ///
+  /// #### Throws
+  /// - `ArgumentError` - When `tokenType` is `FNG`, which cannot be dynamic, or
+  ///   is not a recognised token type
   Transaction createTransactionForRegisteringAndSettingAllRolesDynamic({
     required Address sender,
     required String tokenName,
     required String tokenTicker,
     required String tokenType,
-    required int numDecimals,
+    int? numDecimals,
   }) {
     _validateTokenName(tokenName);
     _validateTokenTicker(tokenTicker);
+    _validateDynamicTokenType(tokenType);
 
     final List<TypedValue> args = <TypedValue>[
       StringValue(tokenName),
       StringValue(tokenTicker),
       StringValue(tokenType),
-      U32Value(numDecimals),
+      if (tokenType == tokenTypeMeta && numDecimals != null)
+        BigUIntValue(BigInt.from(numDecimals)),
     ];
 
     return _buildTransaction(
@@ -903,7 +1096,7 @@ class TokenManagementTransactionsFactory {
       functionName: 'registerAndSetAllRolesDynamic',
       args: args,
       value: Balance.fromString(config.issueCost),
-      gasLimit: config.gasLimitRegisterDynamic,
+      executionGasLimit: config.gasLimitRegisterDynamic,
     );
   }
 
@@ -921,7 +1114,7 @@ class TokenManagementTransactionsFactory {
         TokenIdentifierValue(tokenIdentifier),
         U32Value(numDecimals),
       ],
-      gasLimit: config.gasLimitSetSpecialRole,
+      executionGasLimit: config.gasLimitSetSpecialRole,
     );
   }
 
@@ -935,7 +1128,7 @@ class TokenManagementTransactionsFactory {
       sender: sender,
       functionName: 'updateTokenID',
       args: <TypedValue>[TokenIdentifierValue(tokenIdentifier)],
-      gasLimit: config.gasLimitUpdateTokenId,
+      executionGasLimit: config.gasLimitUpdateTokenId,
     );
   }
 
@@ -961,31 +1154,96 @@ class TokenManagementTransactionsFactory {
     }
   }
 
-  List<TypedValue> _propertiesAsArgs(TokenProperties props) {
+  /// Validates a token type accepted by `registerAndSetAllRoles`.
+  static void _validateTokenType(String tokenType) {
+    if (!tokenTypes.contains(tokenType)) {
+      throw ArgumentError.value(
+        tokenType,
+        'tokenType',
+        'Token type must be one of NFT, SFT, META, FNG',
+      );
+    }
+  }
+
+  /// Validates a token type accepted by the dynamic registration endpoints,
+  /// which reject fungible tokens outright.
+  static void _validateDynamicTokenType(String tokenType) {
+    if (tokenType == tokenTypeFungible) {
+      throw ArgumentError.value(
+        tokenType,
+        'tokenType',
+        'Cannot register fungible token as dynamic',
+      );
+    }
+    if (!dynamicTokenTypes.contains(tokenType)) {
+      throw ArgumentError.value(
+        tokenType,
+        'tokenType',
+        'Token type must be one of NFT, SFT, META',
+      );
+    }
+  }
+
+  /// Encodes [props] as the `name`/`value` argument pairs the ESDT system
+  /// contract expects.
+  ///
+  /// Every supported property is emitted, including the ones set to `false`.
+  /// Omitting a pair does not mean "disabled": the contract creates a token
+  /// with `canUpgrade` and `canAddSpecialRoles` already enabled and only
+  /// overrides the properties actually present in the argument list, so a
+  /// missing pair silently keeps the contract's own default. Emitting every
+  /// pair is also what lets `controlChanges` switch a property back off.
+  ///
+  /// #### Parameters
+  /// - `props` - Desired end state of every property
+  /// - `includeTransferNftCreateRole` - Whether to emit
+  ///   `canTransferNFTCreateRole`; it belongs to the collection endpoints and
+  ///   is absent from the fungible `issue` argument list
+  ///
+  /// #### Returns
+  /// `List<TypedValue>` - Ordered `name`, `value` pairs.
+  List<TypedValue> _propertiesAsArgs(
+    TokenProperties props, {
+    required bool includeTransferNftCreateRole,
+  }) {
     final List<TypedValue> args = <TypedValue>[];
-    void emitIfTrue(String name, bool flag) {
-      if (flag) {
-        args.add(StringValue(name));
-        args.add(StringValue('true'));
-      }
+    void emit(String name, bool flag) {
+      args
+        ..add(StringValue(name))
+        ..add(StringValue(flag ? 'true' : 'false'));
     }
 
-    emitIfTrue('canFreeze', props.canFreeze);
-    emitIfTrue('canWipe', props.canWipe);
-    emitIfTrue('canPause', props.canPause);
-    emitIfTrue('canTransferNFTCreateRole', props.canTransferNFTCreateRole);
-    emitIfTrue('canChangeOwner', props.canChangeOwner);
-    emitIfTrue('canUpgrade', props.canUpgrade);
-    emitIfTrue('canAddSpecialRoles', props.canAddSpecialRoles);
+    emit('canFreeze', props.canFreeze);
+    emit('canWipe', props.canWipe);
+    emit('canPause', props.canPause);
+    if (includeTransferNftCreateRole) {
+      emit('canTransferNFTCreateRole', props.canTransferNFTCreateRole);
+    }
+    emit('canChangeOwner', props.canChangeOwner);
+    emit('canUpgrade', props.canUpgrade);
+    emit('canAddSpecialRoles', props.canAddSpecialRoles);
     return args;
   }
 
+  /// Builds an unsigned token-management transaction.
+  ///
+  /// #### Parameters
+  /// - `sender` - Address sending the transaction
+  /// - `functionName` - System-contract endpoint or builtin-function name
+  /// - `args` - Ordered, already-typed call arguments
+  /// - `value` - EGLD attached to the call (defaults to zero)
+  /// - `executionGasLimit` - Gas the system contract charges for the call
+  ///   itself, excluding the data-movement gas this method adds on top
+  /// - `receiverIsSender` - `true` for builtin functions, which execute
+  ///   against the caller's own account and must therefore be addressed to
+  ///   [sender] rather than to the ESDT system contract
   Transaction _buildTransaction({
     required Address sender,
     required String functionName,
     required List<TypedValue> args,
     Balance? value,
-    required int gasLimit,
+    required int executionGasLimit,
+    bool receiverIsSender = false,
   }) {
     final ValuesToStringResult argsResult = _argSerializer.valuesToString(args);
     final List<String> dataParts = <String>[
@@ -993,13 +1251,15 @@ class TokenManagementTransactionsFactory {
       if (argsResult.count > 0) ...argsResult.argumentsString.split('@'),
     ];
     final Uint8List dataPayload = utf8.encode(dataParts.join('@'));
+    final int dataMovementGas =
+        config.minGasLimit + config.gasLimitPerByte * dataPayload.length;
 
     return Transaction(
       sender: sender,
-      receiver: _esdtContractAddress,
+      receiver: receiverIsSender ? sender : _esdtContractAddress,
       value: value ?? Balance.zero(),
       nonce: const Nonce(0),
-      gasLimit: GasLimit(gasLimit),
+      gasLimit: GasLimit(dataMovementGas + executionGasLimit),
       gasPrice: const GasPrice(defaultMinGasPrice),
       data: dataPayload,
       chainId: config.chainId,

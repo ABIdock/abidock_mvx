@@ -77,8 +77,8 @@ final class VariadicType extends CustomType {
   ///
   /// #### Example
   /// ```dart
-  /// final varType = VariadicType(U32Type.type);
-  /// final values = varType.createValue([10, 20, 30, 40]);
+  /// final varType = VariadicType.of(U32Type.type);
+  /// final values = varType.createValue([10, 20, 30, 40]) as VariadicValue;
   /// print(values.length); // 4
   /// ```
   @override

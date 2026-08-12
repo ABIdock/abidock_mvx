@@ -16,6 +16,9 @@ final class Bech32Encoder {
   /// Bech32 character set (32 characters).
   static const String _charset = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l';
 
+  /// Character dividing the human-readable part from the data part.
+  static const String _separator = '1';
+
   /// Generator values for checksum calculation (BIP-0173).
   static const List<int> _generator = [
     0x3b6a57b2,
@@ -46,7 +49,7 @@ final class Bech32Encoder {
 
     final StringBuffer result = StringBuffer();
     result.write(hrp);
-    result.write('1'); // Separator
+    result.write(_separator);
 
     for (final int value in converted) {
       result.write(_charset[value]);
@@ -165,11 +168,11 @@ final class Bech32Encoder {
     required int to,
     required bool pad,
   }) {
-    int acc = 0; // Bit accumulator
-    int bits = 0; // Number of bits in accumulator
+    int accumulator = 0;
+    int pendingBits = 0;
     final List<int> result = <int>[];
-    final int maxv = (1 << to) - 1; // Maximum value for target bit width
-    final int maxAcc = (1 << (from + to - 1)) - 1; // Maximum accumulator value
+    final int targetMask = (1 << to) - 1;
+    final int accumulatorMask = (1 << (from + to - 1)) - 1;
 
     for (final int value in data) {
       if (value < 0 || (value >> from) != 0) {
@@ -180,20 +183,21 @@ final class Bech32Encoder {
         );
       }
 
-      acc = ((acc << from) | value) & maxAcc;
-      bits += from;
+      accumulator = ((accumulator << from) | value) & accumulatorMask;
+      pendingBits += from;
 
-      while (bits >= to) {
-        bits -= to;
-        result.add((acc >> bits) & maxv);
+      while (pendingBits >= to) {
+        pendingBits -= to;
+        result.add((accumulator >> pendingBits) & targetMask);
       }
     }
 
     if (pad) {
-      if (bits > 0) {
-        result.add((acc << (to - bits)) & maxv);
+      if (pendingBits > 0) {
+        result.add((accumulator << (to - pendingBits)) & targetMask);
       }
-    } else if (bits >= from || ((acc << (to - bits)) & maxv) != 0) {
+    } else if (pendingBits >= from ||
+        ((accumulator << (to - pendingBits)) & targetMask) != 0) {
       throw ArgumentError('Invalid padding in conversion');
     }
 

@@ -72,7 +72,7 @@ final class FieldDefinition {
 /// ```dart
 /// final nameField = Field(
 ///   name: 'name',
-///   value: BytesValue.fromString('Alice'),
+///   value: BytesValue(utf8.encode('Alice')),
 /// );
 /// final ageField = Field(
 ///   name: 'age',
@@ -180,7 +180,7 @@ final class Fields extends Iterable<Field> {
   /// ```dart
   /// final fields = Fields([
   ///   Field(name: 'id', value: U32Value(1)),
-  ///   Field(name: 'name', value: BytesValue.fromString('Test')),
+  ///   Field(name: 'name', value: BytesValue(utf8.encode('Test'))),
   /// ]);
   /// ```
   Fields(List<Field> fields) : _items = List<Field>.unmodifiable(fields);

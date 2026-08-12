@@ -19,10 +19,10 @@ class PubkeyEncryptor {
   /// Encrypts data for recipient using X25519-XSalsa20-Poly1305.
   ///
   /// Key conversion: the recipient's Ed25519 public key and the ephemeral
-  /// Ed25519 seed are converted to their X25519 counterparts before ECDH, per
-  /// RFC 7748 / libsodium's `crypto_sign_ed25519_*_to_curve25519`. The
-  /// ephemeral Ed25519 public key is what gets stored in the output
-  /// (matching mx-sdk-js-core); the decryptor converts it on the way in.
+  /// Ed25519 seed are converted to their X25519 counterparts before ECDH,
+  /// via the RFC 7748 birational map. The wire format stores the *Ed25519*
+  /// ephemeral public key, not its X25519 image, so the decryptor re-applies
+  /// the same conversion on the way in.
   ///
   /// #### Parameters
   /// - `data` - Plaintext data to encrypt

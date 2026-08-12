@@ -274,9 +274,9 @@ class TransactionEventParser {
   ///
   /// #### Example
   /// ```dart
-  /// // Fetch from API
-  /// final response = await apiProvider.getEvents(txHash);
-  /// final eventJson = response['events'][0];
+  /// // Fetch the transaction, then take a raw event payload from its logs
+  /// final tx = await apiProvider.getTransaction(txHash);
+  /// final eventJson = tx.logs!.events.first.raw;
   ///
   /// // Parse with ABI
   /// final parsed = parser.parseEventFromJson(eventJson, 'transfer');

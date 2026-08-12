@@ -24,3 +24,5 @@ export 'user_signer.dart';
 export 'user_verifier.dart';
 export 'user_wallet.dart';
 export 'validator_keys.dart';
+export 'validator_pem.dart';
+export 'validator_signer.dart';

@@ -108,6 +108,60 @@ class SmartContractResult {
     );
   }
 
+  /// Parses a smart-contract result from a Gateway/Proxy payload.
+  ///
+  /// Gateway nodes serialize SCR `data` as a plain UTF-8 string (e.g.
+  /// `@6f6b@...`), unlike the API which base64-encodes the same payload.
+  /// Embedded `logs` are also decoded with the gateway variant.
+  factory SmartContractResult.fromProxyJson(Map<String, dynamic> json) {
+    final String hash =
+        optionalAs<String>(json['hash'], 'hash') ??
+        optionalAs<String>(json['txHash'], 'txHash') ??
+        '';
+    final int nonce = optionalInt(json['nonce'], 'nonce') ?? 0;
+    final dynamic valueRaw = json['value'];
+    final String value = valueRaw is String
+        ? valueRaw
+        : (valueRaw is num ? valueRaw.toString() : '0');
+    final String senderStr = optionalAs<String>(json['sender'], 'sender') ?? '';
+    final String receiverStr =
+        optionalAs<String>(json['receiver'], 'receiver') ?? '';
+    final String dataStr = optionalAs<String>(json['data'], 'data') ?? '';
+
+    final _DecodedScrPayload decoded = _decodePayloadAsUtf8(dataStr);
+
+    final dynamic logsRaw = json['logs'];
+    final TransactionLogs? logs = logsRaw is Map<String, dynamic>
+        ? TransactionLogs.fromProxyHttpResponse(logsRaw)
+        : null;
+
+    return SmartContractResult(
+      hash: hash,
+      nonce: nonce,
+      value: value,
+      sender: senderStr.isEmpty
+          ? Address.empty()
+          : Address.fromBech32(senderStr),
+      receiver: receiverStr.isEmpty
+          ? Address.empty()
+          : Address.fromBech32(receiverStr),
+      data: decoded.rawBytes,
+      returnCode: decoded.returnCode,
+      returnData: decoded.returnData,
+      previousHash: optionalAs<String>(json['prevTxHash'], 'prevTxHash'),
+      originalHash: optionalAs<String>(
+        json['originalTxHash'],
+        'originalTxHash',
+      ),
+      gasLimit: optionalInt(json['gasLimit'], 'gasLimit'),
+      gasPrice: optionalInt(json['gasPrice'], 'gasPrice'),
+      callType: optionalInt(json['callType'], 'callType') ?? 0,
+      errorMessage: optionalAs<String>(json['returnMessage'], 'returnMessage'),
+      logs: logs,
+      raw: json,
+    );
+  }
+
   /// Result hash.
   final String hash;
 
@@ -186,6 +240,52 @@ class _DecodedScrPayload {
   final List<Uint8List> returnData;
 }
 
+/// Parses gateway-style SCR `data`, which is always raw UTF-8 (no base64).
+///
+/// The shape is identical to the API variant — `@<returnCode>@<returnData>...`
+/// — only the outer encoding differs. Bytes are emitted directly without any
+/// base64 attempt to avoid mistakenly decoding hex-looking strings.
+_DecodedScrPayload _decodePayloadAsUtf8(String data) {
+  if (data.isEmpty) {
+    return _DecodedScrPayload(
+      rawBytes: Uint8List(0),
+      returnCode: ReturnCode.none,
+      returnData: const <Uint8List>[],
+    );
+  }
+  final Uint8List rawBytes = Uint8List.fromList(utf8.encode(data));
+  final String text = data;
+  final String trimmed = text.startsWith('@') ? text.substring(1) : text;
+  if (!text.contains('@')) {
+    return _DecodedScrPayload(
+      rawBytes: rawBytes,
+      returnCode: ReturnCode.none,
+      returnData: const <Uint8List>[],
+    );
+  }
+
+  final List<String> parts = trimmed.split('@');
+  if (parts.isEmpty) {
+    return _DecodedScrPayload(
+      rawBytes: rawBytes,
+      returnCode: ReturnCode.none,
+      returnData: const <Uint8List>[],
+    );
+  }
+
+  final ReturnCode code = _decodeReturnCode(parts.first);
+  final List<Uint8List> returnParts = <Uint8List>[];
+  for (int i = 1; i < parts.length; i++) {
+    returnParts.add(_hexToBytes(parts[i]));
+  }
+
+  return _DecodedScrPayload(
+    rawBytes: rawBytes,
+    returnCode: code,
+    returnData: returnParts,
+  );
+}
+
 _DecodedScrPayload _decodePayload(String data) {
   if (data.isEmpty) {
     return _DecodedScrPayload(
@@ -195,8 +295,6 @@ _DecodedScrPayload _decodePayload(String data) {
     );
   }
 
-  // The SCR data may arrive base64-encoded (API) or as raw UTF-8 (Gateway).
-  // Try base64 first; fall back to treating the string as raw UTF-8.
   Uint8List rawBytes;
   String text = data;
   try {

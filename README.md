@@ -20,12 +20,13 @@ MultiversX SDK for Dart/Flutter that provides wallets, smart-contract controller
 
 | Capability | Description |
 | ---------- | ----------- |
+| Entrypoints | `DevnetEntrypoint` / `TestnetEntrypoint` / `MainnetEntrypoint` (plus Gateway variants) hand you a cached provider, factories, and controllers for a network in one line |
 | Wallet & Key Management | Mnemonic, PEM, keystore, guardian, and relayed-transaction flows |
-| Transactions | Auto-gas estimation, nonce management, token transfers (EGLD/ESDT/NFT/SFT) |
+| Transactions | Gas estimation by simulation, nonce management, token transfers (EGLD/ESDT/NFT/SFT) |
 | Smart Contracts | Unified `SmartContractController` with typed queries, calls, and event streaming; `SmartContractTransactionsFactory` for deploy / upgrade / change-owner / claim-developer-rewards |
 | ABI System | Full MultiversX ABI coverage (primitives, collections, structs, enums, special types) |
 | CLI & Codegen | Config-driven or one-off generation, ABI validation, watch mode, transfer services |
-| Tooling | 900+ tests, ready-to-run examples, GitHub Actions workflows |
+| Tooling | 1,690+ hermetic tests plus live-network integration suites, ready-to-run examples, GitHub Actions workflows |
 
 [comment]: # (mx-context-auto)
 
@@ -37,7 +38,7 @@ Add `abidock_mvx` to your `pubspec.yaml`:
 
 ```yaml title="pubspec.yaml"
 dependencies:
-  abidock_mvx: ^1.2.0
+  abidock_mvx: ^2.0.0
 ```
 
 ### Step 2: Install packages
@@ -76,6 +77,19 @@ Where:
 - **[2]** Get the mnemonic as a space-separated string
 - **[3]** Derive the first account (index 0) from the mnemonic
 - **[4]** Print the bech32 address (e.g., `erd1...`)
+
+### Connecting to a network
+
+```dart
+final entrypoint = DevnetEntrypoint();                     // [1]
+final provider = entrypoint.createNetworkProvider();       // [2]
+final transfers = entrypoint.createTransfersFactory();     // [3]
+```
+
+Where:
+- **[1]** Bind the devnet URL and chain id in one object (`MainnetEntrypoint`, `TestnetEntrypoint`, and the `*ProxyEntrypoint` Gateway variants are the siblings)
+- **[2]** The provider is built once and cached for the entrypoint's lifetime
+- **[3]** Factories and controllers come pre-configured with the same chain id
 
 ### Calling a smart contract
 
@@ -146,12 +160,15 @@ Relayer and guardian parameters are always available in generated code.
 ## Repository Structure
 
 ```
-lib/                 Core SDK (abi, core, infrastructure, utils, wallet)
-bin/abidock.dart     CLI entrypoint (config + legacy modes)
+lib/                 Core SDK (abi, core, entrypoints, infrastructure, utils, wallet)
+bin/abidock.dart     CLI entrypoint (config + direct modes)
 example/             Manual & generated cookbook scenarios with reference ABIs
-test/                900+ unit, integration, and regression tests
+test/                Unit and regression suites; test/integration/ hits live networks
 scripts/             Release and automation scripts
 ```
+
+Run `dart test` for the hermetic suites, and `dart test -P integration` for the
+live-network ones.
 
 [comment]: # (mx-context-auto)
 

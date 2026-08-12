@@ -22,19 +22,19 @@ abidock_mvx includes a CLI to generate type-safe Dart code from ABI files.
 
 ```dart
 // Manual: error-prone, requires type knowledge
-final tokenIdValue = TokenIdentifierType.type.createValue(tokenId);
+final tokenIdValue = TokenIdentifierType.type.createValue('WEGLD-bd4d79');
 final result = await controller.query(
   endpointName: 'getReserve',
   arguments: [tokenIdValue],
 );
-final reserve = infer<BigInt>(result[0]);
+final reserve = result.typedValues[0].nativeValue as BigInt;
 ```
 
 ### After (Generated)
 
 ```dart
 // Generated: type-safe, IDE-supported
-final reserve = await pair.getReserve(tokenId);
+final reserve = await pair.getReserve(TokenIdentifier('WEGLD-bd4d79'));
 ```
 
 ## Quick Start
@@ -67,7 +67,8 @@ lib/generated/pair/
 ├── pair.dart              # Barrel export (import this)
 ├── abi.dart               # ABI constant
 ├── controller.dart        # Main controller class
-├── models/                # Custom types (structs, enums)
+├── transfer_service.dart  # TransferService (with --transfers flag)
+├── models/                # Custom types (structs, enums, event models)
 │   ├── state.dart
 │   └── esdt_token_payment.dart
 ├── queries/               # View endpoints (one file per endpoint)
@@ -75,18 +76,21 @@ lib/generated/pair/
 │   └── get_reserves_and_total_supply.dart
 ├── calls/                 # Mutable endpoints (one file per endpoint)
 │   ├── add_liquidity.dart
-│   └── swap_tokens_fixed_input.dart
+│   ├── swap_tokens_fixed_input.dart
+│   └── deploy.dart        # when the ABI declares a constructor
 ├── events/                # Event streaming
+│   ├── multi_event_polling_stream.dart
+│   ├── multi_event_websocket_stream.dart
 │   ├── polling_events/
 │   └── websocket_events/
-└── transfers/             # Transfer helpers (with --transfers flag)
+└── transfers/             # egld / esdt / nft / multi (with --transfers flag)
 ```
 
 ## Example Usage
 
 ```dart
 import 'package:abidock_mvx/abidock_mvx.dart';
-import 'generated/pair/pair.dart';
+import 'package:my_app/generated/pair/pair.dart';
 
 void main() async {
   final provider = GatewayNetworkProvider.devnet();
@@ -100,7 +104,7 @@ void main() async {
   );
   
   // Type-safe queries - returns native Dart types
-  final reserve = await pair.getReserve('WEGLD-abcdef');
+  final reserve = await pair.getReserve(TokenIdentifier('WEGLD-abcdef'));
   print('Reserve: $reserve');
   
   // Multiple return values use Dart records
@@ -136,8 +140,11 @@ void main() async {
 |------|-------------|
 | `--logger` | Include ConsoleLogger in generated controller |
 | `--autogas` | Generate automatic gas estimation via `simulateGas` |
-| `--transfers` | Generate transfer service for EGLD/ESDT/NFT |
+| `--transfers` | Generate `TransferService` for EGLD/ESDT/NFT/multi transfers |
 | `--full` | Enable ALL features (logger + autogas + transfers) |
+
+Without `--autogas`, generated calls take a `required GasLimit gasLimit`
+instead of simulating one.
 
 ## Features
 

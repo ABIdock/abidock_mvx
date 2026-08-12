@@ -81,7 +81,7 @@ class SetGuardianInput {
 /// #### Example
 /// ```dart
 /// final controller = AccountController(
-///   chainId: 'D',
+///   chainId: const ChainId.devnet(),
 ///   gasLimitEstimator: estimator,
 /// );
 ///
@@ -101,12 +101,12 @@ class AccountController extends BaseController {
   /// ```dart
   /// // With gas estimation
   /// final controller = AccountController(
-  ///   chainId: 'D',
+  ///   chainId: const ChainId.devnet(),
   ///   gasLimitEstimator: GasEstimator(networkProvider: provider),
   /// );
   ///
   /// // Without gas estimation
-  /// final simpleController = AccountController(chainId: '1');
+  /// final simpleController = AccountController(chainId: const ChainId.mainnet());
   /// ```
   AccountController({required ChainId chainId, super.gasLimitEstimator})
     : factory = AccountTransactionsFactory(

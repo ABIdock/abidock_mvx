@@ -1,7 +1,13 @@
+import 'dart:convert';
+
+import 'package:convert/convert.dart';
+
 import '../../utils/helpers.dart';
 
 /// Smart contract storage key-value pair entry.
-/// Both key and value are hex-encoded strings.
+/// Both [key] and [value] are stored as hex strings exactly as returned by the
+/// network; use [decodedValue] to get the UTF-8 interpretation of the raw
+/// storage bytes.
 class AccountStorageEntry {
   /// Creates storage entry with key and value.
   ///
@@ -33,6 +39,24 @@ class AccountStorageEntry {
 
   /// Storage value (hex encoded).
   final String value;
+
+  /// Hex-decoded UTF-8 representation of [value].
+  ///
+  /// Contract storage holds arbitrary bytes, so invalid UTF-8 is decoded
+  /// leniently rather than thrown on. Returns an empty string if [value] is
+  /// empty or not valid hex.
+  ///
+  /// #### Returns
+  /// `String` - UTF-8 string decoded from the hex `value`
+  String get decodedValue {
+    if (value.isEmpty) return '';
+    try {
+      final List<int> bytes = hex.decode(value);
+      return utf8.decode(bytes, allowMalformed: true);
+    } catch (_) {
+      return '';
+    }
+  }
 
   @override
   String toString() => 'AccountStorageEntry(key: $key, value: $value)';

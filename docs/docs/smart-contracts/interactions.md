@@ -179,10 +179,12 @@ if (!txOnNetwork.isSuccessful) {
 }
 
 // Parse return values from smart contract results
-final scResults = txOnNetwork.smartContractResults;
+final List<SmartContractResult>? scResults = txOnNetwork.smartContractResults;
 if (scResults != null) {
-  for (final result in scResults) {
-    print('Result data: ${result['data']}');
+  for (final SmartContractResult result in scResults) {
+    print('Return code: ${result.returnCode}');
+    print('Result data: ${result.data}');       // '@6f6b@...' payload
+    print('Return values: ${result.returnData}'); // decoded byte parts
   }
 }
 ```
@@ -203,22 +205,30 @@ final tx = await controller.call(
 
 ### Auto Gas Estimation with simulateGas
 
-Use the `simulateGas` helper to estimate gas via network simulation:
+Use the `simulateGas` helper to estimate gas via network simulation. Build an
+**unsigned** probe transaction first so the signed call only happens once with
+the final gas value -- `Transaction.copyWith(newGasLimit:)` on a signed
+transaction invalidates its signature.
 
 ```dart
-// Step 1: Create transaction with max gas for simulation
-final simulationTx = await controller.call(
-  account: account,
+// Step 1: Build an unsigned probe via the factory.
+final factory = SmartContractCallFactory(
+  contractAddress: controller.contractAddress,
+  abi: controller.abi,
+  chainId: controller.networkProvider.chainId,
+);
+final probeTx = factory.createCall(
+  sender: account.address,
   nonce: networkAccount.nonce,
   endpointName: 'myFunction',
   arguments: [],
-  options: BaseControllerInput(gasLimit: const GasLimit(600000000)),
+  gasLimit: const GasLimit(600000000),
 );
 
-// Step 2: Estimate gas using simulation
-final gasLimit = await simulateGas(simulationTx, provider);
+// Step 2: Estimate gas using simulation.
+final gasLimit = await simulateGas(probeTx, provider);
 
-// Step 3: Create final transaction with estimated gas
+// Step 3: Sign once with the final gas limit.
 final tx = await controller.call(
   account: account,
   nonce: networkAccount.nonce,
@@ -432,7 +442,7 @@ final reserves = await controller.queryRaw(
 final codec = BinaryCodec.withDefaults();
 final firstReserve = codec.decodeTopLevel(
   reserves[0],
-  BigUIntType(),
+  BigUIntType.type,
 ) as BigUIntValue;
 print('First reserve: ${firstReserve.value}');
 

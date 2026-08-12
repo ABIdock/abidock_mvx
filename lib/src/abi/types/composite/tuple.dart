@@ -94,7 +94,7 @@ final class TupleType extends CustomType {
   /// #### Example
   /// ```dart
   /// final tupleType = TupleType([U32Type.type, BooleanType.type]);
-  /// final tuple = tupleType.createValue([100, true]);
+  /// final tuple = tupleType.createValue([100, true]) as TupleValue;
   /// print(tuple[0].nativeValue); // 100
   /// print(tuple[1].nativeValue); // true
   /// ```

@@ -1,7 +1,7 @@
 ---
 id: websocket-events
 title: WebSocket Events
-sidebar_position: 3
+sidebar_position: 4
 description: Subscribe to real-time MultiversX blockchain events using WebSocket connections with automatic ABI parsing.
 ---
 
@@ -30,7 +30,7 @@ void main() async {
   
   // Create WebSocket config
   final config = WebSocketEventStreamConfig.byIdentifiers(
-    websocketUrl: 'wss://devnet-notifier.multiversx.com',
+    websocketUrl: 'wss://your-notifier-host/hub/ws',
     identifiers: ['swap', 'addLiquidity'],  // Event names to subscribe to
     contractAddress: SmartContractAddress.fromBech32('erd1qqq...'),
     abi: abi,  // Optional: enables automatic event parsing
@@ -43,33 +43,39 @@ void main() async {
   // Listen to events
   stream.events.listen((result) {
 
-    print('TX Hash: \${result.txHash}');
+    print('TX Hash: ${result.txHash}');
     
     // If ABI was provided, events are parsed automatically
     if (result.parsedEvent != null) {
-      print('Parsed data: \${result.parsedEvent!.toMap()}');
+      print('Parsed data: ${result.parsedEvent!.toMap()}');
     }
   });
   
   // Listen to status changes
-  stream.statusChanges.listen((status) {
-    print('Status: \${status.status}');
+  stream.statusChanges.listen((change) {
+    print('Status: ${change.from} -> ${change.to}');
   });
   
   // Listen to errors
   stream.errors.listen((error) {
-    print('Error: \${error.message}');
+    print('Error: ${error.message}');
   });
 }
 ```
 
 ## WebSocket URLs
 
-| Network | URL |
-|---------|-----|
-| Mainnet | `wss://notifier.multiversx.com` |
-| Devnet | `wss://devnet-notifier.multiversx.com` |
-| Testnet | `wss://testnet-notifier.multiversx.com` |
+There is no public, chain-operated event socket. Events are published by the
+**events notifier** service, which an observer node feeds and which you (or your
+API provider) run. `websocketUrl` is therefore whatever URL that service
+listens on, used verbatim — the SDK never rewrites the path.
+
+| Source | URL shape |
+|--------|-----------|
+| Self-hosted notifier | `wss://<your-host>/hub/ws` |
+| Hosted API provider | Whatever the provider documents, e.g. `wss://kepler-api.projectx.mx/devnet/events` |
+
+Providers usually gate the socket behind a key; pass it in `headers`.
 
 ## Configuration Options
 
@@ -79,7 +85,7 @@ The cleanest approach with server-side filtering:
 
 ```dart
 final config = WebSocketEventStreamConfig.byIdentifiers(
-  websocketUrl: 'wss://devnet-notifier.multiversx.com',
+  websocketUrl: 'wss://your-notifier-host/hub/ws',
   identifiers: ['swap', 'deposit', 'withdraw'],
   contractAddress: SmartContractAddress.fromBech32('erd1qqq...'),
   abi: abi,
@@ -91,7 +97,7 @@ final config = WebSocketEventStreamConfig.byIdentifiers(
 
 ```dart
 final config = WebSocketEventStreamConfig(
-  websocketUrl: 'wss://devnet-notifier.multiversx.com',
+  websocketUrl: 'wss://your-notifier-host/hub/ws',
   eventType: WebSocketEventType.byIdentifier,
   eventIdentifiers: ['swap'],
   contractAddress: SmartContractAddress.fromBech32('erd1qqq...'),
@@ -112,49 +118,59 @@ Each event includes:
 ```dart
 stream.events.listen((result) {
   // Transaction hash
-  print('TX Hash: \${result.txHash}');
+  print('TX Hash: ${result.txHash}');
   
   // Raw event data
-  print('Identifier: \${result.rawEvent.identifier}');
-  print('Topics: \${result.rawEvent.topics}');
-  print('Data: \${result.rawEvent.data}');
+  print('Identifier: ${result.rawEvent.identifier}');
+  print('Topics: ${result.rawEvent.topics}');
+  print('Data: ${result.rawEvent.data}');
   
   // Parsed event (if ABI provided)
   if (result.parsedEvent != null) {
     final event = result.parsedEvent!;
-    print('Event name: \${event.name}');
-    print('Fields: \${event.toMap()}');
+    print('Event name: ${event.definition.identifier}');
+    print('Fields: ${event.toMap()}');
+
+    // Single field, decoded and typed
+    print('Amount: ${event.getValueByName('amount')?.nativeValue}');
   }
 });
 ```
 
 ## Connection Status
 
-Monitor connection state:
+Each `WebSocketStatusChange` carries the transition, not a single value:
+`from`, `to`, and the `timestamp` it happened.
 
 ```dart
 stream.statusChanges.listen((change) {
-  switch (change.status) {
+  print('${change.timestamp}: ${change.from} -> ${change.to}');
+
+  switch (change.to) {
     case WebSocketStatus.idle:
       print('Not connected');
-      break;
     case WebSocketStatus.connecting:
       print('Connecting...');
-      break;
     case WebSocketStatus.connected:
       print('Connected');
-      break;
     case WebSocketStatus.listening:
       print('Listening for events');
-      break;
+    case WebSocketStatus.paused:
+      print('Paused');
     case WebSocketStatus.disconnected:
       print('Disconnected');
-      break;
     case WebSocketStatus.error:
       print('Error occurred');
-      break;
   }
 });
+```
+
+The current value is also readable at any time from `stream.status`:
+
+```dart
+if (stream.status == WebSocketStatus.listening) {
+  print('Subscribed and receiving');
+}
 ```
 
 ## Error Handling
@@ -163,8 +179,8 @@ Handle connection and streaming errors:
 
 ```dart
 stream.errors.listen((error) {
-  print('Error: \${error.message}');
-  print('Details: \${error.error}');
+  print('Error: ${error.message}');
+  print('Details: ${error.error}');
 });
 ```
 
@@ -174,7 +190,7 @@ Auto-reconnect is enabled by default:
 
 ```dart
 final config = WebSocketEventStreamConfig.byIdentifiers(
-  websocketUrl: 'wss://devnet-notifier.multiversx.com',
+  websocketUrl: 'wss://your-notifier-host/hub/ws',
   identifiers: ['swap'],
   autoReconnect: true,  // default
   reconnectDelay: Duration(milliseconds: 300),
@@ -206,7 +222,7 @@ void main() async {
   
   // Create WebSocket config
   final config = WebSocketEventStreamConfig.byIdentifiers(
-    websocketUrl: 'wss://devnet-notifier.multiversx.com',
+    websocketUrl: 'wss://your-notifier-host/hub/ws',
     identifiers: ['swap', 'addLiquidity', 'removeLiquidity'],
     contractAddress: contractAddress,
     abi: abi,
@@ -218,27 +234,27 @@ void main() async {
   
   // Monitor status
   stream.statusChanges.listen((change) {
-    print('Status: \${change.status}');
+    print('Status: ${change.to}');
   });
   
   // Handle errors
   stream.errors.listen((error) {
-    print('Error: \${error.message}');
+    print('Error: ${error.message}');
   });
   
   // Listen for events
   stream.events.listen((result) {
 
-    print('TX: \${result.txHash}');
+    print('TX: ${result.txHash}');
     
     if (result.parsedEvent != null) {
       final event = result.parsedEvent!;
-      print('Event: \${event.name}');
+      print('Event: ${event.definition.identifier}');
       
       // Access parsed fields
       final data = event.toMap();
       for (final entry in data.entries) {
-        print('  \${entry.key}: \${entry.value}');
+        print('  ${entry.key}: ${entry.value}');
       }
     }
   });
@@ -262,11 +278,11 @@ void main() async {
 Access connection statistics:
 
 ```dart
-print('Connected at: \${stream.connectedAt}');
-print('Events received: \${stream.eventsReceived}');
-print('Duplicates filtered: \${stream.duplicatesFiltered}');
-print('Last event: \${stream.lastEventTime}');
-print('Reconnect attempts: \${stream.reconnectAttempts}');
+print('Connected at: ${stream.connectedAt}');
+print('Events received: ${stream.eventsReceived}');
+print('Duplicates filtered: ${stream.duplicatesFiltered}');
+print('Last event: ${stream.lastEventTime}');
+print('Reconnect attempts: ${stream.reconnectAttempts}');
 ```
 
 ## Closing the Connection

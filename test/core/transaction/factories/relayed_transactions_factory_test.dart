@@ -172,9 +172,8 @@ void main() {
 
     test('signatures stay out of the signed payload', () async {
       final Transaction relayed = factory.applyRelayer(userTx(), relayer);
-      final Transaction cosigned = await (await relayed.signWith(
-        senderSigner,
-      )).signAsRelayer(relayerSigner);
+      final Transaction cosigned = await (await relayed.signWith(senderSigner))
+          .signAsRelayer(relayerSigner);
 
       expect(utf8.decode(cosigned.serializeForSigning()), relayedPayload);
 

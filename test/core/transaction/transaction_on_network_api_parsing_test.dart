@@ -54,22 +54,18 @@ void main() {
         apiTransaction(<String, dynamic>{
           'results': <dynamic>[
             <String, dynamic>{
-              'hash':
-                  'c0ffee11223344556677889900aabbccddeeff00112233445566778899aabbcc',
+              'hash': 'c0ffee11223344556677889900aabbccddeeff00112233445566778899aabbcc',
               'nonce': 43,
               'value': '0',
               'sender': contract,
               'receiver': sender,
               'data': okScrDataBase64,
-              'prevTxHash':
-                  '4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e',
-              'originalTxHash':
-                  '4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e',
+              'prevTxHash': '4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e',
+              'originalTxHash': '4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e',
               'callType': '0',
             },
             <String, dynamic>{
-              'hash':
-                  'deadbeef1122334455667788990011223344556677889900aabbccddeeff0011',
+              'hash': 'deadbeef1122334455667788990011223344556677889900aabbccddeeff0011',
               'nonce': 0,
               'value': '0',
               'sender': contract,
@@ -123,8 +119,7 @@ void main() {
         apiTransaction(<String, dynamic>{
           'smartContractResults': <dynamic>[
             <String, dynamic>{
-              'hash':
-                  'c0ffee11223344556677889900aabbccddeeff00112233445566778899aabbcc',
+              'hash': 'c0ffee11223344556677889900aabbccddeeff00112233445566778899aabbcc',
               'sender': contract,
               'receiver': sender,
               'data': okScrDataBase64,
@@ -210,21 +205,21 @@ void main() {
 
   group('TransactionOnNetwork.fromProxyResponse relayed version', () {
     test('keeps reading gateway SCRs under smartContractResults', () {
-      final TransactionOnNetwork
-      tx = TransactionOnNetwork.fromProxyResponse(<String, dynamic>{
-        'status': 'success',
-        'sender': sender,
-        'receiver': contract,
-        'smartContractResults': <dynamic>[
-          <String, dynamic>{
-            'hash':
-                'c0ffee11223344556677889900aabbccddeeff00112233445566778899aabbcc',
-            'sender': contract,
-            'receiver': sender,
-            'data': '@6f6b@0de0b6b3a7640000',
-          },
-        ],
-      });
+      final TransactionOnNetwork tx = TransactionOnNetwork.fromProxyResponse(
+        <String, dynamic>{
+          'status': 'success',
+          'sender': sender,
+          'receiver': contract,
+          'smartContractResults': <dynamic>[
+            <String, dynamic>{
+              'hash': 'c0ffee11223344556677889900aabbccddeeff00112233445566778899aabbcc',
+              'sender': contract,
+              'receiver': sender,
+              'data': '@6f6b@0de0b6b3a7640000',
+            },
+          ],
+        },
+      );
 
       expect(tx.smartContractResults!.length, equals(1));
       expect(
@@ -236,13 +231,14 @@ void main() {
     });
 
     test('accepts a string relayedVersion on the gateway path too', () {
-      final TransactionOnNetwork tx =
-          TransactionOnNetwork.fromProxyResponse(<String, dynamic>{
-            'status': 'success',
-            'sender': sender,
-            'receiver': contract,
-            'relayedVersion': 'v3',
-          });
+      final TransactionOnNetwork tx = TransactionOnNetwork.fromProxyResponse(
+        <String, dynamic>{
+          'status': 'success',
+          'sender': sender,
+          'receiver': contract,
+          'relayedVersion': 'v3',
+        },
+      );
 
       expect(tx.relayedVersion, equals('v3'));
     });

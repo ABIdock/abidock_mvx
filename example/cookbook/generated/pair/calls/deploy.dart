@@ -47,9 +47,8 @@ Transaction deploy(
     U64Type.type.createValue(totalFeePercent),
     U64Type.type.createValue(specialFeePercent),
     AddressType.type.createValue(initialLiquidityAdder.bech32),
-    VariadicType.of(
-      AddressType.type,
-    ).createValue(admins.map((e) => e.bech32).toList()),
+    VariadicType.of(AddressType.type)
+        .createValue(admins.map((e) => e.bech32).toList()),
   ];
   final argBytes = ArgSerializer().valuesToBuffers(typedArgs);
 

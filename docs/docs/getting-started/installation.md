@@ -15,7 +15,7 @@ Add the dependency to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  abidock_mvx: ^2.0.0
+  abidock_mvx: ^3.0.0
 ```
 
 Then run:

@@ -27,12 +27,10 @@ void main() {
     });
 
     test('parses multiple concatenated entries in file order', () {
-      final String pem1 = ValidatorSecretKey(
-        sk1,
-      ).toPem(ValidatorPublicKey(pk1));
-      final String pem2 = ValidatorSecretKey(
-        sk2,
-      ).toPem(ValidatorPublicKey(pk2));
+      final String pem1 = ValidatorSecretKey(sk1)
+          .toPem(ValidatorPublicKey(pk1));
+      final String pem2 = ValidatorSecretKey(sk2)
+          .toPem(ValidatorPublicKey(pk2));
       final List<ValidatorSecretKey> keys = parseValidatorPem('$pem1\n$pem2');
       expect(keys, hasLength(2));
       expect(keys[0].hex, equals(ValidatorSecretKey(sk1).hex));
@@ -52,12 +50,10 @@ void main() {
     });
 
     test('returns the requested entry by index for multi-key PEM', () {
-      final String pem1 = ValidatorSecretKey(
-        sk1,
-      ).toPem(ValidatorPublicKey(pk1));
-      final String pem2 = ValidatorSecretKey(
-        sk2,
-      ).toPem(ValidatorPublicKey(pk2));
+      final String pem1 = ValidatorSecretKey(sk1)
+          .toPem(ValidatorPublicKey(pk1));
+      final String pem2 = ValidatorSecretKey(sk2)
+          .toPem(ValidatorPublicKey(pk2));
       final ValidatorSecretKey second = parseValidatorKey(
         '$pem1\n$pem2',
         index: 1,

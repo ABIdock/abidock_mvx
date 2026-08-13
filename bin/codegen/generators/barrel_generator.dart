@@ -1,4 +1,5 @@
 import 'package:abidock_mvx/src/abi/abi.dart';
+
 import '../core/name_sanitizer.dart';
 import '../models/file_output.dart';
 import 'generator_base.dart';

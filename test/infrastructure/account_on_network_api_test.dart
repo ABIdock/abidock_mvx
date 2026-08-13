@@ -107,14 +107,15 @@ void main() {
         Uint8List.fromList(<int>[0x01, 0x00]),
       );
 
-      final AccountOnNetwork account =
-          AccountOnNetwork.fromApiResponse(<String, dynamic>{
-            'address': contractBech32,
-            'nonce': 0,
-            'balance': '0',
-            'codeMetadata': encoded,
-            'isUpgradeable': false,
-          });
+      final AccountOnNetwork account = AccountOnNetwork.fromApiResponse(
+        <String, dynamic>{
+          'address': contractBech32,
+          'nonce': 0,
+          'balance': '0',
+          'codeMetadata': encoded,
+          'isUpgradeable': false,
+        },
+      );
 
       expect(account.isUpgradeable, isFalse);
     });

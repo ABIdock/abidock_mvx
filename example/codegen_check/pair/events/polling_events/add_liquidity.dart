@@ -32,11 +32,15 @@ final class AddLiquidityPollingStream {
           startFrom: startFrom,
         )
         .map((parsedEvent) {
-          final eventStruct = parsedEvent.getValueByName('add_liquidity_event');
-          if (eventStruct == null) {
-            throw StateError('Event struct not found in parsed event');
+          final decoded = EventConverter.convertEvent<AddLiquidityEventData>(
+            parsedEvent,
+            AddLiquidityEventData.fromAbi,
+            AddLiquidityEventData.type,
+          );
+          if (decoded == null) {
+            throw StateError('Failed to decode add_liquidity event');
           }
-          return AddLiquidityEventData.fromAbi(eventStruct);
+          return decoded;
         });
   }
 }

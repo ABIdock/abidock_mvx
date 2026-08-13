@@ -94,7 +94,7 @@ final class Transaction {
     required this.nonce,
     required this.sender,
     required this.receiver,
-    required Uint8List data,
+    required this._data,
     required this.gasLimit,
     required this.gasPrice,
     required this.chainId,
@@ -108,8 +108,7 @@ final class Transaction {
     this.guardianSignature = const Signature.empty(),
     this.relayer,
     this.relayerSignature = const Signature.empty(),
-  }) : _data = data,
-       value = value ?? Balance.zero();
+  }) : value = value ?? Balance.zero();
 
   /// Creates transaction from JSON.
   ///

@@ -16,9 +16,10 @@ void main() {
     });
 
     test('nested_types_support', () {
-      final addressType = StructBuilder(
-        'Address',
-      ).field('street', StringType.type).field('city', StringType.type).build();
+      final addressType = StructBuilder('Address')
+          .field('street', StringType.type)
+          .field('city', StringType.type)
+          .build();
 
       final personType = StructBuilder('PersonWithAddress')
           .field('name', StringType.type)
@@ -31,14 +32,17 @@ void main() {
     });
 
     test('validation_and_value_creation', () {
-      final structType = StructBuilder(
-        'User',
-      ).field('id', U64Type.type).field('active', BooleanType.type).build();
+      final structType = StructBuilder('User')
+          .field('id', U64Type.type)
+          .field('active', BooleanType.type)
+          .build();
 
       expect(
-        () => StructBuilder(
-          'Duplicate',
-        ).field('name', StringType.type).field('name', U32Type.type).build(),
+        () =>
+            StructBuilder('Duplicate')
+                .field('name', StringType.type)
+                .field('name', U32Type.type)
+                .build(),
         throwsA(isA<ArgumentError>()),
       );
 

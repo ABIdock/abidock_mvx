@@ -58,8 +58,8 @@ class NetworkConfig {
     this.rewardsTopUpGradientPoint,
     this.shardConsensusGroupSize,
     this.startTime,
-    BigInt? genesisTimestamp,
-  }) : _genesisTimestamp = genesisTimestamp;
+    this._genesisTimestamp,
+  });
 
   /// Creates configuration from REST API response.
   ///

@@ -1,6 +1,7 @@
 /// Scrypt key derivation function parameters for password-based encryption.
 /// Memory-hard KDF designed to resist GPU and ASIC brute-force attacks.
 import 'dart:typed_data';
+
 import 'package:pointycastle/export.dart';
 
 /// Scrypt key derivation function parameters per RFC 7914.

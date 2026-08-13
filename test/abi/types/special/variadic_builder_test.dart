@@ -17,21 +17,22 @@ void main() {
     });
 
     test('should support different types and typed values', () {
-      final u64Variadic = VariadicBuilder<U64Type>(
-        U64Type.type,
-      ).add(100).build();
+      final u64Variadic = VariadicBuilder<U64Type>(U64Type.type)
+          .add(100)
+          .build();
       expect(u64Variadic.itemType, U64Type.type);
 
-      final stringVariadic = VariadicBuilder<StringType>(
-        StringType.type,
-      ).addTyped(StringValue('hello')).addTyped(StringValue('world')).build();
+      final stringVariadic = VariadicBuilder<StringType>(StringType.type)
+          .addTyped(StringValue('hello'))
+          .addTyped(StringValue('world'))
+          .build();
       expect(stringVariadic.itemType, StringType.type);
       expect(stringVariadic.length, 2);
 
       expect(
-        () => VariadicBuilder<U32Type>(
-          U32Type.type,
-        ).addTyped(U64Value(BigInt.from(10))),
+        () =>
+            VariadicBuilder<U32Type>(U32Type.type)
+                .addTyped(U64Value(BigInt.from(10))),
         throwsArgumentError,
       );
     });
@@ -58,18 +59,20 @@ void main() {
     });
 
     test('should create counted variadics and extension methods', () {
-      final countedVariadic = VariadicBuilder<U32Type>(
-        U32Type.type,
-      ).add(10).buildCounted();
+      final countedVariadic = VariadicBuilder<U32Type>(U32Type.type)
+          .add(10)
+          .buildCounted();
       expect(countedVariadic.isCounted, true);
 
       final builder = VariadicBuilder<U32Type>(U32Type.type);
       final pushed = builder.push(42);
       expect(pushed.nativeValue, 42);
 
-      final conditional = VariadicBuilder<U32Type>(
-        U32Type.type,
-      ).addIf(true, 10).addIf(false, 20).repeat(30, 2).build();
+      final conditional = VariadicBuilder<U32Type>(U32Type.type)
+          .addIf(true, 10)
+          .addIf(false, 20)
+          .repeat(30, 2)
+          .build();
       expect(conditional.items.map((v) => v.nativeValue).toList(), [
         10,
         30,
@@ -85,9 +88,10 @@ void main() {
       expect(recipients.length, 2);
       expect(recipients.itemType, AddressType.type);
 
-      final amounts = VariadicBuilder<BigUIntType>(
-        BigUIntType.type,
-      ).add(BigInt.from(1000000)).add(BigInt.from(2000000)).build();
+      final amounts = VariadicBuilder<BigUIntType>(BigUIntType.type)
+          .add(BigInt.from(1000000))
+          .add(BigInt.from(2000000))
+          .build();
       expect(amounts.length, 2);
       expect(amounts[0].nativeValue, BigInt.from(1000000));
 

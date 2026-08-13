@@ -11,14 +11,14 @@ import '../../models/marker_event.dart';
 ///
 final class MarkerWebSocketStream {
   MarkerWebSocketStream({
-    required SmartContractController controller,
+    required this._controller,
     required String websocketUrl,
     Map<String, String>? headers,
     bool autoReconnect = true,
     Duration reconnectDelay = const Duration(seconds: 1),
     Duration connectionTimeout = const Duration(seconds: 5),
     Duration pingInterval = const Duration(seconds: 10),
-  }) : _controller = controller {
+  }) {
     _config = WebSocketEventStreamConfig.byIdentifiers(
       websocketUrl: websocketUrl,
       identifiers: ['marker'],

@@ -520,9 +520,8 @@ class TransactionEventParser {
     if (type is StructType) {
       final Map<String, dynamic> fieldDefaults = {};
       for (final fieldDef in type.fieldDefinitions) {
-        fieldDefaults[fieldDef.name] = _getDefaultValueForType(
-          fieldDef.type,
-        ).nativeValue;
+        fieldDefaults[fieldDef.name] = _getDefaultValueForType(fieldDef.type)
+            .nativeValue;
       }
       return type.createValue(fieldDefaults);
     }

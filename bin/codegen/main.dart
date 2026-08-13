@@ -1,4 +1,5 @@
 import 'dart:io';
+
 import 'codegen.dart';
 import 'interactive/interactive_cli.dart';
 import 'models/generation_config.dart';

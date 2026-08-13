@@ -68,32 +68,34 @@ void main() {
 
   group('NetworkStatus.fromApiResponse block timestamps', () {
     test('parses both metrics verbatim without converting either', () {
-      final NetworkStatus status =
-          NetworkStatus.fromApiResponse(<String, dynamic>{
-            'erd_current_round': 3510000,
-            'erd_epoch_number': 1500,
-            'erd_nonce': 3509000,
-            'erd_nonce_at_epoch_start': 3495000,
-            'erd_rounds_per_epoch': 14400,
-            'erd_rounds_passed_in_current_epoch': 15000,
-            'erd_block_timestamp': 1766062438,
-            'erd_block_timestamp_ms': 1766062438000,
-          });
+      final NetworkStatus status = NetworkStatus.fromApiResponse(
+        <String, dynamic>{
+          'erd_current_round': 3510000,
+          'erd_epoch_number': 1500,
+          'erd_nonce': 3509000,
+          'erd_nonce_at_epoch_start': 3495000,
+          'erd_rounds_per_epoch': 14400,
+          'erd_rounds_passed_in_current_epoch': 15000,
+          'erd_block_timestamp': 1766062438,
+          'erd_block_timestamp_ms': 1766062438000,
+        },
+      );
 
       expect(status.blockTimestamp, equals(1766062438));
       expect(status.blockTimestampMs, equals(1766062438000));
     });
 
     test('leaves both fields null when the node reports neither key', () {
-      final NetworkStatus status =
-          NetworkStatus.fromApiResponse(<String, dynamic>{
-            'erd_current_round': 3510000,
-            'erd_epoch_number': 1500,
-            'erd_nonce': 3509000,
-            'erd_nonce_at_epoch_start': 3495000,
-            'erd_rounds_per_epoch': 14400,
-            'erd_rounds_passed_in_current_epoch': 15000,
-          });
+      final NetworkStatus status = NetworkStatus.fromApiResponse(
+        <String, dynamic>{
+          'erd_current_round': 3510000,
+          'erd_epoch_number': 1500,
+          'erd_nonce': 3509000,
+          'erd_nonce_at_epoch_start': 3495000,
+          'erd_rounds_per_epoch': 14400,
+          'erd_rounds_passed_in_current_epoch': 15000,
+        },
+      );
 
       expect(status.blockTimestamp, isNull);
       expect(status.blockTimestampMs, isNull);
@@ -168,16 +170,17 @@ void main() {
     });
 
     test('falls back to the seconds metric when only it is reported', () {
-      final NetworkStatus status =
-          NetworkStatus.fromApiResponse(<String, dynamic>{
-            'erd_current_round': 3510000,
-            'erd_epoch_number': 1500,
-            'erd_nonce': 3509000,
-            'erd_nonce_at_epoch_start': 3495000,
-            'erd_rounds_per_epoch': 14400,
-            'erd_rounds_passed_in_current_epoch': 15000,
-            'erd_block_timestamp': 1766062438,
-          });
+      final NetworkStatus status = NetworkStatus.fromApiResponse(
+        <String, dynamic>{
+          'erd_current_round': 3510000,
+          'erd_epoch_number': 1500,
+          'erd_nonce': 3509000,
+          'erd_nonce_at_epoch_start': 3495000,
+          'erd_rounds_per_epoch': 14400,
+          'erd_rounds_passed_in_current_epoch': 15000,
+          'erd_block_timestamp': 1766062438,
+        },
+      );
 
       expect(status.blockTimestampMs, isNull);
       expect(

@@ -35,10 +35,7 @@ class StructBuilder {
   /// ```dart
   /// final builder = StructBuilder('Token');
   /// ```
-  StructBuilder(this._name, {Map<String, dynamic>? metadata})
-    : _metadata = metadata,
-      _fields = [],
-      _fieldNames = {};
+  StructBuilder(this._name, {this._metadata}) : _fields = [], _fieldNames = {};
 
   final String _name;
   final Map<String, dynamic>? _metadata;

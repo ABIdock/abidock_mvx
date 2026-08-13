@@ -135,9 +135,8 @@ class ConsoleLogger extends Logger {
         if (showBorders) buffer.write('$borderColor│$resetColor ');
         buffer.write('$contextColor  Context:$resetColor');
 
-        final String jsonStr = const JsonEncoder.withIndent(
-          '  ',
-        ).convert(context);
+        final String jsonStr = const JsonEncoder.withIndent('  ')
+            .convert(context);
 
         final String colorizedJson = useColors
             ? _colorizeJson(jsonStr)

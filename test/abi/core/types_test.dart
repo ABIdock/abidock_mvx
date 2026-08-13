@@ -191,9 +191,9 @@ void main() {
 
   group('PaymentMultiValue formula', () {
     test('multi<TokenIdentifier,u64,NonZeroBigUint> has arity 3', () {
-      final MultiValueType type =
-          factory.fromString('multi<TokenIdentifier,u64,NonZeroBigUint>')
-              as MultiValueType;
+      final MultiValueType type = factory.fromString(
+        'multi<TokenIdentifier,u64,NonZeroBigUint>',
+      ) as MultiValueType;
 
       expect(type.arity, equals(3));
       expect(identical(type.types[0], TokenIdentifierType.type), isTrue);
@@ -202,20 +202,18 @@ void main() {
     });
 
     test('variadic<multi<...>> resolves without throwing', () {
-      final VariadicType type =
-          factory.fromString(
-                'variadic<multi<TokenIdentifier,u64,NonZeroBigUint>>',
-              )
-              as VariadicType;
+      final VariadicType type = factory.fromString(
+        'variadic<multi<TokenIdentifier,u64,NonZeroBigUint>>',
+      ) as VariadicType;
 
       expect(type.isCounted, isFalse);
       expect((type.itemType as MultiValueType).arity, equals(3));
     });
 
     test('one payment occupies three separate top-level arguments', () {
-      final MultiValueType type =
-          factory.fromString('multi<TokenIdentifier,u64,NonZeroBigUint>')
-              as MultiValueType;
+      final MultiValueType type = factory.fromString(
+        'multi<TokenIdentifier,u64,NonZeroBigUint>',
+      ) as MultiValueType;
       final TypedValue value = type.createValue(<dynamic>[
         'USDC-123456',
         0,

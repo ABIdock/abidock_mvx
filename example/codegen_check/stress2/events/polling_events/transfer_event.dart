@@ -31,11 +31,15 @@ final class TransferEventPollingStream {
           startFrom: startFrom,
         )
         .map((parsedEvent) {
-          final eventStruct = parsedEvent.getValueByName('transfer_event');
-          if (eventStruct == null) {
-            throw StateError('Event struct not found in parsed event');
+          final decoded = EventConverter.convertEvent<TransferEvent>(
+            parsedEvent,
+            TransferEvent.fromAbi,
+            TransferEvent.type,
+          );
+          if (decoded == null) {
+            throw StateError('Failed to decode transfer_event event');
           }
-          return TransferEvent.fromAbi(eventStruct);
+          return decoded;
         });
   }
 }

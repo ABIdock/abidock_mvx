@@ -32,11 +32,15 @@ final class SwapPollingStream {
           startFrom: startFrom,
         )
         .map((parsedEvent) {
-          final eventStruct = parsedEvent.getValueByName('swap_event');
-          if (eventStruct == null) {
-            throw StateError('Event struct not found in parsed event');
+          final decoded = EventConverter.convertEvent<SwapEventData>(
+            parsedEvent,
+            SwapEventData.fromAbi,
+            SwapEventData.type,
+          );
+          if (decoded == null) {
+            throw StateError('Failed to decode swap event');
           }
-          return SwapEventData.fromAbi(eventStruct);
+          return decoded;
         });
   }
 }

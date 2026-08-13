@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+
 import 'validation_models.dart';
 
 class AbiValidator {
@@ -140,8 +141,7 @@ class AbiValidator {
             rule: 'MISSING_FIELD',
             message: 'Missing "framework" in buildInfo',
             location: 'buildInfo',
-            suggestion:
-                'Add framework object with the build framework name and version',
+            suggestion: 'Add framework object with the build framework name and version',
           ),
         );
       }

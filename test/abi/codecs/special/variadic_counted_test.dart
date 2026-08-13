@@ -99,12 +99,10 @@ void main() {
     });
 
     test('decodeTopLevel reads every item', () {
-      final VariadicValue decoded =
-          codec.decodeTopLevel(
-                Uint8List.fromList(<int>[0, 0, 0, 7, 0, 0, 0, 8]),
-                VariadicType.of(U32Type.type),
-              )
-              as VariadicValue;
+      final VariadicValue decoded = codec.decodeTopLevel(
+        Uint8List.fromList(<int>[0, 0, 0, 7, 0, 0, 0, 8]),
+        VariadicType.of(U32Type.type),
+      ) as VariadicValue;
 
       expect(decoded.items.length, equals(2));
       expect(decoded.items[0].nativeValue, equals(7));

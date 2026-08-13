@@ -2,11 +2,11 @@
 
 All notable changes to `abidock_mvx` are documented here. We follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and the structure recommended by [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [2.0.0] -- 2026-08-12
+## [3.0.0] -- 2026-08-13
 
 This release lands the top-level `NetworkEntrypoint` façade, reshapes the generated DTO surface, and corrects a set of defects that produced transactions the chain rejects. It also removes public API that could not work. Migration is mostly mechanical: regenerate, replace `String` token-identifier/address fields with the new wrapper types, and switch one-off `ApiNetworkProvider` plumbing to the new entrypoint helpers if you want the shortcut. The removals are listed under **Removed**; each has a working replacement.
 
-Minimum SDK is now Dart 3.11.
+Minimum SDK is now Dart 3.13.
 
 ### Entrypoints
 
@@ -138,7 +138,7 @@ Each entry has a working replacement; none of the removed members could produce 
 
 ### Migration
 
-1. Move to Dart 3.11 or newer, then `dart pub upgrade abidock_mvx` (or bump to `^2.0.0` in `pubspec.yaml`).
+1. Move to Dart 3.13 or newer, then `dart pub upgrade abidock_mvx` (or bump to `^3.0.0` in `pubspec.yaml`).
 2. Regenerate any committed codegen output. Diffs to expect:
    - Struct fields that previously held `String` for `Address` / `TokenIdentifier` now hold the wrapper type.
    - Generated `*Unsigned` call helpers are unchanged on the wire; the signed helpers now do the probe-then-sign dance internally.
@@ -358,7 +358,7 @@ Three new public entry points for integrators that need to recover the mnemonic 
 - Cookbook examples and wallet walkthroughs demonstrating real integrations.
 - 900+ automated tests spanning core types, infrastructure, serializers, and integration scenarios.
 
-[2.0.0]: https://github.com/ABIdock/abidock_mvx/releases/tag/v2.0.0
+[3.0.0]: https://github.com/ABIdock/abidock_mvx/releases/tag/v3.0.0
 [1.2.0]: https://github.com/ABIdock/abidock_mvx/releases/tag/v1.2.0
 [1.1.0]: https://github.com/ABIdock/abidock_mvx/releases/tag/v1.1.0
 [1.0.1]: https://github.com/ABIdock/abidock_mvx/releases/tag/v1.0.1

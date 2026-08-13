@@ -1,4 +1,5 @@
 import 'package:abidock_mvx/src/abi/abi.dart';
+
 import '../core/import_manager.dart';
 import '../core/name_sanitizer.dart';
 import '../core/type_mapper.dart';

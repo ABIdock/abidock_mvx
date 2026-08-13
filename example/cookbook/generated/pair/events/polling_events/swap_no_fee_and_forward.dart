@@ -31,13 +31,16 @@ final class SwapNoFeeAndForwardPollingStream {
           startFrom: startFrom,
         )
         .map((parsedEvent) {
-          final eventStruct = parsedEvent.getValueByName(
-            'swap_no_fee_and_forward_event',
-          );
-          if (eventStruct == null) {
-            throw StateError('Event struct not found in parsed event');
+          final decoded =
+              EventConverter.convertEvent<SwapNoFeeAndForwardEventData>(
+                parsedEvent,
+                SwapNoFeeAndForwardEventData.fromAbi,
+                SwapNoFeeAndForwardEventData.type,
+              );
+          if (decoded == null) {
+            throw StateError('Failed to decode swap_no_fee_and_forward event');
           }
-          return SwapNoFeeAndForwardEventData.fromAbi(eventStruct);
+          return decoded;
         });
   }
 }

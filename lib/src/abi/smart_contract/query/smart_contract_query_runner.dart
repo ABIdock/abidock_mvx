@@ -231,16 +231,12 @@ final class SmartContractQueryRunner {
 
   SmartContractQueryRunner._internal({
     required this.contractAddress,
-    required NetworkProvider networkProvider,
-    required SmartContractAbi abi,
-    required EndpointResolver endpointResolver,
-    required ResponseParser responseParser,
+    required this._networkProvider,
+    required SmartContractAbi this._abi,
+    required EndpointResolver this._endpointResolver,
+    required ResponseParser this._responseParser,
     this.logger,
-  }) : _networkProvider = networkProvider,
-       _abi = abi,
-       _endpointResolver = endpointResolver,
-       _responseParser = responseParser,
-       _rawArgValidator = RawArgumentValidator(ArgSerializer());
+  }) : _rawArgValidator = RawArgumentValidator(ArgSerializer());
 
   /// Creates query runner without ABI for raw [TypedValue] or [Uint8List] arguments.
   ///
@@ -268,10 +264,9 @@ final class SmartContractQueryRunner {
   /// ```
   SmartContractQueryRunner.withoutAbi({
     required this.contractAddress,
-    required NetworkProvider networkProvider,
+    required this._networkProvider,
     this.logger,
-  }) : _networkProvider = networkProvider,
-       _abi = null,
+  }) : _abi = null,
        _endpointResolver = null,
        _responseParser = null,
        _rawArgValidator = RawArgumentValidator(ArgSerializer());

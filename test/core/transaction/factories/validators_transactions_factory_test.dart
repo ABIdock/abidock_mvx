@@ -229,24 +229,19 @@ void main() {
       );
     });
 
-    test(
-      'mergingValidatorToDelegationSameOwner emits its delegation-manager endpoint',
-      () {
-        final Address delegationContract = Address.fromBech32(
-          'erd1qqqqqqqqqqqqqpgq6wegs2xkypfpync8mn2sa5cmpqjlvrhwz5nqgepyg8',
-        );
-        final Transaction tx = factory
-            .createTransactionForMergingValidatorToDelegationSameOwner(
-              sender: alice,
-              delegationAddress: delegationContract,
-            );
-        expect(
-          utf8.decode(tx.data),
-          equals(
-            'mergeValidatorToDelegationSameOwner@${delegationContract.hex}',
-          ),
-        );
-      },
-    );
+    test('mergingValidatorToDelegationSameOwner emits its delegation-manager endpoint', () {
+      final Address delegationContract = Address.fromBech32(
+        'erd1qqqqqqqqqqqqqpgq6wegs2xkypfpync8mn2sa5cmpqjlvrhwz5nqgepyg8',
+      );
+      final Transaction tx = factory
+          .createTransactionForMergingValidatorToDelegationSameOwner(
+            sender: alice,
+            delegationAddress: delegationContract,
+          );
+      expect(
+        utf8.decode(tx.data),
+        equals('mergeValidatorToDelegationSameOwner@${delegationContract.hex}'),
+      );
+    });
   });
 }

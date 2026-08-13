@@ -161,9 +161,8 @@ void main() {
     });
 
     test('relayed v3 transaction fee equals plain fee at same gasLimit', () {
-      final tx = baseTx(
-        relayerAddr: sender,
-      ).copyWith(newGasLimit: const GasLimit(200_000));
+      final tx = baseTx(relayerAddr: sender)
+          .copyWith(newGasLimit: const GasLimit(200_000));
       final plain = baseTx().copyWith(newGasLimit: const GasLimit(200_000));
 
       expect(

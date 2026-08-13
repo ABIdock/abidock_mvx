@@ -1,6 +1,8 @@
 import 'dart:typed_data';
+
 import 'package:convert/convert.dart' as convert;
 import 'package:pointycastle/pointycastle.dart' show Digest;
+
 import '../utils/sdk_exceptions.dart';
 import '../wallet/crypto/bech32_encoder.dart';
 import 'nonce.dart';
@@ -88,7 +90,7 @@ class Address {
   /// final addr = Address.fromBech32('erd1qyu5wthldzr8wx5c9ucg8kjagg0jfs53s8nr3zpz3hypefsdd8ssycr6th');
   /// print(addr.hex);
   /// ```
-  factory Address.fromBech32(final String bech32) {
+  factory Address.fromBech32(String bech32) {
     final String hrp = _extractHrp(bech32);
     final List<int> decoded;
     try {
@@ -118,7 +120,7 @@ class Address {
   /// final addr = Address.fromHex('0000000000000000050000000000000000000000000000000000000000000000');
   /// print(addr.bech32);
   /// ```
-  factory Address.fromHex(final String hex, {final String hrp = 'erd'}) {
+  factory Address.fromHex(String hex, {String hrp = 'erd'}) {
     final List<int> decoded;
     try {
       decoded = convert.hex.decode(hex);
@@ -219,7 +221,7 @@ class Address {
   }
 
   @override
-  bool operator ==(final Object other) {
+  bool operator ==(Object other) {
     if (identical(this, other)) return true;
     if (other is! Address) return false;
     if (hrp != other.hrp) return false;
@@ -344,9 +346,9 @@ class AddressComputer {
 
     final List<int> bytesToHash = <int>[...deployer.bytes, ...reversedNonce];
 
-    final List<int> digest = Digest(
-      'Keccak/256',
-    ).process(Uint8List.fromList(bytesToHash)).toList();
+    final List<int> digest = Digest('Keccak/256')
+        .process(Uint8List.fromList(bytesToHash))
+        .toList();
 
     final List<int> contractBytes = <int>[
       for (int i = 0; i < 8; i++) 0,

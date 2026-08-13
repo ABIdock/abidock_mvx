@@ -5,6 +5,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+
 import 'package:path/path.dart' as path;
 
 import '../utils/helpers.dart';
@@ -534,9 +535,8 @@ class UserWallet {
         : path.join(Directory.current.path, filePath);
 
     final Map<String, dynamic> jsonContent = toJson(addressHrp: addressHrp);
-    final String jsonString = const JsonEncoder.withIndent(
-      '    ',
-    ).convert(jsonContent);
+    final String jsonString = const JsonEncoder.withIndent('    ')
+        .convert(jsonContent);
     File(resolvedPath).writeAsStringSync(jsonString);
   }
 }

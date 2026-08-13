@@ -16,14 +16,14 @@ import '../../models/complex_event.dart';
 /// - `items`: List&lt;TokenPayment&gt;
 final class ComplexEventWebSocketStream {
   ComplexEventWebSocketStream({
-    required SmartContractController controller,
+    required this._controller,
     required String websocketUrl,
     Map<String, String>? headers,
     bool autoReconnect = true,
     Duration reconnectDelay = const Duration(seconds: 1),
     Duration connectionTimeout = const Duration(seconds: 5),
     Duration pingInterval = const Duration(seconds: 10),
-  }) : _controller = controller {
+  }) {
     _config = WebSocketEventStreamConfig.byIdentifiers(
       websocketUrl: websocketUrl,
       identifiers: ['complex_event'],

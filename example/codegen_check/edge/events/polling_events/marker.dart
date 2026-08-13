@@ -26,11 +26,15 @@ final class MarkerPollingStream {
           startFrom: startFrom,
         )
         .map((parsedEvent) {
-          final eventStruct = parsedEvent.getValueByName('marker_event');
-          if (eventStruct == null) {
-            throw StateError('Event struct not found in parsed event');
+          final decoded = EventConverter.convertEvent<MarkerEvent>(
+            parsedEvent,
+            MarkerEvent.fromAbi,
+            MarkerEvent.type,
+          );
+          if (decoded == null) {
+            throw StateError('Failed to decode marker event');
           }
-          return MarkerEvent.fromAbi(eventStruct);
+          return decoded;
         });
   }
 }

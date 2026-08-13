@@ -288,9 +288,8 @@ class AbiTypeFactory implements ExplicitEnumTypeRegistry {
       return fromTypeFormula(formula);
     }
 
-    final RegExpMatch? arrayMatch = RegExp(
-      r'^(.+)\[(\d+)\]$',
-    ).firstMatch(typeString);
+    final RegExpMatch? arrayMatch = RegExp(r'^(.+)\[(\d+)\]$')
+        .firstMatch(typeString);
     if (arrayMatch != null) {
       final AbiType elementType = fromString(arrayMatch.group(1)!);
       final int size = int.parse(arrayMatch.group(2)!);

@@ -49,7 +49,7 @@ class RetryConfig {
 /// Helper for executing operations with automatic retry and exponential backoff.
 /// Retries failed operations with configurable backoff strategy and timeout per attempt.
 class RetryHelper {
-  RetryHelper({required this.config, Logger? logger}) : _logger = logger;
+  RetryHelper({required this.config, this._logger});
   final Logger? _logger;
   final RetryConfig config;
 
@@ -219,9 +219,8 @@ class RetryHelper {
     }
 
     if (errorString.contains('apiexception')) {
-      final RegExpMatch? statusCodeMatch = RegExp(
-        r'apiexception\((\d+)\)',
-      ).firstMatch(errorString);
+      final RegExpMatch? statusCodeMatch = RegExp(r'apiexception\((\d+)\)')
+          .firstMatch(errorString);
       if (statusCodeMatch != null) {
         final int? statusCode = int.tryParse(statusCodeMatch.group(1) ?? '');
         if (statusCode != null && _retriableStatusCodes.contains(statusCode)) {

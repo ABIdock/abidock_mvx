@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import '../../infrastructure/network/network_provider.dart';
 import '../../utils/sdk_exceptions.dart';
 import 'transaction_on_network.dart';
@@ -139,8 +140,7 @@ class TransactionWatcher {
   ///   watcher.close();
   /// }
   /// ```
-  TransactionWatcher({required NetworkProvider networkProvider})
-    : _networkProvider = networkProvider;
+  TransactionWatcher({required this._networkProvider});
 
   final NetworkProvider _networkProvider;
 

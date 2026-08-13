@@ -31,11 +31,15 @@ final class ComplexEventPollingStream {
           startFrom: startFrom,
         )
         .map((parsedEvent) {
-          final eventStruct = parsedEvent.getValueByName('complex_event');
-          if (eventStruct == null) {
-            throw StateError('Event struct not found in parsed event');
+          final decoded = EventConverter.convertEvent<ComplexEvent>(
+            parsedEvent,
+            ComplexEvent.fromAbi,
+            ComplexEvent.type,
+          );
+          if (decoded == null) {
+            throw StateError('Failed to decode complex_event event');
           }
-          return ComplexEvent.fromAbi(eventStruct);
+          return decoded;
         });
   }
 }

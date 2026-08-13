@@ -501,66 +501,71 @@ void main() {
       },
     );
 
-    test('pagination is applied client-side, never as a query string', () async {
-      final GatewayNetworkProvider gateway = GatewayNetworkProvider(
-        baseUrl: baseUrl,
-        chainId: const ChainId('D'),
-      );
+    test(
+      'pagination is applied client-side, never as a query string',
+      () async {
+        final GatewayNetworkProvider gateway = GatewayNetworkProvider(
+          baseUrl: baseUrl,
+          chainId: const ChainId('D'),
+        );
 
-      final List<TokenOnNetwork> all = await gateway.getFungibleTokensOfAccount(
-        address,
-      );
-      final List<TokenOnNetwork> firstOnly = await gateway
-          .getFungibleTokensOfAccount(address, size: 1);
-      final List<TokenOnNetwork> secondOnly = await gateway
-          .getFungibleTokensOfAccount(address, from: 1);
-      final List<TokenOnNetwork> beyondEnd = await gateway
-          .getFungibleTokensOfAccount(address, from: 9, size: 5);
+        final List<TokenOnNetwork> all = await gateway
+            .getFungibleTokensOfAccount(address);
+        final List<TokenOnNetwork> firstOnly = await gateway
+            .getFungibleTokensOfAccount(address, size: 1);
+        final List<TokenOnNetwork> secondOnly = await gateway
+            .getFungibleTokensOfAccount(address, from: 1);
+        final List<TokenOnNetwork> beyondEnd = await gateway
+            .getFungibleTokensOfAccount(address, from: 9, size: 5);
 
-      expect(all.map((TokenOnNetwork t) => t.identifier).toList(), <String>[
-        'TOK-abcdef',
-        'XTOK-123456',
-      ]);
-      expect(firstOnly.single.identifier, 'TOK-abcdef');
-      expect(firstOnly.single.balance, '1000');
-      expect(secondOnly.single.identifier, 'XTOK-123456');
-      expect(secondOnly.single.balance, '250');
-      expect(beyondEnd, isEmpty);
-      expect(
-        requestLines,
-        everyElement(
-          '/address/erd1qyu5wthldzr8wx5c9ucg8kjagg0jfs53s8nr3zpz3hypefsdd8ssycr6th/esdt',
-        ),
-        reason:
-            'The proxy ignores unknown query params, so from/size must not '
-            'reach the wire',
-      );
-      expect(requestLines.length, 4);
+        expect(all.map((TokenOnNetwork t) => t.identifier).toList(), <String>[
+          'TOK-abcdef',
+          'XTOK-123456',
+        ]);
+        expect(firstOnly.single.identifier, 'TOK-abcdef');
+        expect(firstOnly.single.balance, '1000');
+        expect(secondOnly.single.identifier, 'XTOK-123456');
+        expect(secondOnly.single.balance, '250');
+        expect(beyondEnd, isEmpty);
+        expect(
+          requestLines,
+          everyElement(
+            '/address/erd1qyu5wthldzr8wx5c9ucg8kjagg0jfs53s8nr3zpz3hypefsdd8ssycr6th/esdt',
+          ),
+          reason:
+              'The proxy ignores unknown query params, so from/size must not '
+              'reach the wire',
+        );
+        expect(requestLines.length, 4);
 
-      gateway.close();
-    });
+        gateway.close();
+      },
+    );
 
-    test('getNftOfAccount reads the nonce route and normalises the id', () async {
-      final GatewayNetworkProvider gateway = GatewayNetworkProvider(
-        baseUrl: baseUrl,
-        chainId: const ChainId('D'),
-      );
+    test(
+      'getNftOfAccount reads the nonce route and normalises the id',
+      () async {
+        final GatewayNetworkProvider gateway = GatewayNetworkProvider(
+          baseUrl: baseUrl,
+          chainId: const ChainId('D'),
+        );
 
-      final TokenOnNetwork nft = await gateway.getNftOfAccount(
-        address,
-        'COLL-123456',
-        3,
-      );
+        final TokenOnNetwork nft = await gateway.getNftOfAccount(
+          address,
+          'COLL-123456',
+          3,
+        );
 
-      expect(requestLines, <String>[
-        '/address/erd1qyu5wthldzr8wx5c9ucg8kjagg0jfs53s8nr3zpz3hypefsdd8ssycr6th/nft/COLL-123456/nonce/3',
-      ]);
-      expect(nft.identifier, 'COLL-123456-03');
-      expect(nft.balance, '7');
-      expect(nft.nonce, 3);
+        expect(requestLines, <String>[
+          '/address/erd1qyu5wthldzr8wx5c9ucg8kjagg0jfs53s8nr3zpz3hypefsdd8ssycr6th/nft/COLL-123456/nonce/3',
+        ]);
+        expect(nft.identifier, 'COLL-123456-03');
+        expect(nft.balance, '7');
+        expect(nft.nonce, 3);
 
-      gateway.close();
-    });
+        gateway.close();
+      },
+    );
 
     test(
       'getTransaction requests withResults=true without being asked',

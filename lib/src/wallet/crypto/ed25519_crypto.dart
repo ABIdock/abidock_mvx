@@ -1,6 +1,7 @@
 /// Ed25519 cryptographic operations using cryptography package with secure memory handling.
 /// Provides signing, verification, and public key generation with automatic key zeroing.
 import 'dart:typed_data';
+
 import 'package:cryptography/cryptography.dart';
 
 /// Ed25519 cryptographic operations with automatic memory zeroing.

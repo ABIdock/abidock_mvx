@@ -1,6 +1,8 @@
 include: package:lints/recommended.yaml
 
 analyzer:
+  exclude:
+    - build/**
   errors:
     dangling_library_doc_comments: ignore
 

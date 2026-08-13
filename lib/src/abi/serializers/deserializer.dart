@@ -21,7 +21,7 @@ final class AbiDeserializer {
   ///
   /// #### Parameters
   /// - `codec` - Binary codec for decoding (optional, uses default)
-  const AbiDeserializer({BinaryCodec? codec}) : _codec = codec;
+  const AbiDeserializer({this._codec});
 
   /// Binary codec for decoding (uses default if not provided).
   final BinaryCodec? _codec;

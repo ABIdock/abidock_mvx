@@ -16,14 +16,14 @@ import '../../models/transfer_event.dart';
 /// - `token`: TokenIdentifier (indexed)
 final class TransferEventWebSocketStream {
   TransferEventWebSocketStream({
-    required SmartContractController controller,
+    required this._controller,
     required String websocketUrl,
     Map<String, String>? headers,
     bool autoReconnect = true,
     Duration reconnectDelay = const Duration(seconds: 1),
     Duration connectionTimeout = const Duration(seconds: 5),
     Duration pingInterval = const Duration(seconds: 10),
-  }) : _controller = controller {
+  }) {
     _config = WebSocketEventStreamConfig.byIdentifiers(
       websocketUrl: websocketUrl,
       identifiers: ['transfer_event'],

@@ -443,8 +443,8 @@ class TypeMapper {
   }
 
   String getAbiTypeStringForDocs(AbiType type) {
-    return getAbiTypeString(
-      type,
-    ).replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+    return getAbiTypeString(type)
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;');
   }
 }

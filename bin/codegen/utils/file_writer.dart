@@ -25,9 +25,8 @@ class FileWriter {
   /// #### Returns
   /// `Version` - Language version used for formatting.
   static Version _targetVersion() {
-    final Match? match = RegExp(
-      r'^(\d+)\.(\d+)\.',
-    ).firstMatch(Platform.version);
+    final Match? match = RegExp(r'^(\d+)\.(\d+)\.')
+        .firstMatch(Platform.version);
     if (match == null) {
       return DartFormatter.latestLanguageVersion;
     }

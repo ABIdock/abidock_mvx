@@ -1,4 +1,5 @@
 import 'package:abidock_mvx/src/abi/abi.dart';
+
 import '../core/import_manager.dart';
 import '../core/name_sanitizer.dart';
 import '../core/type_mapper.dart';
@@ -207,7 +208,7 @@ final class EventsGenerator extends GeneratorBase {
 
     buffer.writeln('final class $className {');
     buffer.writeln('  $className({');
-    buffer.writeln('    required SmartContractController controller,');
+    buffer.writeln('    required this._controller,');
     buffer.writeln('    required String websocketUrl,');
     buffer.writeln('    Map<String, String>? headers,');
     buffer.writeln('    bool autoReconnect = true,');
@@ -216,7 +217,7 @@ final class EventsGenerator extends GeneratorBase {
       '    Duration connectionTimeout = const Duration(seconds: 5),',
     );
     buffer.writeln('    Duration pingInterval = const Duration(seconds: 10),');
-    buffer.writeln('  }) : _controller = controller {');
+    buffer.writeln('  }) {');
     buffer.writeln('    _config = WebSocketEventStreamConfig.byIdentifiers(');
     buffer.writeln('      websocketUrl: websocketUrl,');
     buffer.writeln('      identifiers: [\'${event.identifier}\'],');
@@ -312,7 +313,7 @@ final class EventsGenerator extends GeneratorBase {
     buffer.writeln('final class $className {');
 
     buffer.writeln('  $className({');
-    buffer.writeln('    required SmartContractController controller,');
+    buffer.writeln('    required this._controller,');
     buffer.writeln('    required String websocketUrl,');
     buffer.writeln('    Map<String, String> headers = const {},');
     buffer.writeln('    bool autoReconnect = true,');
@@ -321,7 +322,7 @@ final class EventsGenerator extends GeneratorBase {
       '    Duration connectionTimeout = const Duration(seconds: 5),',
     );
     buffer.writeln('    Duration pingInterval = const Duration(seconds: 10),');
-    buffer.writeln('  }) : _controller = controller {');
+    buffer.writeln('  }) {');
     buffer.writeln();
     final identifiersList = events.map((e) => "'${e.identifier}'").join(', ');
     buffer.writeln('    _config = WebSocketEventStreamConfig.byIdentifiers(');

@@ -30,11 +30,15 @@ final class MultiEventPollingStream {
   Stream<SwapEventData> get swap => _baseStream
       .where((event) => event.definition.identifier == 'swap')
       .map((parsedEvent) {
-        final eventStruct = parsedEvent.getValueByName('swap_event');
-        if (eventStruct == null) {
-          throw StateError('Event struct not found in parsed event');
+        final decoded = EventConverter.convertEvent<SwapEventData>(
+          parsedEvent,
+          SwapEventData.fromAbi,
+          SwapEventData.type,
+        );
+        if (decoded == null) {
+          throw StateError('Failed to decode swap event');
         }
-        return SwapEventData.fromAbi(eventStruct);
+        return decoded;
       });
 
   /// Stream of swap_no_fee_and_forward events.
@@ -43,37 +47,46 @@ final class MultiEventPollingStream {
         (event) => event.definition.identifier == 'swap_no_fee_and_forward',
       )
       .map((parsedEvent) {
-        final eventStruct = parsedEvent.getValueByName(
-          'swap_no_fee_and_forward_event',
-        );
-        if (eventStruct == null) {
-          throw StateError('Event struct not found in parsed event');
+        final decoded =
+            EventConverter.convertEvent<SwapNoFeeAndForwardEventData>(
+              parsedEvent,
+              SwapNoFeeAndForwardEventData.fromAbi,
+              SwapNoFeeAndForwardEventData.type,
+            );
+        if (decoded == null) {
+          throw StateError('Failed to decode swap_no_fee_and_forward event');
         }
-        return SwapNoFeeAndForwardEventData.fromAbi(eventStruct);
+        return decoded;
       });
 
   /// Stream of add_liquidity events.
   Stream<AddLiquidityEventData> get addLiquidity => _baseStream
       .where((event) => event.definition.identifier == 'add_liquidity')
       .map((parsedEvent) {
-        final eventStruct = parsedEvent.getValueByName('add_liquidity_event');
-        if (eventStruct == null) {
-          throw StateError('Event struct not found in parsed event');
+        final decoded = EventConverter.convertEvent<AddLiquidityEventData>(
+          parsedEvent,
+          AddLiquidityEventData.fromAbi,
+          AddLiquidityEventData.type,
+        );
+        if (decoded == null) {
+          throw StateError('Failed to decode add_liquidity event');
         }
-        return AddLiquidityEventData.fromAbi(eventStruct);
+        return decoded;
       });
 
   /// Stream of remove_liquidity events.
   Stream<RemoveLiquidityEventData> get removeLiquidity => _baseStream
       .where((event) => event.definition.identifier == 'remove_liquidity')
       .map((parsedEvent) {
-        final eventStruct = parsedEvent.getValueByName(
-          'remove_liquidity_event',
+        final decoded = EventConverter.convertEvent<RemoveLiquidityEventData>(
+          parsedEvent,
+          RemoveLiquidityEventData.fromAbi,
+          RemoveLiquidityEventData.type,
         );
-        if (eventStruct == null) {
-          throw StateError('Event struct not found in parsed event');
+        if (decoded == null) {
+          throw StateError('Failed to decode remove_liquidity event');
         }
-        return RemoveLiquidityEventData.fromAbi(eventStruct);
+        return decoded;
       });
 
   /// Stream of all event types as dynamic objects.
@@ -98,27 +111,29 @@ final class MultiEventPollingStream {
           final identifier = parsedEvent.definition.identifier;
           switch (identifier) {
             case 'swap':
-              final struct = parsedEvent.getValueByName('swap_event');
-              return struct != null ? SwapEventData.fromAbi(struct) : null;
+              return EventConverter.convertEvent<SwapEventData>(
+                parsedEvent,
+                SwapEventData.fromAbi,
+                SwapEventData.type,
+              );
             case 'swap_no_fee_and_forward':
-              final struct = parsedEvent.getValueByName(
-                'swap_no_fee_and_forward_event',
+              return EventConverter.convertEvent<SwapNoFeeAndForwardEventData>(
+                parsedEvent,
+                SwapNoFeeAndForwardEventData.fromAbi,
+                SwapNoFeeAndForwardEventData.type,
               );
-              return struct != null
-                  ? SwapNoFeeAndForwardEventData.fromAbi(struct)
-                  : null;
             case 'add_liquidity':
-              final struct = parsedEvent.getValueByName('add_liquidity_event');
-              return struct != null
-                  ? AddLiquidityEventData.fromAbi(struct)
-                  : null;
-            case 'remove_liquidity':
-              final struct = parsedEvent.getValueByName(
-                'remove_liquidity_event',
+              return EventConverter.convertEvent<AddLiquidityEventData>(
+                parsedEvent,
+                AddLiquidityEventData.fromAbi,
+                AddLiquidityEventData.type,
               );
-              return struct != null
-                  ? RemoveLiquidityEventData.fromAbi(struct)
-                  : null;
+            case 'remove_liquidity':
+              return EventConverter.convertEvent<RemoveLiquidityEventData>(
+                parsedEvent,
+                RemoveLiquidityEventData.fromAbi,
+                RemoveLiquidityEventData.type,
+              );
             default:
               return null;
           }

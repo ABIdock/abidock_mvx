@@ -29,33 +29,45 @@ final class MultiEventPollingStream {
   Stream<TransferEvent> get transferEvent => _baseStream
       .where((event) => event.definition.identifier == 'transfer_event')
       .map((parsedEvent) {
-        final eventStruct = parsedEvent.getValueByName('transfer_event');
-        if (eventStruct == null) {
-          throw StateError('Event struct not found in parsed event');
+        final decoded = EventConverter.convertEvent<TransferEvent>(
+          parsedEvent,
+          TransferEvent.fromAbi,
+          TransferEvent.type,
+        );
+        if (decoded == null) {
+          throw StateError('Failed to decode transfer_event event');
         }
-        return TransferEvent.fromAbi(eventStruct);
+        return decoded;
       });
 
   /// Stream of complex_event events.
   Stream<ComplexEvent> get complexEvent => _baseStream
       .where((event) => event.definition.identifier == 'complex_event')
       .map((parsedEvent) {
-        final eventStruct = parsedEvent.getValueByName('complex_event');
-        if (eventStruct == null) {
-          throw StateError('Event struct not found in parsed event');
+        final decoded = EventConverter.convertEvent<ComplexEvent>(
+          parsedEvent,
+          ComplexEvent.fromAbi,
+          ComplexEvent.type,
+        );
+        if (decoded == null) {
+          throw StateError('Failed to decode complex_event event');
         }
-        return ComplexEvent.fromAbi(eventStruct);
+        return decoded;
       });
 
   /// Stream of marker_only_event events.
   Stream<MarkerOnlyEvent> get markerOnlyEvent => _baseStream
       .where((event) => event.definition.identifier == 'marker_only_event')
       .map((parsedEvent) {
-        final eventStruct = parsedEvent.getValueByName('marker_only_event');
-        if (eventStruct == null) {
-          throw StateError('Event struct not found in parsed event');
+        final decoded = EventConverter.convertEvent<MarkerOnlyEvent>(
+          parsedEvent,
+          MarkerOnlyEvent.fromAbi,
+          MarkerOnlyEvent.type,
+        );
+        if (decoded == null) {
+          throw StateError('Failed to decode marker_only_event event');
         }
-        return MarkerOnlyEvent.fromAbi(eventStruct);
+        return decoded;
       });
 
   /// Stream of all event types as dynamic objects.
@@ -80,14 +92,23 @@ final class MultiEventPollingStream {
           final identifier = parsedEvent.definition.identifier;
           switch (identifier) {
             case 'transfer_event':
-              final struct = parsedEvent.getValueByName('transfer_event');
-              return struct != null ? TransferEvent.fromAbi(struct) : null;
+              return EventConverter.convertEvent<TransferEvent>(
+                parsedEvent,
+                TransferEvent.fromAbi,
+                TransferEvent.type,
+              );
             case 'complex_event':
-              final struct = parsedEvent.getValueByName('complex_event');
-              return struct != null ? ComplexEvent.fromAbi(struct) : null;
+              return EventConverter.convertEvent<ComplexEvent>(
+                parsedEvent,
+                ComplexEvent.fromAbi,
+                ComplexEvent.type,
+              );
             case 'marker_only_event':
-              final struct = parsedEvent.getValueByName('marker_only_event');
-              return struct != null ? MarkerOnlyEvent.fromAbi(struct) : null;
+              return EventConverter.convertEvent<MarkerOnlyEvent>(
+                parsedEvent,
+                MarkerOnlyEvent.fromAbi,
+                MarkerOnlyEvent.type,
+              );
             default:
               return null;
           }

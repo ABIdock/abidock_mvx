@@ -2,6 +2,7 @@
 /// Provides BLS public and secret key management with automatic memory zeroing.
 import 'dart:convert';
 import 'dart:typed_data';
+
 import 'package:convert/convert.dart' as convert;
 
 import '../utils/sdk_exceptions.dart';

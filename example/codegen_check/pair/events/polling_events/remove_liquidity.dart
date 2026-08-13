@@ -32,13 +32,15 @@ final class RemoveLiquidityPollingStream {
           startFrom: startFrom,
         )
         .map((parsedEvent) {
-          final eventStruct = parsedEvent.getValueByName(
-            'remove_liquidity_event',
+          final decoded = EventConverter.convertEvent<RemoveLiquidityEventData>(
+            parsedEvent,
+            RemoveLiquidityEventData.fromAbi,
+            RemoveLiquidityEventData.type,
           );
-          if (eventStruct == null) {
-            throw StateError('Event struct not found in parsed event');
+          if (decoded == null) {
+            throw StateError('Failed to decode remove_liquidity event');
           }
-          return RemoveLiquidityEventData.fromAbi(eventStruct);
+          return decoded;
         });
   }
 }

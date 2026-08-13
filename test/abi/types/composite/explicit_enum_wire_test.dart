@@ -68,12 +68,10 @@ void main() {
 
   group('ExplicitEnum codec round-trip', () {
     test('decodeTopLevel reads the name back', () {
-      final ExplicitEnumValue decoded =
-          codec.decodeTopLevel(
-                Uint8List.fromList(utf8.encode('completed')),
-                status,
-              )
-              as ExplicitEnumValue;
+      final ExplicitEnumValue decoded = codec.decodeTopLevel(
+        Uint8List.fromList(utf8.encode('completed')),
+        status,
+      ) as ExplicitEnumValue;
 
       expect(decoded.variantName, equals('completed'));
     });

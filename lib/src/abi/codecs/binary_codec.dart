@@ -1,6 +1,8 @@
 /// Main binary codec for encoding/decoding all ABI types.
 import 'dart:typed_data';
+
 import 'package:meta/meta.dart';
+
 import '../../utils/sdk_exceptions.dart';
 import '../core/type_system.dart';
 import '../core/validation_mixin.dart';

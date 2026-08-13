@@ -130,9 +130,8 @@ class ApiNetworkProvider extends BaseNetworkProvider {
     String txHash,
     bool Function(TransactionStatus status) condition,
   ) {
-    return TransactionWatcher(
-      networkProvider: this,
-    ).awaitOnCondition(txHash, condition);
+    return TransactionWatcher(networkProvider: this)
+        .awaitOnCondition(txHash, condition);
   }
 
   @override

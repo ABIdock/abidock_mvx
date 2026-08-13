@@ -203,69 +203,65 @@ void main() {
     /// (`ok`) and return-data parts even though the outer encoding differs:
     /// Gateway sends the raw `@6f6b@01` UTF-8 string while the API sends
     /// the base64-encoded equivalent.
-    test(
-      'Gateway decodes SCR data as UTF-8 and API decodes the same payload as base64',
-      () {
-        const String sender =
-            'erd1qyu5wthldzr8wx5c9ucg8kjagg0jfs53s8nr3zpz3hypefsdd8ssycr6th';
-        const String receiver =
-            'erd1qyu5wthldzr8wx5c9ucg8kjagg0jfs53s8nr3zpz3hypefsdd8ssycr6th';
+    test('Gateway decodes SCR data as UTF-8 and API decodes the same payload as base64', () {
+      const String sender =
+          'erd1qyu5wthldzr8wx5c9ucg8kjagg0jfs53s8nr3zpz3hypefsdd8ssycr6th';
+      const String receiver =
+          'erd1qyu5wthldzr8wx5c9ucg8kjagg0jfs53s8nr3zpz3hypefsdd8ssycr6th';
 
-        const String rawScrData = '@6f6b@2a';
-        final String base64ScrData = base64.encode(utf8.encode(rawScrData));
+      const String rawScrData = '@6f6b@2a';
+      final String base64ScrData = base64.encode(utf8.encode(rawScrData));
 
-        Map<String, dynamic> buildTx(String scrDataField) {
-          return <String, dynamic>{
-            'sender': sender,
-            'receiver': receiver,
-            'value': '0',
-            'nonce': 1,
-            'gasLimit': 50000000,
-            'gasPrice': 1000000000,
-            'chainID': 'T',
-            'version': 1,
-            'status': 'success',
-            'smartContractResults': <Map<String, dynamic>>[
-              <String, dynamic>{
-                'hash': 'scrhash',
-                'nonce': 0,
-                'value': '0',
-                'sender': sender,
-                'receiver': receiver,
-                'data': scrDataField,
-                'gasLimit': 0,
-                'gasPrice': 1000000000,
-                'callType': 0,
-              },
-            ],
-          };
-        }
+      Map<String, dynamic> buildTx(String scrDataField) {
+        return <String, dynamic>{
+          'sender': sender,
+          'receiver': receiver,
+          'value': '0',
+          'nonce': 1,
+          'gasLimit': 50000000,
+          'gasPrice': 1000000000,
+          'chainID': 'T',
+          'version': 1,
+          'status': 'success',
+          'smartContractResults': <Map<String, dynamic>>[
+            <String, dynamic>{
+              'hash': 'scrhash',
+              'nonce': 0,
+              'value': '0',
+              'sender': sender,
+              'receiver': receiver,
+              'data': scrDataField,
+              'gasLimit': 0,
+              'gasPrice': 1000000000,
+              'callType': 0,
+            },
+          ],
+        };
+      }
 
-        final TransactionOnNetwork fromGateway =
-            TransactionOnNetwork.fromProxyResponse(
-              buildTx(rawScrData),
-              txHash: 'h1',
-            );
-        final TransactionOnNetwork fromApi =
-            TransactionOnNetwork.fromApiResponse(
-              buildTx(base64ScrData),
-              txHash: 'h1',
-            );
+      final TransactionOnNetwork fromGateway =
+          TransactionOnNetwork.fromProxyResponse(
+            buildTx(rawScrData),
+            txHash: 'h1',
+          );
+      final TransactionOnNetwork fromApi = TransactionOnNetwork.fromApiResponse(
+        buildTx(base64ScrData),
+        txHash: 'h1',
+      );
 
-        final SmartContractResult gatewayScr =
-            fromGateway.smartContractResults!.single;
-        final SmartContractResult apiScr = fromApi.smartContractResults!.single;
+      final SmartContractResult gatewayScr =
+          fromGateway.smartContractResults!.single;
+      final SmartContractResult apiScr = fromApi.smartContractResults!.single;
 
-        expect(gatewayScr.returnCode.isSuccess, isTrue);
-        expect(apiScr.returnCode.isSuccess, isTrue);
-        expect(gatewayScr.returnCode.code, equals('ok'));
-        expect(apiScr.returnCode.code, equals('ok'));
+      expect(gatewayScr.returnCode.isSuccess, isTrue);
+      expect(apiScr.returnCode.isSuccess, isTrue);
+      expect(gatewayScr.returnCode.code, equals('ok'));
+      expect(apiScr.returnCode.code, equals('ok'));
 
-        expect(gatewayScr.returnData.length, equals(1));
-        expect(apiScr.returnData.length, equals(1));
-        expect(gatewayScr.returnData.single, equals(<int>[0x2a]));
-        expect(apiScr.returnData.single, equals(<int>[0x2a]));
-      },
-    );
+      expect(gatewayScr.returnData.length, equals(1));
+      expect(apiScr.returnData.length, equals(1));
+      expect(gatewayScr.returnData.single, equals(<int>[0x2a]));
+      expect(apiScr.returnData.single, equals(<int>[0x2a]));
+    });
   });
 }

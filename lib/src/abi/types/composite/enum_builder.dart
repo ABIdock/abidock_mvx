@@ -26,9 +26,8 @@ class EnumBuilder {
   /// #### Parameters
   /// - `name` - Name of the enum type
   /// - `metadata` - Optional metadata dictionary
-  EnumBuilder(this._name, {Map<String, dynamic>? metadata})
-    : _metadata = metadata,
-      _variants = [],
+  EnumBuilder(this._name, {this._metadata})
+    : _variants = [],
       _variantNames = {},
       _discriminants = {};
 

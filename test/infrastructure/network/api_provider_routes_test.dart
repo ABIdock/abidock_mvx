@@ -303,8 +303,7 @@ void main() {
       final RecordingAdapter adapter = RecordingAdapter(<String, dynamic>{
         'data': <String, dynamic>{
           'hyperblock': <String, dynamic>{
-            'hash':
-                '9a1c2f2e2b1a0c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d',
+            'hash': '9a1c2f2e2b1a0c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d',
             'nonce': 42,
             'round': 43,
             'epoch': 5,
@@ -414,16 +413,17 @@ void main() {
 
   group('AccountOnNetwork.fromApiResponse guardian shapes', () {
     test('reads the flat API scalars', () {
-      final AccountOnNetwork account =
-          AccountOnNetwork.fromApiResponse(<String, dynamic>{
-            'address': alice,
-            'nonce': 3,
-            'balance': '5',
-            'isGuarded': true,
-            'activeGuardianAddress': guardian,
-            'activeGuardianActivationEpoch': 42,
-            'activeGuardianServiceUid': 'TCS',
-          });
+      final AccountOnNetwork account = AccountOnNetwork.fromApiResponse(
+        <String, dynamic>{
+          'address': alice,
+          'nonce': 3,
+          'balance': '5',
+          'isGuarded': true,
+          'activeGuardianAddress': guardian,
+          'activeGuardianActivationEpoch': 42,
+          'activeGuardianServiceUid': 'TCS',
+        },
+      );
 
       expect(account.activeGuardian!.activationEpoch, equals(42));
       expect(account.activeGuardian!.serviceUID, equals('TCS'));

@@ -11,7 +11,6 @@ const knownPackageSymbols = <String>{
   'AbiEndpoint',
   'AbiEndpoints',
   'AbiNativeSerializationException',
-  'AbiNotFoundException',
   'AbiParameter',
   'AbiRegistry',
   'AbiType',

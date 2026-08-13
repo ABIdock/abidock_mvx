@@ -9,14 +9,18 @@ import '../../../core/balance.dart';
 import '../../../utils/collection_utils.dart';
 import '../../../utils/helpers.dart';
 import '../../../utils/hex_utils.dart';
+import '../../../utils/sdk_exceptions.dart';
 import '../../abi.dart';
 
 /// Exception for smart contract query failures.
 ///
 /// Provides detailed error information including the original response
 /// and the function that failed.
+///
+/// Part of the unified SDK hierarchy: catch it as [SmartContractException] or
+/// as [AbidockException].
 @immutable
-class SmartContractQueryException implements Exception {
+class SmartContractQueryException extends SmartContractException {
   /// Creates a query exception.
   ///
   /// #### Parameters
@@ -24,10 +28,10 @@ class SmartContractQueryException implements Exception {
   /// - `code` - Error code from the smart contract
   /// - `response` - The original query response
   const SmartContractQueryException({
-    required this.message,
+    required String message,
     required this.code,
     this.response,
-  });
+  }) : super(message);
 
   /// Creates exception from query response.
   ///
@@ -65,9 +69,6 @@ class SmartContractQueryException implements Exception {
       code: 'network_error',
     );
   }
-
-  /// Human-readable error description.
-  final String message;
 
   /// Error code from the smart contract or system.
   final String code;

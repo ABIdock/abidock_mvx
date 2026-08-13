@@ -11,7 +11,7 @@ class RetryConfig {
   /// Creates retry configuration with exponential backoff parameters.
   ///
   /// #### Parameters
-  /// - `maxRetries` - Maximum retry attempts (default 3)
+  /// - `maxRetries` - Maximum attempts, counting the first one (default 3)
   /// - `initialDelay` - Delay before first retry (default 1s)
   /// - `maxDelay` - Maximum delay between retries (default 30s)
   /// - `backoffMultiplier` - Exponential backoff multiplier (default 2.0)
@@ -26,7 +26,10 @@ class RetryConfig {
     this.jitterFactor = 0.1,
   });
 
-  /// Maximum retry attempts.
+  /// Maximum attempts, counting the first one.
+  ///
+  /// A value of `3` permits the initial call plus two retries; the last
+  /// error is rethrown once the budget is spent.
   final int maxRetries;
 
   /// Initial delay before first retry.

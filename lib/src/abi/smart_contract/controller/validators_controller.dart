@@ -21,6 +21,7 @@ import '../../../core/transaction/transaction_event.dart';
 import '../../../core/transaction/transaction_on_network.dart';
 import '../../../core/transaction/transaction_watcher.dart';
 import '../../../infrastructure/network/network_provider.dart';
+import '../../../utils/sdk_exceptions.dart';
 import '../../../wallet/validator_keys.dart';
 
 /// Controller for validator system-contract operations.
@@ -543,16 +544,16 @@ class ValidatorsController extends BaseController {
 }
 
 /// Exception thrown when validators outcome parsing fails.
+///
+/// Part of the unified SDK hierarchy: catch it as [SmartContractException] or
+/// as [AbidockException].
 @immutable
-class ValidatorsParseException implements Exception {
+class ValidatorsParseException extends SmartContractException {
   /// Creates a validators-parse exception.
   ///
   /// #### Parameters
   /// - `message` - Human-readable error description.
-  const ValidatorsParseException(this.message);
-
-  /// Human-readable error description.
-  final String message;
+  const ValidatorsParseException(super.message);
 
   @override
   String toString() => 'ValidatorsParseException: $message';

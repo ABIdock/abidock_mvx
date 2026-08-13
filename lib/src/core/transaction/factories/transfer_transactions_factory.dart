@@ -219,6 +219,47 @@ class TransferTransactionsFactory {
   }
 
   /// Creates unified transfer transaction.
+  ///
+  /// Picks the protocol from what is actually being moved: a plain value
+  /// transfer when only EGLD (with an optional payload) is involved,
+  /// `ESDTTransfer` / `ESDTNFTTransfer` / `MultiESDTNFTTransfer` when tokens
+  /// are involved.
+  ///
+  /// A zero-length `data` is indistinguishable from an absent one on the wire
+  /// — the field is optional bytes and carries no payload either way — so
+  /// `Uint8List(0)` is treated exactly like `null`. It therefore neither
+  /// forces the plain-value branch (which would silently discard
+  /// `tokenTransfers`) nor trips the payload conflict below.
+  ///
+  /// #### Parameters
+  /// - `sender` - Address sending the funds
+  /// - `receiver` - Address receiving the funds
+  /// - `nativeAmount` - Optional EGLD amount; bundled as `EGLD-000000` when
+  ///   token transfers are present
+  /// - `tokenTransfers` - Optional ESDT/NFT/SFT transfers
+  /// - `data` - Optional payload; only allowed without token transfers
+  /// - `gasLimit` - Optional manual gas limit
+  ///
+  /// #### Returns
+  /// `Transaction` - Unsigned transaction with calculated gas limit
+  ///
+  /// #### Throws
+  /// - `ArgumentError` - If a non-empty `data` accompanies token transfers, or
+  ///   if there is nothing to transfer at all
+  ///
+  /// #### Example
+  /// ```dart
+  /// final tx = factory.createTransactionForTransfer(
+  ///   sender: sender,
+  ///   receiver: receiver,
+  ///   tokenTransfers: <TokenTransfer>[
+  ///     TokenTransfer.fungible(
+  ///       tokenIdentifier: 'FRANK-11ce3e',
+  ///       amount: BigInt.from(100),
+  ///     ),
+  ///   ],
+  /// );
+  /// ```
   Transaction createTransactionForTransfer({
     required Address sender,
     required Address receiver,
@@ -229,16 +270,17 @@ class TransferTransactionsFactory {
   }) {
     final Balance amount = nativeAmount ?? Balance.zero();
     final List<TokenTransfer> transfers = tokenTransfers ?? <TokenTransfer>[];
+    final Uint8List? payload = (data == null || data.isEmpty) ? null : data;
 
-    if (transfers.isNotEmpty && data != null && data.isNotEmpty) {
+    if (transfers.isNotEmpty && payload != null) {
       throw ArgumentError('Cannot set data field when sending ESDT tokens');
     }
-    if ((amount.value > BigInt.zero && transfers.isEmpty) || data != null) {
+    if ((amount.value > BigInt.zero && transfers.isEmpty) || payload != null) {
       return createTransactionForNativeTokenTransfer(
         sender: sender,
         receiver: receiver,
         nativeAmount: amount,
-        data: data,
+        data: payload,
         gasLimit: gasLimit,
       );
     }

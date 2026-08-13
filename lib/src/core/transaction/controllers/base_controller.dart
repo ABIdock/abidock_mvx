@@ -56,7 +56,9 @@ class BaseControllerInput {
   /// Override gas price (null = use network default).
   final GasPrice? gasPrice;
 
-  /// Override gas limit (null = auto-estimate).
+  /// Override execution gas limit (null = auto-estimate).
+  ///
+  /// Guardian and relayer allowances are added on top of this value.
   final GasLimit? gasLimit;
 }
 
@@ -98,7 +100,9 @@ class BaseController {
 
   /// Adds extra gas limit for guarded or relayed transactions.
   ///
-  /// Adds extra gas for guardian (50,000) or relayer (0) transactions.
+  /// Adds [extraGasLimitForGuardedTransactions] when a guardian is set and
+  /// [extraGasLimitForRelayedTransactions] when a relayer is set. Both
+  /// allowances are added when the transaction is guarded and relayed.
   ///
   /// #### Parameters
   /// - `transaction` - Transaction to check for guardian/relayer
@@ -131,17 +135,15 @@ class BaseController {
 
     if (transaction.relayer != null && !transaction.relayer!.isZero) {
       newGasLimit = newGasLimit + extraGasLimitForRelayedTransactions;
-      if (extraGasLimitForRelayedTransactions > 0) {
-        logger?.debug(
-          'Adding extra gas for relayed transaction',
-          context: {
-            'extraGas': extraGasLimitForRelayedTransactions,
-            'originalGasLimit': originalGasLimit,
-            'newGasLimit': newGasLimit,
-            'reason': 'relayer',
-          },
-        );
-      }
+      logger?.debug(
+        'Adding extra gas for relayed transaction',
+        context: {
+          'extraGas': extraGasLimitForRelayedTransactions,
+          'originalGasLimit': originalGasLimit,
+          'newGasLimit': newGasLimit,
+          'reason': 'relayer',
+        },
+      );
     }
 
     return transaction.copyWith(newGasLimit: GasLimit(newGasLimit));
@@ -205,6 +207,7 @@ class BaseController {
       );
 
       tx = setVersionAndOptionsForGuardian(tx);
+      tx = _setVersionForRelayer(tx);
       tx = await setTransactionGasOptions(tx, options);
 
       logger?.debug('Signing transaction');
@@ -274,9 +277,46 @@ class BaseController {
     return transaction.copyWith(newVersion: newVersion, newOptions: newOptions);
   }
 
+  /// Raises the transaction version when a relayer is set.
+  ///
+  /// A relayed transaction is only accepted by the chain from version
+  /// [minTransactionVersionThatSupportsOptions] onwards.
+  ///
+  /// #### Parameters
+  /// - `transaction` - Transaction to check for a relayer
+  ///
+  /// #### Returns
+  /// `Transaction` - Transaction whose version supports relaying
+  Transaction _setVersionForRelayer(Transaction transaction) {
+    if (transaction.relayer == null || transaction.relayer!.isZero) {
+      return transaction;
+    }
+    if (transaction.version.value >= minTransactionVersionThatSupportsOptions) {
+      return transaction;
+    }
+    logger?.debug(
+      'Raising transaction version for relayed transaction',
+      context: {
+        'relayer': transaction.relayer!.bech32,
+        'previousVersion': transaction.version.value,
+        'newVersion': minTransactionVersionThatSupportsOptions,
+      },
+    );
+    return transaction.copyWith(
+      newVersion: const TransactionVersion(
+        minTransactionVersionThatSupportsOptions,
+      ),
+    );
+  }
+
   /// Sets transaction gas price and limit with automatic estimation.
   ///
-  /// Applies gas price/limit overrides or estimates if not specified.
+  /// The execution budget is resolved first: an explicit `options.gasLimit`
+  /// wins, otherwise [gasLimitEstimator] is consulted when available, and
+  /// otherwise the transaction keeps the gas limit it was drafted with. The
+  /// guardian and relayer allowances are then added on top of that budget by
+  /// [addExtraGasLimitIfRequired], so a guarded or relayed transaction is
+  /// always funded beyond its execution cost.
   ///
   /// #### Parameters
   /// - `transaction` - Transaction to configure gas for
@@ -292,6 +332,7 @@ class BaseController {
   ///   baseTx,
   ///   BaseControllerInput(gasLimit: GasLimit(500000), gasPrice: GasPrice(1000000000)),
   /// );
+  /// // Guarded: gasLimit = 550,000 (500,000 execution + 50,000 guardian)
   ///
   /// // With estimation
   /// final tx2 = await setTransactionGasOptions(
@@ -330,12 +371,8 @@ class BaseController {
         'Applying gas limit override',
         context: {'gasLimit': options.gasLimit!.value.toString()},
       );
-      return tx.copyWith(newGasLimit: options.gasLimit!);
-    }
-
-    tx = addExtraGasLimitIfRequired(tx);
-
-    if (gasLimitEstimator != null) {
+      tx = tx.copyWith(newGasLimit: options.gasLimit!);
+    } else if (gasLimitEstimator != null) {
       try {
         logger?.debug('Estimating gas limit');
         final int estimatedLimit = await gasLimitEstimator!.estimateGasLimit(
@@ -345,11 +382,10 @@ class BaseController {
           'Gas limit estimated',
           context: {
             'estimated': estimatedLimit,
-            'beforeExtra': transaction.gasLimit.value,
-            'afterExtra': tx.gasLimit.value,
+            'previousGasLimit': tx.gasLimit.value,
           },
         );
-        return tx.copyWith(newGasLimit: GasLimit(estimatedLimit));
+        tx = tx.copyWith(newGasLimit: GasLimit(estimatedLimit));
       } catch (e) {
         logger?.warning(
           'Gas estimation failed, using current gas limit',
@@ -366,6 +402,6 @@ class BaseController {
       );
     }
 
-    return tx;
+    return addExtraGasLimitIfRequired(tx);
   }
 }

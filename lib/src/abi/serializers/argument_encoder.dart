@@ -127,6 +127,10 @@ class ArgumentEncoder {
       for (final TypedValue item in value.items) {
         _expandAndEncode(item, result);
       }
+    } else if (value is MultiValueValue) {
+      for (final TypedValue inner in value.values) {
+        _expandAndEncode(inner, result);
+      }
     } else if (value is CompositeValue) {
       for (final TypedValue field in value.fields) {
         _expandAndEncode(field, result);
@@ -145,6 +149,10 @@ class ArgumentEncoder {
   String _bytesToHex(Uint8List bytes) => HexUtils.bytesToHex(bytes);
 
   /// Converts native values to typed values using endpoint definition.
+  ///
+  /// When the last input is variadic, the trailing arguments are collected into
+  /// a single [VariadicValue], whether the caller flattened them into one
+  /// argument per item or handed the whole run over already grouped.
   ///
   /// #### Parameters
   /// - `endpoint` - ABI endpoint definition
@@ -168,20 +176,14 @@ class ArgumentEncoder {
         final arg = arguments[i];
         typedValues.add(_convertToTypedValue(param, arg, i, endpoint.name));
       }
-      if (arguments.length > nonVariadicCount) {
-        final AbiParameter variadicParam = params.last;
-        final AbiType innerType = _extractVariadicInnerType(variadicParam);
-
-        for (int i = nonVariadicCount; i < arguments.length; i++) {
-          final arg = arguments[i];
-          final AbiParameter innerParam = AbiParameter(
-            name: '${variadicParam.name}_$i',
-            type: innerType,
-          );
-          typedValues.add(
-            _convertToTypedValue(innerParam, arg, i, endpoint.name),
-          );
-        }
+      final VariadicValue? variadic = _buildVariadicValue(
+        params.last,
+        arguments.sublist(nonVariadicCount),
+        nonVariadicCount,
+        endpoint.name,
+      );
+      if (variadic != null) {
+        typedValues.add(variadic);
       }
     } else {
       for (int i = 0; i < params.length; i++) {
@@ -238,19 +240,85 @@ class ArgumentEncoder {
       final arg = arguments[i];
       typedValues.add(_convertToTypedValue(param, arg, i, 'variadic'));
     }
-    final AbiParameter variadicParam = lastParam;
-    final AbiType innerType = _extractVariadicInnerType(variadicParam);
-
-    for (int i = nonVariadicCount; i < arguments.length; i++) {
-      final arg = arguments[i];
-      final AbiParameter innerParam = AbiParameter(
-        name: '${variadicParam.name}_$i',
-        type: innerType,
-      );
-      typedValues.add(_convertToTypedValue(innerParam, arg, i, 'variadic'));
+    final VariadicValue? variadic = _buildVariadicValue(
+      lastParam,
+      arguments.sublist(nonVariadicCount),
+      nonVariadicCount,
+      'variadic',
+    );
+    if (variadic != null) {
+      typedValues.add(variadic);
     }
 
     return encodeTypedValues(typedValues);
+  }
+
+  /// Groups the trailing arguments of an endpoint into a single variadic value.
+  ///
+  /// The trailing arguments may arrive either already grouped as one
+  /// [VariadicValue] or flattened into one argument per item; both forms yield
+  /// the same wire encoding. A `counted-variadic<T>` parameter always produces
+  /// a counted value so that the leading `u32` item count reaches the wire,
+  /// even when no items were supplied.
+  ///
+  /// #### Parameters
+  /// - `param` - Trailing parameter, whose type must be a `VariadicType`
+  /// - `trailing` - Arguments occupying the variadic parameter
+  /// - `firstIndex` - Position of the first trailing argument in the call
+  /// - `endpointName` - Endpoint name used in error reporting
+  ///
+  /// #### Returns
+  /// `VariadicValue?` - Grouped value, or null when an uncounted variadic
+  /// received no arguments
+  ///
+  /// #### Throws
+  /// - `ArgumentEncodingException` - If an item cannot be converted
+  VariadicValue? _buildVariadicValue(
+    AbiParameter param,
+    List<dynamic> trailing,
+    int firstIndex,
+    String endpointName,
+  ) {
+    final VariadicType variadicType = param.type as VariadicType;
+
+    if (trailing.length == 1 && trailing.first is VariadicValue) {
+      final VariadicValue provided = trailing.first as VariadicValue;
+      if (provided.isCounted == variadicType.isCounted) {
+        return provided;
+      }
+      return VariadicValue(
+        provided.items,
+        itemType: provided.itemType,
+        isCounted: variadicType.isCounted,
+      );
+    }
+
+    if (trailing.isEmpty && !variadicType.isCounted) {
+      return null;
+    }
+
+    final AbiType itemType = variadicType.itemType;
+    final List<TypedValue> items = <TypedValue>[];
+    for (int i = 0; i < trailing.length; i++) {
+      final AbiParameter itemParam = AbiParameter(
+        name: '${param.name}_${firstIndex + i}',
+        type: itemType,
+      );
+      items.add(
+        _convertToTypedValue(
+          itemParam,
+          trailing[i],
+          firstIndex + i,
+          endpointName,
+        ),
+      );
+    }
+
+    return VariadicValue(
+      items,
+      itemType: itemType,
+      isCounted: variadicType.isCounted,
+    );
   }
 
   /// Converts native value to typed value.
@@ -260,6 +328,11 @@ class ArgumentEncoder {
     int index,
     String endpointName,
   ) {
+    final AbiType paramType = param.type;
+    if (paramType is MultiValueType && value is! TypedValue) {
+      return _convertToMultiValue(param, paramType, value, index, endpointName);
+    }
+
     try {
       final EndpointParameterDefinition paramDef = EndpointParameterDefinition(
         param.name,
@@ -291,40 +364,61 @@ class ArgumentEncoder {
     }
   }
 
-  /// Checks if parameter is variadic.
-  bool _isVariadicParameter(AbiParameter param) {
-    final String typeName = param.type.name.toLowerCase();
-    return typeName.startsWith('variadic<') || typeName.startsWith('multi<');
+  /// Converts a native value to a `multi<...>` group of top-level slots.
+  ///
+  /// Each member of a `multi<A,B>` occupies its own argument on the wire, so
+  /// the native form is a list holding exactly one value per member.
+  ///
+  /// #### Parameters
+  /// - `param` - Parameter declaring the multi-value group
+  /// - `type` - Declared multi-value type
+  /// - `value` - Native list holding one value per member
+  /// - `index` - Argument position used in error reporting
+  /// - `endpointName` - Endpoint name used in error reporting
+  ///
+  /// #### Returns
+  /// `MultiValueValue` - Group holding one typed value per member
+  ///
+  /// #### Throws
+  /// - `ArgumentEncodingException` - If the value is not a list of the declared
+  ///   arity, or a member cannot be converted
+  MultiValueValue _convertToMultiValue(
+    AbiParameter param,
+    MultiValueType type,
+    dynamic value,
+    int index,
+    String endpointName,
+  ) {
+    if (value is! List || value.length != type.arity) {
+      throw ArgumentEncodingException(
+        'Expected a list of ${type.arity} values for ${type.name}',
+        endpointName: endpointName,
+        argumentIndex: index,
+        argumentValue: value,
+        expectedType: type.toString(),
+      );
+    }
+
+    final List<TypedValue> members = <TypedValue>[];
+    for (int i = 0; i < type.arity; i++) {
+      final AbiParameter memberParam = AbiParameter(
+        name: '${param.name}_$i',
+        type: type.types[i],
+      );
+      members.add(
+        _convertToTypedValue(memberParam, value[i], index, endpointName),
+      );
+    }
+
+    return MultiValueValue(type, members);
   }
 
-  /// Extracts inner type from variadic parameter.
-  AbiType _extractVariadicInnerType(AbiParameter param) {
-    if (param.type is VariadicType) {
-      return (param.type as VariadicType).itemType;
-    }
-    final String typeName = param.type.name.toLowerCase();
-
-    if (typeName.startsWith('variadic<') && typeName.endsWith('>')) {
-      final String innerTypeName = param.type.name.substring(
-        9,
-        param.type.name.length - 1,
-      );
-      return AbiTypeFactory().fromString(innerTypeName);
-    }
-
-    if (typeName.startsWith('multi<') && typeName.endsWith('>')) {
-      final String innerTypeName = param.type.name.substring(
-        6,
-        param.type.name.length - 1,
-      );
-      return AbiTypeFactory().fromString(innerTypeName);
-    }
-
-    throw ArgumentEncodingException(
-      'Failed to extract inner type from variadic parameter: ${param.type}',
-      expectedType: param.type.toString(),
-    );
-  }
+  /// Checks if parameter accepts an open-ended run of trailing arguments.
+  ///
+  /// Only `variadic<T>` and `counted-variadic<T>` are open-ended. A
+  /// `multi<A,B>` declares a fixed number of top-level slots and is therefore
+  /// an ordinary parameter that happens to occupy more than one slot.
+  bool _isVariadicParameter(AbiParameter param) => param.type is VariadicType;
 
   /// Encodes single argument.
   String encodeSingleArgument({

@@ -2,6 +2,7 @@
 /// Extracts structured results from delegation logs including contract creation and error detection.
 import 'dart:typed_data';
 
+import '../../../utils/sdk_exceptions.dart';
 import '../../address.dart';
 import '../transaction_event.dart';
 import '../transaction_logs.dart';
@@ -9,12 +10,12 @@ import '../transaction_on_network.dart';
 
 /// Exception for delegation parsing failures.
 /// Thrown when outcomes cannot be parsed due to missing data, unexpected format, or transaction errors.
-class DelegationParseException implements Exception {
+/// Part of the unified SDK hierarchy: catch it as [TransactionException] or as
+/// [AbidockException].
+class DelegationParseException extends TransactionException {
   /// Creates delegation parse exception.
-  const DelegationParseException(this.message, [this.cause]);
-
-  final String message;
-  final Object? cause;
+  const DelegationParseException(super.message, [Object? cause])
+    : super(cause: cause);
 
   @override
   String toString() {

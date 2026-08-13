@@ -110,6 +110,115 @@ void main() {
     });
   });
 
+  group('RetryHelper.execute / rate limiting', () {
+    test('stops a permanently rate-limited call after maxRetries '
+        'attempts', () async {
+      final helper = RetryHelper(
+        config: const RetryConfig(
+          maxRetries: 4,
+          initialDelay: Duration(milliseconds: 1),
+          maxDelay: Duration(milliseconds: 5),
+        ),
+      );
+
+      int attempts = 0;
+      Object? thrown;
+      final stopwatch = Stopwatch()..start();
+
+      try {
+        await helper.execute<int>(
+          operation: () async {
+            attempts++;
+            throw const NetworkException(
+              'Too Many Requests',
+              statusCode: 429,
+              endpoint: '/accounts',
+            );
+          },
+          isRetryable: RetryHelper.isTransientError,
+          operationName: 'rateLimited',
+        );
+      } catch (e) {
+        thrown = e;
+      }
+      stopwatch.stop();
+
+      expect(attempts, 4);
+      expect(thrown, isA<NetworkException>());
+      expect((thrown! as NetworkException).statusCode, 429);
+      expect(
+        thrown.toString(),
+        'NetworkException: Too Many Requests (HTTP 429) at /accounts',
+      );
+      expect(stopwatch.elapsed, lessThan(const Duration(seconds: 5)));
+    });
+
+    test('makes a single attempt when maxRetries is 1', () async {
+      final helper = RetryHelper(
+        config: const RetryConfig(
+          maxRetries: 1,
+          initialDelay: Duration(milliseconds: 1),
+        ),
+      );
+
+      int attempts = 0;
+      await expectLater(
+        helper.execute<int>(
+          operation: () async {
+            attempts++;
+            throw const NetworkException(
+              'Too Many Requests',
+              statusCode: 429,
+              endpoint: '/accounts',
+            );
+          },
+          isRetryable: RetryHelper.isTransientError,
+          operationName: 'rateLimitedOnce',
+        ),
+        throwsA(isA<NetworkException>()),
+      );
+
+      expect(attempts, 1);
+    });
+
+    test('backs off between rate-limited attempts', () async {
+      final helper = RetryHelper(
+        config: const RetryConfig(
+          maxRetries: 3,
+          initialDelay: Duration(milliseconds: 40),
+          maxDelay: Duration(milliseconds: 200),
+        ),
+      );
+
+      int attempts = 0;
+      final stopwatch = Stopwatch()..start();
+
+      await expectLater(
+        helper.execute<int>(
+          operation: () async {
+            attempts++;
+            throw const NetworkException(
+              'Too Many Requests',
+              statusCode: 429,
+              endpoint: '/accounts',
+            );
+          },
+          isRetryable: RetryHelper.isTransientError,
+          operationName: 'backoff',
+        ),
+        throwsA(isA<NetworkException>()),
+      );
+      stopwatch.stop();
+
+      expect(attempts, 3);
+      expect(
+        stopwatch.elapsedMilliseconds,
+        greaterThanOrEqualTo(120),
+        reason: 'waits 40ms then 80ms between the three attempts',
+      );
+    });
+  });
+
   group('RetryHelper.isTransientError', () {
     test('flags 408/429/5xx status codes', () {
       for (final int code in <int>[408, 429, 500, 502, 503, 504]) {

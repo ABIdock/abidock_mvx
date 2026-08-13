@@ -39,11 +39,17 @@ final class QueryResult {
 
   /// Native Dart values extracted from the response.
   ///
-  /// Types are automatically converted based on ABI:
-  /// - `u32`, `u64`, `BigUint` → `BigInt`
-  /// - `Address` → `Address`
+  /// Each entry is the `nativeValue` of the matching [typedValues] entry, so
+  /// the Dart type follows the ABI type:
+  /// - `u8`, `u16`, `u32`, `i8`, `i16`, `i32` → `int`
+  /// - `u64`, `i64`, `BigUint`, `BigInt` → `BigInt`
+  /// - `Address` → `String` (bech32, `erd1...`)
   /// - `bytes` → `Uint8List`
+  /// - `bool` → `bool`
+  /// - `utf-8 string`, `TokenIdentifier` → `String`
   /// - Custom structs → `Map<String, dynamic>`
+  /// - `List`, arrays and tuples → `List<dynamic>` of native values
+  /// - variadic → `List<TypedValue>`
   final List<dynamic> values;
 
   /// TypedValue objects with full ABI type information.

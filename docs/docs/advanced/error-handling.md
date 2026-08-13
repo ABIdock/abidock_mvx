@@ -364,7 +364,6 @@ Every class below extends `AbidockException` -- with optional `cause` and `stack
 - `SmartContractQueryException` - Contract query failures (includes `code` and `response`; **not** an `AbidockException`)
 - `ArgumentEncodingException` - Function argument encoding errors
 - `ResponseParsingException` - Response deserialization errors
-- `AbiNotFoundException` - Missing required ABI definition
 - `EndpointNotFoundException` - Unknown contract endpoint
 - `ArgumentValidationException` - Invalid argument values
 - `ResponseValidationException` - Unexpected response structure

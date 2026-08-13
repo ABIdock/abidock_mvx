@@ -166,7 +166,9 @@ class TransactionStatus {
   ///
   /// Terminal = `isExecuted || isFailed || isNotExecutableInBlock`.
   /// `isInvalid` is covered transitively through `isFailed`. Broader than
-  /// [isCompleted], which stops at success or failure.
+  /// [isCompleted], which stops at success or failure. This is the predicate
+  /// a polling loop must stop on; `TransactionOnNetwork.isFinal` forwards to
+  /// it unchanged.
   ///
   /// #### Returns
   /// `bool` - True if transaction will not change status again
@@ -179,6 +181,8 @@ class TransactionStatus {
   /// deliberately excluded — such a transaction carries no logs and no smart
   /// contract results. Check [isNotExecutableInBlock] separately, or use
   /// [isFinal] for the broader "will not change again" predicate.
+  /// `TransactionOnNetwork.isCompleted` forwards to it unchanged, so both
+  /// spellings always answer the same.
   ///
   /// #### Returns
   /// `bool` - True if status is a success or a failure string

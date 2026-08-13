@@ -126,14 +126,26 @@ final class Balance {
 
   /// Creates Balance from EGLD value (human-readable).
   ///
-  /// **Note:** For critical precision requirements, use [fromEgldString]
-  /// instead to avoid floating-point precision issues.
+  /// A decimal written in source converts to the attoEGLD integer it denotes:
+  /// `Balance.fromEgld(0.1).value` is exactly `100000000000000000`. Integers
+  /// are scaled with exact integer arithmetic; a double is converted from its
+  /// shortest decimal representation, which is the literal that produced it.
+  ///
+  /// **Note:** a double only holds about 17 significant decimal digits, so an
+  /// arithmetic expression may not evaluate to the number it appears to be —
+  /// `0.1 + 0.2` is the double `0.30000000000000004`, and converts to that.
+  /// Use [fromEgldString] to state an amount exactly.
   ///
   /// #### Parameters
   /// - `value` - EGLD amount as num (e.g., 1.5 for 1.5 EGLD)
   ///
   /// #### Returns
   /// Balance instance in attoEGLD
+  ///
+  /// #### Throws
+  /// - `ArgumentError` - If value is not finite, or needs more than
+  ///   [denomination] decimal places; attoEGLD is the smallest representable
+  ///   unit, so such a value is rejected rather than silently truncated
   ///
   /// #### Example
   /// ```dart
@@ -145,25 +157,19 @@ final class Balance {
   /// print(bal2.toDenominatedTrimmed); // 2.5
   /// ```
   factory Balance.fromEgld(num value) {
-    if (value == 0) {
+    if (value is int) {
+      return Balance(BigInt.from(value) * oneEGLD);
+    }
+
+    final double amount = value.toDouble();
+    if (!amount.isFinite) {
+      throw ArgumentError.value(value, 'value', 'must be a finite EGLD amount');
+    }
+    if (amount == 0) {
       return Balance.zero();
     }
 
-    final String valueStr = value.toStringAsFixed(denomination);
-    final List<String> parts = valueStr.split('.');
-    final String integerPart = parts[0];
-    String decimalPart = parts.length > 1 ? parts[1] : '';
-
-    if (decimalPart.length > denomination) {
-      decimalPart = decimalPart.substring(0, denomination);
-    } else {
-      decimalPart = decimalPart.padRight(denomination, '0');
-    }
-
-    final String combinedStr = integerPart + decimalPart;
-    final BigInt result = BigInt.parse(combinedStr);
-
-    return Balance(result);
+    return Balance(_attoFromDouble(amount));
   }
 
   /// Balance value in attoEGLD (smallest unit).
@@ -293,5 +299,64 @@ final class Balance {
   /// Detailed string including full denominated value.
   String toDetailedString() {
     return 'Balance{ value: $value, formatted: $toDenominated }';
+  }
+
+  /// Converts a finite, non-zero double to attoEGLD without losing precision.
+  ///
+  /// The shortest decimal representation of a double is the only one that reads
+  /// back as the same bits, so it is the decimal the caller wrote. Its digits
+  /// are rescaled to attoEGLD with integer arithmetic, which never rounds.
+  ///
+  /// #### Parameters
+  /// - `amount` - Finite, non-zero EGLD amount
+  ///
+  /// #### Returns
+  /// The amount in attoEGLD
+  ///
+  /// #### Throws
+  /// - `ArgumentError` - If the amount needs more than [denomination] decimals
+  static BigInt _attoFromDouble(double amount) {
+    String literal = amount.toString();
+    final bool negative = literal.startsWith('-');
+    if (negative) {
+      literal = literal.substring(1);
+    }
+
+    int exponent = 0;
+    final int exponentIndex = literal.indexOf('e');
+    if (exponentIndex >= 0) {
+      exponent = int.parse(literal.substring(exponentIndex + 1));
+      literal = literal.substring(0, exponentIndex);
+    }
+
+    String digits = literal;
+    int scale = -exponent;
+    final int pointIndex = literal.indexOf('.');
+    if (pointIndex >= 0) {
+      digits =
+          literal.substring(0, pointIndex) + literal.substring(pointIndex + 1);
+      scale += literal.length - pointIndex - 1;
+    }
+
+    final BigInt mantissa = BigInt.parse(digits);
+    final BigInt ten = BigInt.from(10);
+    final int shift = denomination - scale;
+
+    if (shift < 0) {
+      final BigInt unit = ten.pow(-shift);
+      if (mantissa % unit != BigInt.zero) {
+        throw ArgumentError.value(
+          amount,
+          'value',
+          'EGLD amount needs more than $denomination decimal places, '
+              'but attoEGLD is the smallest unit',
+        );
+      }
+      final BigInt reduced = mantissa ~/ unit;
+      return negative ? -reduced : reduced;
+    }
+
+    final BigInt atto = mantissa * ten.pow(shift);
+    return negative ? -atto : atto;
   }
 }

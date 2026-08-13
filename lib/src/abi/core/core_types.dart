@@ -237,48 +237,6 @@ class ResponseParsingException extends SmartContractException {
   }
 }
 
-/// Exception when ABI definition is not provided but required.
-///
-/// Thrown when operations requiring ABI are attempted without one.
-class AbiNotFoundException extends SmartContractException {
-  /// Creates ABI not found exception.
-  ///
-  /// #### Parameters
-  /// - `message` - Error description
-  /// - `operation` - Operation that requires ABI (required)
-  /// - `cause` - Optional underlying exception
-  /// - `stackTrace` - Optional stack trace
-  const AbiNotFoundException(
-    super.message, {
-    required this.operation,
-    super.cause,
-    super.stackTrace,
-  });
-
-  /// Creates exception with default message.
-  ///
-  /// #### Parameters
-  /// - `operation` - Operation name requiring ABI
-  ///
-  /// #### Returns
-  /// `AbiNotFoundException` - Exception with standard message
-  factory AbiNotFoundException.forOperation(String operation) {
-    return AbiNotFoundException(
-      'ABI definition is required for operation "$operation" but was not provided. '
-      'Please provide an ABI definition when creating the SmartContractController.',
-      operation: operation,
-    );
-  }
-
-  /// Operation that required the ABI.
-  final String operation;
-
-  @override
-  String toString() {
-    return 'AbiNotFoundException: $message\n  Operation: $operation';
-  }
-}
-
 /// Exception when endpoint is not found in ABI.
 ///
 /// Thrown when calling non-existent endpoint with suggestions.

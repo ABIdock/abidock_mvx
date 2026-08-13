@@ -3,6 +3,7 @@
 import 'dart:typed_data';
 
 import '../../../abi/abi.dart';
+import '../../../utils/sdk_exceptions.dart';
 import '../../address.dart';
 import '../smart_contract_result.dart';
 import '../transaction_event.dart';
@@ -10,12 +11,12 @@ import '../transaction_on_network.dart';
 
 /// Exception for smart contract parsing failures.
 /// Thrown when outcomes cannot be parsed due to missing data, invalid ABI, or unexpected structure.
-class SmartContractParseException implements Exception {
+/// Part of the unified SDK hierarchy: catch it as [TransactionException] or as
+/// [AbidockException].
+class SmartContractParseException extends TransactionException {
   /// Creates smart contract parse exception.
-  const SmartContractParseException(this.message, [this.cause]);
-
-  final String message;
-  final Object? cause;
+  const SmartContractParseException(super.message, [Object? cause])
+    : super(cause: cause);
 
   @override
   String toString() {

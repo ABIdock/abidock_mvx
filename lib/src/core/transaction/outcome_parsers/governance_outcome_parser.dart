@@ -10,6 +10,7 @@ import '../../../abi/serializers/arg_serializer.dart';
 import '../../../abi/types/primitives/address.dart' as abi_addr;
 import '../../../abi/types/primitives/biguint.dart';
 import '../../../abi/types/primitives/string.dart';
+import '../../../utils/sdk_exceptions.dart';
 import '../../address.dart';
 import '../transaction_event.dart';
 import '../transaction_logs.dart';
@@ -18,12 +19,12 @@ import '../transaction_on_network.dart';
 /// Exception for governance parsing failures.
 /// Thrown when outcomes cannot be parsed due to missing data, unexpected
 /// format, or transaction errors.
-class GovernanceParseException implements Exception {
+/// Part of the unified SDK hierarchy: catch it as [TransactionException] or as
+/// [AbidockException].
+class GovernanceParseException extends TransactionException {
   /// Creates governance parse exception.
-  const GovernanceParseException(this.message, [this.cause]);
-
-  final String message;
-  final Object? cause;
+  const GovernanceParseException(super.message, [Object? cause])
+    : super(cause: cause);
 
   @override
   String toString() {

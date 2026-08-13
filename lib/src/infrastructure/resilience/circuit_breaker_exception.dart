@@ -1,6 +1,10 @@
+import '../../utils/sdk_exceptions.dart';
+
 /// Exception thrown when circuit breaker is in open state and rejects requests.
 /// Indicates the protected service is temporarily unavailable.
-class CircuitBreakerOpenException implements Exception {
+///
+/// Part of the unified SDK hierarchy: catch it as [AbidockException].
+class CircuitBreakerOpenException extends AbidockException {
   /// Creates circuit breaker open exception.
   ///
   /// #### Parameters
@@ -8,13 +12,10 @@ class CircuitBreakerOpenException implements Exception {
   /// - `lastFailureTime` - Timestamp of last failure
   /// - `retryDelay` - Duration until recovery attempt
   CircuitBreakerOpenException(
-    this.message,
+    super.message,
     this.lastFailureTime,
     this.retryDelay,
   );
-
-  /// Error message.
-  final String message;
 
   /// Last failure time.
   final DateTime lastFailureTime;

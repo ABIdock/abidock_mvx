@@ -682,20 +682,63 @@ class TransactionOnNetwork {
   /// on the way in. `null` when absent.
   final String? miniBlockType;
 
-  /// Checks if transaction is completed.
+  /// Checks if the chain executed this transaction and produced an outcome.
+  ///
+  /// Delegates to [TransactionStatus.isCompleted], so the two spellings always
+  /// agree: true for a success or a failure, and nothing else. A transaction
+  /// reported as `not-executable-in-block` is excluded — it carries no logs
+  /// and no smart contract results, so there is no outcome to read. Use
+  /// [isFinal] to ask the different question "will the status change again",
+  /// which is what a polling loop needs.
   ///
   /// #### Returns
-  /// `bool` - True if transaction reached final state
+  /// `bool` - True if the transaction succeeded or failed
   ///
   /// #### Example
   /// ```dart
-  /// while (!txOnNetwork.isCompleted) {
+  /// if (txOnNetwork.isCompleted) {
+  ///   print(txOnNetwork.isSuccessful ? 'Succeeded' : 'Failed');
+  /// }
+  /// ```
+  bool get isCompleted => status.isCompleted;
+
+  /// Checks if this transaction reached a terminal state.
+  ///
+  /// Delegates to [TransactionStatus.isFinal]: a success, a failure, or
+  /// `not-executable-in-block`. Broader than [isCompleted], and the correct
+  /// stop condition for a polling loop — a loop written against [isCompleted]
+  /// never terminates on `not-executable-in-block`.
+  ///
+  /// #### Returns
+  /// `bool` - True if the status will not change again
+  ///
+  /// #### Example
+  /// ```dart
+  /// while (!txOnNetwork.isFinal) {
   ///   await Future.delayed(Duration(seconds: 1));
   ///   txOnNetwork = await networkProvider.getTransaction(txHash);
   /// }
   /// print('Transaction finished');
   /// ```
-  bool get isCompleted => status.isFinal;
+  bool get isFinal => status.isFinal;
+
+  /// Checks if this transaction was not executable in its block.
+  ///
+  /// Delegates to [TransactionStatus.isNotExecutableInBlock]. This is the one
+  /// state that is [isFinal] without being [isCompleted]: the transaction was
+  /// part of a proposed block but absent from that block's execution result,
+  /// so it is neither a success nor a failure.
+  ///
+  /// #### Returns
+  /// `bool` - True if status is `not-executable-in-block`
+  ///
+  /// #### Example
+  /// ```dart
+  /// if (txOnNetwork.isFinal && txOnNetwork.isNotExecutableInBlock) {
+  ///   print('No outcome: the block did not execute this transaction');
+  /// }
+  /// ```
+  bool get isNotExecutableInBlock => status.isNotExecutableInBlock;
 
   /// Checks if transaction was successful.
   ///

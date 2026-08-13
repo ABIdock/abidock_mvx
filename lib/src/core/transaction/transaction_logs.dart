@@ -2,20 +2,21 @@
 import 'package:meta/meta.dart';
 
 import '../../utils/helpers.dart';
+import '../../utils/sdk_exceptions.dart';
 import '../address.dart';
 import 'transaction_event.dart';
 
 /// Exception for unexpected event count when expecting 0 or 1 events.
-class UnexpectedEventCountException implements Exception {
+///
+/// Part of the unified SDK hierarchy: catch it as [TransactionException] or as
+/// [AbidockException].
+class UnexpectedEventCountException extends TransactionException {
   /// Creates exception with error message and event identifier.
   ///
   /// #### Parameters
   /// - `message` - Description of the error
   /// - `identifier` - Event identifier that was searched
-  const UnexpectedEventCountException(this.message, this.identifier);
-
-  /// Error message describing the issue.
-  final String message;
+  const UnexpectedEventCountException(super.message, this.identifier);
 
   /// Event identifier that caused the exception.
   final String identifier;

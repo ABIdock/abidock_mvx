@@ -2,33 +2,73 @@
 
 All notable changes to `abidock_mvx` are documented here. We follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and the structure recommended by [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [3.1.0] -- 2026-08-13
+
+Corrects argument encoding for `variadic`, `counted-variadic` and `multi<...>`, makes `Balance.fromEgld` exact, reaches the gas allowances and estimator that were previously unreachable, and puts every exception under one base type. Adds the `skills/` knowledge base. One source-breaking removal, `AbiNotFoundException`, is listed under **Removed**.
+
+### Contract call arguments
+
+- **A trailing `variadic<...>` accepts either form.** Each trailing argument was validated against the *item* type, so passing a whole `VariadicValue` never matched. A single `VariadicValue` and flat trailing items now encode identically.
+- **`counted-variadic<...>` emits its `u32` count**, omitted on the endpoint path, so the contract read the first item as the count.
+- **`multi<...>` works in any input position.** It was treated as variadic on the `multi<` prefix and the text between the brackets re-parsed as one type name, raising `Unknown type: TokenIdentifier,BigUint`. A `multi<A,B>` is a fixed-arity group.
+- **`multi<...>` expands to one wire slot per member.** The controller's encoder had no branch for it and concatenated the members into a single argument.
+
+### Balance
+
+`Balance.fromEgld(num)` is exact for decimal literals. It converted through a fixed-point rendering of the double, so `0.1` produced `100000000000000006` and `0.3` produced `299999999999999989`. Binary-representable values were unaffected, which is why the error was easy to miss.
+
+### Gas, configuration and status
+
+- **Guardian and relayer gas allowances apply even when an explicit gas limit is given**, and an `IGasLimitEstimator` supplied to `SmartContractController` is consulted. Both were unreachable: the controller returned as soon as a limit was present, and contract calls always supply one.
+- **Proxy entrypoints forward their `NetworkProviderConfig`.** `ProxyNetworkEntrypoint` and the Devnet/Testnet/Mainnet presets built their provider without it, so client name, headers, timeout, retry, throttle and cache had no effect; applying a `clientName` also dropped the throttle and cache policies.
+- **`TransactionOnNetwork.isCompleted` and `TransactionStatus.isCompleted` agree**; they diverged for `not-executable-in-block`. The terminal-state predicate is `isFinal`.
+- **An empty `data` no longer discards token transfers.** `createTransactionForTransfer` guarded on non-empty data but branched on non-null, so `Uint8List(0)` alongside transfers produced a native-EGLD transaction and the transfers vanished silently.
+
+### Errors
+
+- Every exception the SDK raises descends from `AbidockException`, so one `on AbidockException` clause catches them all. Nine types implemented `Exception` directly and escaped it.
+- `AbiNotFoundException` removed — it could never be raised. An ABI-less controller asked for an ABI throws `StateError`, as the equivalent factory methods already did.
+
+### Removed
+
+| Removed | Use instead |
+|---|---|
+| `AbiNotFoundException` | `StateError` -- raised when an ABI-less controller is asked for one |
+
+### Tooling
+
+- `abidock --help`, `-h` and `help` all print usage and exit successfully.
+- **`abidock generate <abi> <output> <name>` honours its arguments.** The command looked for a config file first, so an `abidock.yaml` in the working directory made it regenerate that config's contracts and discard the three arguments silently. Precedence is now `--config`, then explicit arguments, then a discovered config.
+- Event polling no longer retries a rate-limited request indefinitely. After its bounded retries it skips the poll and resumes on the next cycle, as the log message always claimed.
+
+### Docs
+
+- New `skills/` knowledge base: 14 task-oriented reference files covering the public API, wallets and signing, transactions, contracts, ABI codecs, codegen, providers, ESDT, events, errors, Supernova and pitfalls, indexed by `skills/README.md`. `AGENTS.md` at the repository root points agents at it.
+- The error-handling page no longer documents `AbiNotFoundException`.
+
+### Migration from 3.0.0
+
+Bump to `^3.1.0`. The only source-breaking change is `AbiNotFoundException`: replace any `on AbiNotFoundException` clause with `on StateError`. Expect higher gas limits on guarded and relayed contract calls, because those allowances now apply when you pass an explicit limit.
+
 ## [3.0.0] -- 2026-08-13
 
-This release lands the top-level `NetworkEntrypoint` façade, reshapes the generated DTO surface, and corrects a set of defects that produced transactions the chain rejects. It also removes public API that could not work. Migration is mostly mechanical: regenerate, replace `String` token-identifier/address fields with the new wrapper types, and switch one-off `ApiNetworkProvider` plumbing to the new entrypoint helpers if you want the shortcut. The removals are listed under **Removed**; each has a working replacement.
+Lands the top-level `NetworkEntrypoint` façade, reshapes the generated DTO surface, and corrects a set of defects that produced transactions the chain rejects. Removed API is listed under **Removed**; each entry has a working replacement. Migration is mostly mechanical: regenerate, swap `String` token-identifier/address fields for the wrapper types, and walk the compiler errors.
 
 Minimum SDK is now Dart 3.13.
 
 ### Entrypoints
 
-New `lib/src/entrypoints/network_entrypoint.dart`, exported from `abidock_mvx.
+New `lib/src/entrypoints/network_entrypoint.dart`, exported from the package barrel.
 
 - `NetworkEntrypoint` / `DevnetEntrypoint` / `TestnetEntrypoint` / `MainnetEntrypoint` -- API-backed (indexer).
 - `ProxyNetworkEntrypoint` / `DevnetProxyEntrypoint` / `TestnetProxyEntrypoint` / `MainnetProxyEntrypoint` -- Gateway-backed (chain-go Proxy).
 - `EntrypointUrls` constants for the official public hosts.
 
-Each entrypoint caches a single `NetworkProvider` and exposes `createSmartContractController`, `createTransfersFactory`, `createTokenManagementFactory`, `createDelegationFactory`, `createMultisigFactory`, `createValidatorsFactory`, `createGovernanceFactory`, `create*Controller`, and `createTransactionWatcher`. See the new docs page at `docs/docs/network/entrypoints.md`.
+Each entrypoint caches a single `NetworkProvider` and exposes `createSmartContractController`, `createTransfersFactory`, `createTokenManagementFactory`, `createDelegationFactory`, `createMultisigFactory`, `createValidatorsFactory`, `createGovernanceFactory`, `create*Controller` and `createTransactionWatcher`. Documented at `docs/docs/network/entrypoints.md`.
 
 ### Auto-gas signing bug fixed in generator
 
-`CallsGenerator` previously emitted:
-
-```dart
-final tx = await controller.call(..., gasLimit: const GasLimit(600000000));
-final gas = await simulateGas(tx, controller.networkProvider);
-return tx.copyWith(newGasLimit: gas); // signature no longer matches
-```
-
-The signed transaction's signature was invalidated by `copyWith(newGasLimit:)`. Generated code now builds an unsigned probe via `SmartContractCallFactory`, simulates gas, then calls `controller.call` once with the final gas so signing happens against the correct value. Regenerate any existing generated code to pick up the fix.
+Generated auto-gas calls signed the transaction and then replaced its gas limit with `copyWith(newGasLimit:)`, which invalidated the signature. The generator now builds an unsigned probe via `SmartContractCallFactory`, simulates gas, and calls `controller.call` once with the final value, so signing happens against the gas that ships. Regenerate existing output to pick up the fix.
 
 ### Type-mapper changes (generated DTO breaking change)
 
@@ -44,43 +84,43 @@ The codegen `TypeMapper` now emits the wrapper types instead of `String`:
 | `ManagedByteArray<N>`             | (unsupported) | `Uint8List`                  |
 | `MultiValue<...>`                 | (unsupported) | record `(T1, T2, ...)`       |
 
-Generated struct fields, query return types, and call arguments shift accordingly. Anywhere you previously did `pair.firstToken` and got a `String`, you now get a `TokenIdentifier` -- use `.value` for the raw string.
+Generated struct fields, query return types and call arguments shift accordingly. Where `pair.firstToken` gave a `String` it now gives a `TokenIdentifier` -- use `.value` for the raw string.
 
 ### Transactions the chain rejected
 
-- **ESDT built-in functions are addressed to the sender.** `ESDTNFTCreate`, `ESDTLocalMint`, `ESDTLocalBurn`, `ESDTNFTUpdateAttributes`, `ESDTNFTAddQuantity`, `ESDTNFTBurn`, `ESDTModifyRoyalties`, `ESDTSetNewURIs`, `ESDTModifyCreator`, `ESDTMetaDataUpdate`, `ESDTMetaDataRecreate`, `ESDTNFTAddURI`, `ESDTNFTUpdate` and `ESDTNFTRecreate` were sent to the ESDT system contract. Built-in functions execute against the caller's own account and are now addressed to the sender. The remaining 23 endpoints still target the system contract.
-- **Governance contract address corrected** from `…0006ffff` to `…0003ffff`. Every governance transaction was addressed to an account that is not a contract; `createTransactionForNewProposal` attaches 1000 EGLD by default, so the call also stranded that value.
-- **Validator operations now target the validator contract** (`…0001ffff`) instead of the staking contract (`…0000ffff`). The staking contract requires the caller to be the validator contract, so wallet-signed staking transactions could never succeed.
-- **`changeConfig` encodes `minQuorum`, `minVetoThreshold` and `minPassThreshold` as decimal strings.** The contract parses these arguments as ASCII decimal, not big-endian integers.
-- **`clearEndedProposals` gas scales with the proposer count** (`gasLimit + n * gasLimit`); it previously sent a flat limit for any number of proposers.
-- **`registerAndSetAllRoles` and `registerDynamic` emit the mandatory token type.** Both omitted it, so the contract rejected the argument list. `registerAndSetAllRolesDynamic` now appends `numDecimals` only for `META`.
-- **Token properties are written in full.** Only enabled flags were emitted, and a missing pair does not mean "disabled" — the contract creates tokens with `canUpgrade` and `canAddSpecialRoles` already on and overrides only the properties present in the arguments. `TokenProperties(canUpgrade: false)` therefore produced an upgradable token, and `controlChanges` could not switch a property off. Every supported property is now emitted with its `true`/`false` value; the fungible `issue` endpoint omits `canTransferNFTCreateRole`, which is not part of its argument list.
-- **Factories add the data-movement gas term** (`minGasLimit + gasLimitPerByte * data.length`) on top of the endpoint's execution gas. Token-management, delegation and the guardian builders previously shipped the bare execution limit, under-charging by an amount that grew with the payload.
+- **ESDT built-in functions are addressed to the sender**, not the ESDT system contract, because they execute against the caller's own account: `ESDTNFTCreate`, `ESDTLocalMint`, `ESDTLocalBurn`, `ESDTNFTUpdateAttributes`, `ESDTNFTAddQuantity`, `ESDTNFTBurn`, `ESDTModifyRoyalties`, `ESDTSetNewURIs`, `ESDTModifyCreator`, `ESDTMetaDataUpdate`, `ESDTMetaDataRecreate`, `ESDTNFTAddURI`, `ESDTNFTUpdate`, `ESDTNFTRecreate`. The other 23 endpoints still target the system contract.
+- **Governance contract address corrected** from `…0006ffff` to `…0003ffff`. Every governance transaction went to an account that is not a contract, and `createTransactionForNewProposal` stranded its 1000 EGLD deposit there.
+- **Validator operations target the validator contract** (`…0001ffff`) instead of the staking contract (`…0000ffff`), which only accepts calls from the validator contract — wallet-signed staking transactions could never succeed.
+- **`changeConfig` encodes `minQuorum`, `minVetoThreshold` and `minPassThreshold` as ASCII decimal**, which is what the contract parses; they were sent as big-endian integers.
+- **`clearEndedProposals` gas scales with the proposer count** (`gasLimit + n * gasLimit`) instead of a flat limit.
+- **`registerAndSetAllRoles` and `registerDynamic` emit the mandatory token type**, which both omitted; `registerAndSetAllRolesDynamic` appends `numDecimals` only for `META`.
+- **Token properties are written in full.** Only enabled flags were emitted, but a missing pair does not mean "disabled" — the contract creates tokens with `canUpgrade` and `canAddSpecialRoles` already on and overrides only the properties the arguments name, so `TokenProperties(canUpgrade: false)` produced an upgradable token and `controlChanges` could not switch a property off. The fungible `issue` endpoint omits `canTransferNFTCreateRole`, which is not part of its argument list.
+- **Factories add the data-movement gas term** (`minGasLimit + gasLimitPerByte * data.length`) on top of execution gas. Token-management, delegation and the guardian builders shipped the bare execution limit, under-charging by an amount that grew with the payload.
 
 ### Signing and relayed transactions
 
-- **`innerTransactions` no longer reaches the signing payload.** The field does not exist in the chain's transaction format; every relayed transaction was signed over a payload the node cannot reconstruct, so the signature could not verify. The field has been removed from `Transaction` entirely.
-- **`RelayedTransactionsFactory` implements the flat relayed-v3 model:** a single transaction carrying `relayer` and `relayerSignature`. Attach the relayer with `applyRelayer` before signing, then sign with the sender and with the relayer, in either order.
-- **`Transaction.serializeForSigning()` applies the Keccak digest when the hash-signing option bit is set.** `signWith`, `signAsRelayer` and `signAsGuardian` previously signed the raw payload, producing signatures the chain rejects for hash-signed transactions.
-- **`UserPublicKey.verify` returns `false` for malformed signatures** instead of throwing. The result was returned without `await` inside the `try`, so the `catch` never ran for asynchronous errors.
+- **`innerTransactions` no longer reaches the signing payload.** The field is not part of the chain's transaction format, so every relayed transaction was signed over a payload the node cannot reconstruct and the signature could not verify. Removed from `Transaction` entirely.
+- **`RelayedTransactionsFactory` implements flat relayed v3:** one transaction carrying `relayer` and `relayerSignature`. Attach the relayer with `applyRelayer` before signing, then sign with the sender and the relayer in either order.
+- **`Transaction.serializeForSigning()` applies the Keccak digest when the hash-signing option bit is set.** `signWith`, `signAsRelayer` and `signAsGuardian` signed the raw payload, producing signatures the chain rejects.
+- **`UserPublicKey.verify` returns `false` for malformed signatures** instead of throwing; the result was returned without `await` inside the `try`, so `catch` never saw asynchronous errors.
 - **`Account.fromMnemonic` disposes the mnemonic after key derivation completes**, not before.
 
 ### Outcome parsers
 
-`TokenManagementOutcomeParser` reads the logs of the transaction's smart-contract results in addition to its own. Endpoints that act on another account — `freeze`, `unFreeze`, `wipe`, `setSpecialRole`, `unSetSpecialRole` and the local mint/burn pair — are executed by forwarding a built-in call to the target address, so their events are reported on the result rather than the transaction. Every such parse previously returned an empty list, and a `signalError` reported on a result was invisible, so a failed transaction parsed as a successful empty outcome.
+`TokenManagementOutcomeParser` reads the logs of the transaction's smart-contract results as well as its own. `freeze`, `unFreeze`, `wipe`, `setSpecialRole`, `unSetSpecialRole` and the local mint/burn pair act on another account by forwarding a built-in call, so their events land on the result rather than the transaction. Every such parse returned an empty list, and a `signalError` reported on a result was invisible — a failed transaction parsed as a successful empty outcome.
 
 ### Network providers
 
-- `TransactionOnNetwork.fromApiResponse` reads smart-contract results from `results`; they were previously always `null`.
-- `relayedVersion` is a `String?` (`'v1'`, `'v2'`, `'v3'`). It was parsed as an integer and threw on every relayed transaction.
-- Corrected routes: transaction simulation, guardian data, and the gateway's non-fungible token listing, which pointed at a path that does not exist on any node or proxy.
+- `TransactionOnNetwork.fromApiResponse` reads smart-contract results from `results`; they were always `null`.
+- `relayedVersion` is a `String?` (`'v1'`, `'v2'`, `'v3'`); it was parsed as an integer and threw on every relayed transaction.
+- Corrected routes: transaction simulation, guardian data, and the gateway's non-fungible token listing, which pointed at a path no node or proxy serves.
 - Guardian fields are read from the flat account payload, and the provider sends the query flag required to return them.
 - `GatewayNetworkProvider` accepts a `NetworkProviderConfig`, so user agent, timeout and retry policy apply to it as well.
-- Request throttling and GET-response caching can be enabled through `NetworkProviderConfig`. Both are off by default.
+- Request throttling and GET-response caching are available through `NetworkProviderConfig`, both off by default.
 
 ### Supernova
 
-The chain moves block timestamps from seconds to milliseconds at the Supernova activation epoch without renaming the field, and the unit also differs per route. Reading such a value as seconds yields a date in the year 57,000.
+Block timestamps move from seconds to milliseconds at the Supernova activation epoch without a field rename, and the unit differs per route. Reading such a value as seconds yields a date in the year 57,000.
 
 - `TransactionOnNetwork` exposes `timestampMs` alongside `timestamp`, plus `executedAt`, which normalises either unit by magnitude.
 - `NetworkStatus` exposes `blockTimestamp` and `blockTimestampMs`; block, hyperblock, account and token models expose their millisecond counterparts.
@@ -91,11 +131,11 @@ The chain moves block timestamps from seconds to milliseconds at the Supernova a
 
 ### ABI
 
-- The type names `TokenId`, `NonZeroBigUint`, `Payment` and `FungiblePayment` resolve. Contracts that reference them carry no definition in `types`, so an ABI using them failed to load.
-- Enum variant payload fields are parsed, so fielded enums decode correctly rather than being truncated.
-- `specificType` and the contract's internal method name are surfaced on the endpoint and parameter models. `specificType` distinguishes a `u64` holding milliseconds from one holding seconds.
+- The type names `TokenId`, `NonZeroBigUint`, `Payment` and `FungiblePayment` resolve. Contracts referencing them carry no definition in `types`, so such an ABI failed to load.
+- Enum variant payload fields are parsed, so fielded enums decode rather than being truncated.
+- `specificType` and the contract's internal method name are surfaced on the endpoint and parameter models; `specificType` distinguishes a `u64` holding milliseconds from one holding seconds.
 - Corrected `ExplicitEnumValue.toBytes()` and the counted-variadic argument convention.
-- `BigFloat` has no portable wire form; encoding, decoding and `toBytes` throw, and the type exists so that ABIs mentioning it still load.
+- `BigFloat` has no portable wire form; encoding, decoding and `toBytes` throw. The type exists so that ABIs mentioning it still load.
 
 ### Removed
 
@@ -119,7 +159,7 @@ Each entry has a working replacement; none of the removed members could produce 
 
 ### Tooling
 
-- **Generated code is formatted.** The generator wrote unformatted Dart, so any project with a `dart format --set-exit-if-changed` check failed on its own generated sources. Output is now formatted for the language version of the SDK running the generator.
+- **Generated code is formatted** for the language version of the SDK running the generator. The generator wrote unformatted Dart, so any project with a `dart format --set-exit-if-changed` check failed on its own generated sources.
 - The ABI validator no longer warns on keys that are not part of the ABI schema, which broke `--fail-on-warnings` for valid ABIs.
 - Integration tests that perform live network calls are tagged and skipped by default; run them with `dart test -P integration`.
 - Added `dart_style` and `pub_semver` dependencies.
@@ -358,6 +398,7 @@ Three new public entry points for integrators that need to recover the mnemonic 
 - Cookbook examples and wallet walkthroughs demonstrating real integrations.
 - 900+ automated tests spanning core types, infrastructure, serializers, and integration scenarios.
 
+[3.1.0]: https://github.com/ABIdock/abidock_mvx/releases/tag/v3.1.0
 [3.0.0]: https://github.com/ABIdock/abidock_mvx/releases/tag/v3.0.0
 [1.2.0]: https://github.com/ABIdock/abidock_mvx/releases/tag/v1.2.0
 [1.1.0]: https://github.com/ABIdock/abidock_mvx/releases/tag/v1.1.0

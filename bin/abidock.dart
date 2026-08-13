@@ -6,11 +6,17 @@ import 'codegen/cli/commands/generate_command.dart';
 import 'codegen/cli/commands/init_command.dart';
 import 'codegen/cli/commands/validate_command.dart';
 import 'codegen/cli/commands/watch_command.dart';
+import 'codegen/cli/help.dart';
 import 'codegen/main.dart' as legacy_codegen;
 
 void main(List<String> args) async {
-  if (args.isNotEmpty && !args[0].startsWith('-')) {
-    final command = args[0].toLowerCase();
+  if (isHelpInvocation(args)) {
+    printHelp();
+    exit(0);
+  }
+
+  if (!args[0].startsWith('-')) {
+    final String command = args[0].toLowerCase();
 
     switch (command) {
       case 'init':
@@ -27,12 +33,6 @@ void main(List<String> args) async {
 
       case 'watch':
         await _handleWatch(args.sublist(1));
-        exit(0);
-
-      case 'help':
-      case '--help':
-      case '-h':
-        _printHelp();
         exit(0);
 
       default:
@@ -169,75 +169,4 @@ Future<void> _handleWatch(List<String> args) async {
 
   final command = WatchCommand();
   await command.execute(configPath: configPath, skipInitialGen: skipInitialGen);
-}
-
-void _printHelp() {
-  print('''
-ABIdock - MultiversX Smart Contract Code Generator
-
-Commands:
-  init        Create a new abidock.yaml config file
-  generate    Generate code from ABIs
-  validate    Validate ABI files
-  watch       Watch ABIs and auto-regenerate
-  help        Show this help message
-
-Init Command:
-  abidock init [options]
-    --config, -c <path>    Output config file path (default: abidock.yaml)
-    --name <name>          Initial contract name
-    --abi <path>           Initial ABI file path
-    --output-dir <path>    Initial output directory
-
-Generate Command:
-  abidock generate [options]
-  abidock generate <abi> <output> <name> [flags]
-    --config, -c <path>    Config file path
-    --logger               Auto-inject ConsoleLogger
-    --autogas              Generate auto gas estimation methods (via simulation)
-    --transfers            Generate transfer controller
-    --full                 Enable ALL features (logger + autogas + transfers)
-
-Validate Command:
-  abidock validate [options]
-    --config, -c <path>    Config file path
-    --abi <path>           ABI file to validate
-    --name <name>          Contract name (required with --abi)
-    --verbose, -v          Show detailed validation info
-    --json                 Output results as JSON
-    --fail-on-warnings     Treat warnings as errors
-
-Watch Command:
-  abidock watch [options]
-    --config, -c <path>    Config file path
-    --skip-initial         Skip initial generation on start
-
-Legacy Mode (still fully supported):
-  abidock <abi_file> <output_dir> <contract_name> [flags]
-  abidock --interactive
-
-Examples:
-  # Initialize config
-  abidock init
-  abidock init --name MyContract --abi assets/my.abi.json
-
-  # Generate from config
-  abidock generate
-  abidock generate -c custom.yaml
-
-  # Generate single contract
-  abidock generate assets/pair.abi.json lib/generated pair --full
-
-  # Validate ABIs
-  abidock validate
-  abidock validate --verbose
-  abidock validate --abi assets/pair.abi.json --name Pair
-
-  # Watch mode (auto-regenerate on ABI changes)
-  abidock watch
-  abidock watch --skip-initial
-
-  # Interactive mode
-  abidock --interactive
-''');
 }

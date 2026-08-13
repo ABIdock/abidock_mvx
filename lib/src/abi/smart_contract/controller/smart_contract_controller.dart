@@ -511,6 +511,11 @@ final class SmartContractController extends BaseController {
   /// and signs with the provided account. Supports both EGLD-only calls
   /// and calls with ESDT/NFT token transfers.
   ///
+  /// `options.gasLimit` is the execution budget; the guardian and relayer
+  /// allowances are added on top of it. It may be omitted only when the
+  /// controller was created with a `gasLimitEstimator`, which is then
+  /// consulted for the execution budget.
+  ///
   /// #### Parameters
   /// - `account` - Account to sign the transaction
   /// - `nonce` - Transaction nonce (you must manage this)
@@ -525,7 +530,8 @@ final class SmartContractController extends BaseController {
   ///
   /// #### Throws
   /// - `EndpointNotFoundException` - If endpoint not found
-  /// - `ArgumentError` - If endpoint is view-only
+  /// - `ArgumentError` - If endpoint is view-only, or if no gas limit is given
+  ///   and the controller has no gas limit estimator
   /// - `ArgumentEncodingException` - If arguments don't match
   ///
   /// #### Example
@@ -562,11 +568,7 @@ final class SmartContractController extends BaseController {
     List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
     Balance? value,
   }) async {
-    if (options.gasLimit == null) {
-      throw ArgumentError(
-        'gasLimit is required in BaseControllerInput for smart contract calls.',
-      );
-    }
+    _requireGasLimitOrEstimator(options);
 
     logger?.info(
       'Creating signed smart contract call',
@@ -575,30 +577,40 @@ final class SmartContractController extends BaseController {
         'endpoint': endpointName,
         'sender': account.address.bech32,
         'nonce': nonce.value,
-        'gasLimit': options.gasLimit!.value,
+        'gasLimit': options.gasLimit?.value,
         'hasGuardian': (options.guardian != null).toString(),
         'hasRelayer': (options.relayer != null).toString(),
         'tokenTransfersCount': tokenTransfers.length,
       },
     );
 
-    final tx = _factory.createCall(
+    final Transaction tx = _factory.createCall(
       sender: account.address,
       nonce: nonce,
       endpointName: endpointName,
       arguments: arguments,
       tokenTransfers: tokenTransfers,
-      gasLimit: options.gasLimit!,
+      gasLimit: options.gasLimit ?? const GasLimit(0),
       value: value,
     );
 
-    return setupAndSignTransaction(tx, options, nonce, account);
+    return setupAndSignTransaction(
+      _withDraftGasLimit(tx, options),
+      options,
+      nonce,
+      account,
+    );
   }
 
   /// Creates and signs a smart contract call transaction without ABI.
   ///
   /// Use this method when you don't have an ABI. Arguments must be
   /// pre-typed as [TypedValue] or [Uint8List] instances.
+  ///
+  /// `options.gasLimit` is the execution budget; the guardian and relayer
+  /// allowances are added on top of it. It may be omitted only when the
+  /// controller was created with a `gasLimitEstimator`, which is then
+  /// consulted for the execution budget.
   ///
   /// #### Parameters
   /// - `account` - Account to sign the transaction
@@ -613,7 +625,8 @@ final class SmartContractController extends BaseController {
   /// [Transaction] - Signed transaction ready for broadcast
   ///
   /// #### Throws
-  /// - [ArgumentError] if gasLimit not provided or arguments invalid
+  /// - [ArgumentError] if arguments are invalid, or if no gas limit is given
+  ///   and the controller has no gas limit estimator
   ///
   /// #### Example
   /// ```dart
@@ -637,11 +650,7 @@ final class SmartContractController extends BaseController {
     List<TokenTransferValue> tokenTransfers = const <TokenTransferValue>[],
     Balance? value,
   }) async {
-    if (options.gasLimit == null) {
-      throw ArgumentError(
-        'gasLimit is required in BaseControllerInput for smart contract calls.',
-      );
-    }
+    _requireGasLimitOrEstimator(options);
 
     logger?.info(
       'Creating raw signed smart contract call',
@@ -650,22 +659,69 @@ final class SmartContractController extends BaseController {
         'endpoint': endpointName,
         'sender': account.address.bech32,
         'nonce': nonce.value,
-        'gasLimit': options.gasLimit!.value,
+        'gasLimit': options.gasLimit?.value,
         'hasAbi': hasAbi.toString(),
       },
     );
 
-    final tx = _factory.createCall(
+    final Transaction tx = _factory.createCall(
       sender: account.address,
       nonce: nonce,
       endpointName: endpointName,
       arguments: arguments,
       tokenTransfers: tokenTransfers,
-      gasLimit: options.gasLimit!,
+      gasLimit: options.gasLimit ?? const GasLimit(0),
       value: value,
     );
 
-    return setupAndSignTransaction(tx, options, nonce, account);
+    return setupAndSignTransaction(
+      _withDraftGasLimit(tx, options),
+      options,
+      nonce,
+      account,
+    );
+  }
+
+  /// Requires an execution gas limit unless a gas limit estimator is available.
+  ///
+  /// #### Parameters
+  /// - `options` - Base controller options supplied by the caller
+  ///
+  /// #### Throws
+  /// - [ArgumentError] if `options.gasLimit` is null and the controller was
+  ///   created without a `gasLimitEstimator`
+  void _requireGasLimitOrEstimator(BaseControllerInput options) {
+    if (options.gasLimit == null && gasLimitEstimator == null) {
+      throw ArgumentError(
+        'gasLimit is required in BaseControllerInput for smart contract calls '
+        'unless the controller is created with a gasLimitEstimator.',
+      );
+    }
+  }
+
+  /// Seeds an un-pinned call with the payload cost so estimation has a floor.
+  ///
+  /// When the caller pinned a gas limit the transaction is returned unchanged.
+  /// Otherwise the draft carries the movement plus data cost of its own
+  /// payload, which is what the transaction falls back to if the estimator
+  /// cannot be reached.
+  ///
+  /// #### Parameters
+  /// - `transaction` - Freshly built, unsigned call transaction
+  /// - `options` - Base controller options supplied by the caller
+  ///
+  /// #### Returns
+  /// [Transaction] with a usable draft gas limit.
+  Transaction _withDraftGasLimit(
+    Transaction transaction,
+    BaseControllerInput options,
+  ) {
+    if (options.gasLimit != null) {
+      return transaction;
+    }
+    return transaction.copyWith(
+      newGasLimit: GasLimit.forPayload(data: transaction.data),
+    );
   }
 
   /// Fetches and parses events from a specific transaction.

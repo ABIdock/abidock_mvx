@@ -2,6 +2,7 @@
 /// Extracts structured results from ESDT operations including issuance, roles, NFT operations, and control.
 import 'dart:typed_data';
 
+import '../../../utils/sdk_exceptions.dart';
 import '../../address.dart';
 import '../smart_contract_result.dart';
 import '../transaction_event.dart';
@@ -10,12 +11,12 @@ import '../transaction_on_network.dart';
 
 /// Exception for token management parsing failures.
 /// Thrown when outcomes cannot be parsed due to missing events, errors, or unexpected data format.
-class TokenManagementParseException implements Exception {
+/// Part of the unified SDK hierarchy: catch it as [TransactionException] or as
+/// [AbidockException].
+class TokenManagementParseException extends TransactionException {
   /// Creates token management parse exception.
-  const TokenManagementParseException(this.message, [this.cause]);
-
-  final String message;
-  final Object? cause;
+  const TokenManagementParseException(super.message, [Object? cause])
+    : super(cause: cause);
 
   @override
   String toString() {

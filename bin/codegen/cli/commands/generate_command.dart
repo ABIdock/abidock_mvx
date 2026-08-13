@@ -18,9 +18,12 @@ class GenerateCommand {
     bool useFull = false,
   }) async {
     try {
-      if (configPath != null || await _hasConfigFile()) {
+      final bool hasPositionalTarget =
+          abiPath != null && outputDir != null && contractName != null;
+
+      if (configPath != null) {
         await _generateFromConfig(configPath: configPath);
-      } else if (abiPath != null && outputDir != null && contractName != null) {
+      } else if (hasPositionalTarget) {
         await _generateSingle(
           abiPath: abiPath,
           outputDir: outputDir,
@@ -29,6 +32,8 @@ class GenerateCommand {
           useAutoGas: useFull || useAutoGas,
           useTransfers: useFull || useTransfers,
         );
+      } else if (await _hasConfigFile()) {
+        await _generateFromConfig(configPath: configPath);
       } else {
         print('❌ Error: Either provide --config, or <abi> <output> <name>');
         print('');

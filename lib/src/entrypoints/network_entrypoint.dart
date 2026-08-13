@@ -186,7 +186,16 @@ class NetworkEntrypoint {
 ///
 /// If both are null, returns null. If only `clientName` is provided, builds a
 /// minimal config with just that field. If both are provided, the explicit
-/// `clientName` overrides the value on `existing`.
+/// `clientName` overrides the value on `existing` and every other field of
+/// `existing` — headers, request timeout, base URL override, retry, throttle
+/// and cache policies — is carried over unchanged.
+///
+/// #### Parameters
+/// - `existing` - Config supplied by the caller, or `null`.
+/// - `clientName` - `User-Agent` suffix that wins over `existing.clientName`.
+///
+/// #### Returns
+/// The effective config, or `null` when the caller supplied neither.
 NetworkProviderConfig? _mergeClientName(
   NetworkProviderConfig? existing,
   String? clientName,
@@ -203,6 +212,8 @@ NetworkProviderConfig? _mergeClientName(
     requestTimeout: existing.requestTimeout,
     baseUrl: existing.baseUrl,
     retryPolicy: existing.retryPolicy,
+    throttlePolicy: existing.throttlePolicy,
+    cachePolicy: existing.cachePolicy,
   );
 }
 
@@ -299,6 +310,7 @@ class ProxyNetworkEntrypoint {
   late final GatewayNetworkProvider _provider = GatewayNetworkProvider(
     baseUrl: url,
     chainId: chainId,
+    config: networkProviderConfig,
   );
 
   /// Returns the cached [GatewayNetworkProvider]. Multiple calls return the

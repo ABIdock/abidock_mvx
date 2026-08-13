@@ -215,6 +215,10 @@ class EndpointResolver {
 
   /// Validates argument types match endpoint definition.
   ///
+  /// When the last input is variadic, the trailing arguments may arrive either
+  /// already grouped as one `VariadicValue` or flattened into one argument per
+  /// item; both forms are checked against the variadic item type.
+  ///
   /// #### Parameters
   /// - `endpointName` - Endpoint to validate
   /// - `arguments` - Typed values to check
@@ -254,9 +258,22 @@ class EndpointResolver {
 
         for (int i = nonVariadicCount; i < arguments.length; i++) {
           final TypedValue arg = arguments[i];
+
+          if (arg is VariadicValue) {
+            for (int j = 0; j < arg.items.length; j++) {
+              final TypedValue item = arg.items[j];
+              if (!_isTypeCompatible(itemParam, item)) {
+                errors.add(
+                  'Argument $i (variadic item $j): Expected $itemType, got ${item.type}',
+                );
+              }
+            }
+            continue;
+          }
+
           if (!_isTypeCompatible(itemParam, arg)) {
             errors.add(
-              'Argument $i (variadic): Expected ${variadicParam.type}, got ${arg.type}',
+              'Argument $i (variadic): Expected $itemType, got ${arg.type}',
             );
           }
         }

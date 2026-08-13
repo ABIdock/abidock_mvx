@@ -488,6 +488,7 @@ final class SmartContractEventRunner {
 
     final String eventTopicBase64 = base64.encode(utf8.encode(eventIdentifier));
 
+    poll:
     while (true) {
       try {
         final String resourceUrl =
@@ -509,7 +510,7 @@ final class SmartContractEventRunner {
                   'Rate limit exceeded after $maxRetries retries, skipping poll',
                 );
                 await Future<void>.delayed(pollingInterval);
-                continue;
+                continue poll;
               }
 
               final Duration backoff = Duration(seconds: 2 * retryCount);
@@ -649,6 +650,7 @@ final class SmartContractEventRunner {
       eventTopicMap[topic] = eventDef.identifier;
     }
 
+    poll:
     while (true) {
       try {
         final String resourceUrl =
@@ -670,7 +672,7 @@ final class SmartContractEventRunner {
                   'Rate limit exceeded after $maxRetries retries, skipping poll',
                 );
                 await Future<void>.delayed(pollingInterval);
-                continue;
+                continue poll;
               }
 
               final Duration backoff = Duration(seconds: 2 * retryCount);

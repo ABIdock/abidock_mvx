@@ -19,6 +19,7 @@ import '../../../core/transaction/transaction_event.dart';
 import '../../../core/transaction/transaction_on_network.dart';
 import '../../../core/transaction/transaction_watcher.dart';
 import '../../../infrastructure/network/network_provider.dart';
+import '../../../utils/sdk_exceptions.dart';
 import '../../core/types.dart' show TypedValue;
 
 /// Controller for multisig system-contract operations.
@@ -686,13 +687,13 @@ class MultisigController extends BaseController {
 }
 
 /// Exception thrown when multisig outcome parsing fails.
+///
+/// Part of the unified SDK hierarchy: catch it as [SmartContractException] or
+/// as [AbidockException].
 @immutable
-class MultisigParseException implements Exception {
+class MultisigParseException extends SmartContractException {
   /// Creates a multisig-parse exception.
-  const MultisigParseException(this.message);
-
-  /// Human-readable error description.
-  final String message;
+  const MultisigParseException(super.message);
 
   @override
   String toString() => 'MultisigParseException: $message';
